@@ -1,0 +1,118 @@
+{
+  "scenarios": [
+    {
+      "id": "personal_electronics",
+      "category": "personal_shopping",
+      "user_profile": { "name": "Kasun", "age": 28, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "I need a birthday gift for myself, I'm into electronics" }
+      ]
+    },
+    {
+      "id": "personal_fashion",
+      "category": "personal_shopping",
+      "user_profile": { "name": "Nimesha", "age": 22, "gender": "female" },
+      "messages": [
+        { "role": "user", "content": "What's good for a 25-year-old girl who likes fashion?" }
+      ]
+    },
+    {
+      "id": "chocolates_budget",
+      "category": "personal_shopping",
+      "user_profile": { "name": "Roshan", "age": 35, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "Show me your best chocolates under 2000 rupees" }
+      ]
+    },
+    {
+      "id": "gifting_mum_birthday",
+      "category": "gifting",
+      "user_profile": { "name": "Priya", "age": 30, "gender": "female" },
+      "messages": [
+        { "role": "user", "content": "I want to send something to my mum in Colombo for her birthday" }
+      ]
+    },
+    {
+      "id": "gifting_anniversary",
+      "category": "gifting",
+      "user_profile": { "name": "Dinesh", "age": 40, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "My parents' anniversary is this Friday, what should I send?" }
+      ]
+    },
+    {
+      "id": "gifting_son_to_father",
+      "category": "gifting",
+      "user_profile": { "name": "Ashan", "age": 25, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "A gift from a 25-year-old son to a 60-year-old father" }
+      ]
+    },
+    {
+      "id": "delivery_sunday",
+      "category": "delivery_constraints",
+      "user_profile": { "name": "Malini", "age": 33, "gender": "female" },
+      "messages": [
+        { "role": "user", "content": "I want to send flowers but they need to arrive by Sunday" }
+      ]
+    },
+    {
+      "id": "delivery_sameday_kandy",
+      "category": "delivery_constraints",
+      "user_profile": { "name": "Tharaka", "age": 27, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "Can anything be delivered same day to Kandy?" }
+      ]
+    },
+    {
+      "id": "delivery_vesak_london",
+      "category": "delivery_constraints",
+      "user_profile": { "name": "Chamari", "age": 29, "gender": "female" },
+      "messages": [
+        { "role": "user", "content": "I'm in London, can I send something for Vesak next week?" }
+      ]
+    },
+    {
+      "id": "multi_item_cake_flowers",
+      "category": "multi_item",
+      "user_profile": { "name": "Ruwan", "age": 32, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "Can I send a cake and flowers together?" }
+      ]
+    },
+    {
+      "id": "tanglish_amma_gift",
+      "category": "language",
+      "user_profile": { "name": "Madush", "age": 24, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "machan I need a gift for my amma la" }
+      ]
+    },
+    {
+      "id": "vague_request",
+      "category": "edge_cases",
+      "user_profile": { "name": "Saman", "age": 45, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "just get me something nice" }
+      ]
+    },
+    {
+      "id": "low_budget",
+      "category": "edge_cases",
+      "user_profile": { "name": "Dulani", "age": 19, "gender": "female" },
+      "messages": [
+        { "role": "user", "content": "What can I get for under 500 rupees?" }
+      ]
+    },
+    {
+      "id": "change_of_mind",
+      "category": "edge_cases",
+      "user_profile": { "name": "Isuru", "age": 31, "gender": "male" },
+      "messages": [
+        { "role": "user", "content": "Add the roses to my cart" },
+        { "role": "assistant", "content": "Done! Added a bouquet of roses to your cart." },
+        { "role": "user", "content": "Actually remove that, I want to go with chocolates instead" }
+      ]
+    }
+  ]
+}
