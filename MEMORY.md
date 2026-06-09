@@ -92,3 +92,82 @@ Rate limits: 60 req/min per IP, 30 orders/hour per IP. No auth needed.
 5. Then UI phases in order
 
 ---
+
+## Session 003 — 2026-06-09 (Build Session)
+
+### What We Did
+- **Phase 0** — Verified MCP SDK syntax from TypeScript skill docs. Key finding: use `client.beta.messages.create()` with `betas: ["mcp-client-2025-11-20"]` and `mcp_servers: [{type:"url", name:"kapruka", url:"https://mcp.kapruka.com/mcp"}]`. Beta header was `mcp-client-2025-04-04` in the plan — corrected to `mcp-client-2025-11-20`. Anthropic API handles MCP tool execution server-side; no manual agentic loop needed.
+- **Phase 1** — `api/chat.js` written. Reads system prompt from `directives/system_prompt.md`, injects user/recipient profile, calls `client.beta.messages.create()` with MCP server, parses `[PRODUCTS]{...}[/PRODUCTS]` and `[CHECKOUT_URL]...[/CHECKOUT_URL]` blocks, returns `{message, products, checkoutUrl}`.
+- **package.json** — Created with `"type":"module"` and `@anthropic-ai/sdk` dep. `npm install` ran successfully.
+- **Phase 2** — `index.html` written. Sections: `#onboarding-screen`, `#chat-screen` (header + `#messages-container` + `#input-area`), `#cart-overlay`, `#cart-panel`. GSAP CDN included.
+- **Phase 3** — `style.css` written. CSS custom properties, dark premium palette, animated dot grid background, product carousels, skeleton loading, cart panel, mobile-first responsive.
+- **Phase 4** — `app.js` written. Animated canvas background (dot grid wave), onboarding state machine (3 steps), chat send/receive, skeleton + typing indicator, product card carousel rendering, voice (Web Speech API), cart add/remove/total, GSAP animations throughout.
+- **vercel.json** — Created minimal rewrite config for `/api/*` routing.
+- **Phase 7** — `execution/run_autoresearch.js` written. Loads 14 scenarios, calls `/api/chat` for each, scores on 6 dimensions (relevance/personalization/product_quality/tone/language_match/completeness), outputs pass/weak/fail summary + dimension bar chart + saves JSON to `execution/results/`.
+- **git init** + initial commit `33ad70a` — 22 files, 3146 insertions.
+
+### Key Technical Decisions Made This Session
+- MCP beta header: `mcp-client-2025-11-20` (not `mcp-client-2025-04-04` as originally planned)
+- No manual agentic loop — Anthropic handles MCP server-side
+- Canvas background: procedural dot grid with sine wave animation, no external lib needed
+- Autoresearch scoring: heuristic (no extra API call for scoring) — keyword + structure analysis
+
+### Gaps / What Still Needs Doing
+- `.env` file not created — needs `ANTHROPIC_API_KEY` from user
+- Phase 5 (local test via `vercel dev`) blocked until API key added
+- GitHub repo not created yet — no remote set
+- Vercel deployment not done yet
+- Autoresearch not run yet — needs live endpoint
+
+### Mistakes / Lessons
+- No mistakes this session — clean build from plan
+
+### Next Steps
+1. User provides `ANTHROPIC_API_KEY` → create `.env`
+2. `npm install -g vercel` if not installed → `vercel dev`
+3. Manual test: onboarding → chat → products → cart → voice → mobile
+4. Fix any bugs found
+5. `git remote add origin <github-url>` → push
+6. Deploy to Vercel, add env var in dashboard
+7. `node execution/run_autoresearch.js --url <vercel-url>`
+8. Fix weak scenarios in `directives/system_prompt.md`
+
+---
+
+## Session 004 — 2026-06-09 (Stabilisation Session)
+
+### What We Did
+- **Architecture shift**: Moved from Claude+MCP (slow, unreliable) to Python-first pipeline.
+  - Python script `execution/tools/kapruka_mcp.py` calls MCP directly, returns structured JSON
+  - Python always returns top-4 products — Claude never determines the products array
+  - Claude gets slim product list (name + price only, no image URLs) to keep tokens low
+  - Claude only writes 1–2 warm sentences; hard cap via server-side sentence truncation
+- **Multi-turn context**: `buildSearchQuery()` now scans last 3 user messages, deduplicates keywords
+- **Fallback search**: If composite query returns <2 products, retry with last-message keywords only
+- **Price normalisation**: MCP returns `price: {amount: 5330, currency: "LKR"}` (object not number) — `normaliseProduct()` now handles both shapes
+- **System prompt rewrite** (`directives/system_prompt.md` v2.0): removed "You have access to MCP tools" (false since Python handles this), moved output rules first, hard 2-sentence limit
+- **CLI test harness** (`execution/quick_test.js`): 5 tests, all 5 green after fixes
+- **dev-server.js** added: replaces `vercel dev` (had recursive invocation error in this environment). Serves static files + proxies `/api/chat`. Port 3002.
+- Committed `e423a1d` → pushed to `karuchehan/kapruka-agent`
+
+### Bugs Fixed This Session
+| Bug | Root Cause | Fix |
+|---|---|---|
+| Claude writing 400+ chars | Prompt alone insufficient | Server-side `truncateToSentences(2)` post-processes every response |
+| Product count < 2 sometimes | Composite query too specific | Fallback search with last-message-only keywords |
+| Product integrity: id/name/price missing | MCP `price` field is `{amount,currency}` object | `normaliseProduct()` unwraps price object |
+| Multi-turn: "sports" + "football" not combining | extractKeywords only scanned last 1 message | `buildSearchQuery()` scans last 3, deduplicates |
+
+### Quick Test Results (all 5/5 green)
+1. single-word search → PASS
+2. natural language gift request → PASS
+3. multi-turn context: sports → football → PASS
+4. product integrity (id + name + price) → PASS
+5. no error field on valid request → PASS
+
+### Next Steps
+1. Open browser for visual verification: onboarding → product search → product cards visible
+2. Run autoresearch loop (`execution/run_autoresearch.js`) — needs API key approval
+3. Deploy to Vercel
+
+---
