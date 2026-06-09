@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "echo 'Run: vercel dev --port 3001'"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.55.0"
+    "@anthropic-ai/sdk": "^0.55.0",
+    "dotenv": "^17.4.2"
   }
 }

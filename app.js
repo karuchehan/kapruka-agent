@@ -6,7 +6,7 @@ const state = {
   messages:         [],   // full history sent to backend
   cart:             [],   // [{ product, quantity }]
   onboardingStep:   0,    // 0=name 1=age 2=gender 3=done
-  voiceEnabled:     localStorage.getItem("voiceEnabled") !== "false",
+  voiceEnabled:     localStorage.getItem("voiceEnabled") === "true",
   isSending:        false,
   pendingCheckoutUrl: null,
 };
