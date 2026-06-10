@@ -46,11 +46,26 @@ const STOP = new Set([
 
 // ── INTENT DETECTION ──────────────────────────────────────────────────────────
 
+// Context words that pollute product search — occasions, recipients, intent verbs
+const CONTEXT_WORDS = new Set([
+  "gift","gifts","present","presents","surprise","buy","purchase","send","order",
+  "birthday","anniversary","christmas","valentine","wedding","graduation","newborn",
+  "mother","father","dad","mum","mom","sister","brother","friend","wife","husband",
+  "boyfriend","girlfriend","aunt","uncle","grandma","grandpa","colleague","boss",
+  "loves","like","enjoy","enjoy","needs","want","wants","prefer","prefers",
+  "something","nice","good","great","perfect","special","best","awesome","wonderful",
+  "looking","find","get","show","help","give","recommend","suggest",
+  "years","old","aged","aged","male","female","man","woman","boy","girl","person",
+  "celebrate","celebrating","occasion","event","party","ceremony",
+  "abroad","international","overseas","overseas","deliver","delivery","send",
+  "lucky","sweet","love",
+]);
+
 function extractKeywords(text) {
   return text.toLowerCase()
     .replace(/[^a-z0-9 ]/g, " ")
     .split(/\s+/)
-    .filter(w => w.length > 2 && !STOP.has(w) && !/^\d+$/.test(w))
+    .filter(w => w.length > 2 && !STOP.has(w) && !CONTEXT_WORDS.has(w) && !/^\d+$/.test(w))
     .slice(0, 7);
 }
 
@@ -72,7 +87,7 @@ function buildSearchQuery(messages) {
     }
   }
 
-  const query = allKeywords.slice(0, 8).join(" ");
+  const query = allKeywords.slice(0, 5).join(" ");
   return query || userMessages[userMessages.length - 1]?.trim().slice(0, 60) || "";
 }
 
@@ -267,7 +282,7 @@ export default async function handler(req, res) {
     const response = await client.messages.create(
       {
         model:      "claude-sonnet-4-6",
-        max_tokens: 512,
+        max_tokens: 768,
         system:     augmentedSystem,
         messages,
       },
@@ -289,8 +304,8 @@ export default async function handler(req, res) {
       .replace(CHECKOUT_RE, "")
       .trim();
 
-    // Hard cap: keep only first 2 sentences
-    message = truncateToSentences(message, 2);
+    // Hard cap: keep only first 3 sentences
+    message = truncateToSentences(message, 3);
 
   } catch (err) {
     console.error("Claude error:", err.message);

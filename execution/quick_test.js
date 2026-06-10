@@ -12,7 +12,7 @@ const TESTS = [
   {
     name: "single-word search",
     body: { messages: [{ role: "user", content: "football" }], userProfile: USER },
-    checks: [hasProducts(2), shortMessage(200)],
+    checks: [hasProducts(2), shortMessage(300)],
   },
   {
     name: "natural language gift request",
@@ -20,7 +20,7 @@ const TESTS = [
       messages: [{ role: "user", content: "birthday gift for my dad who likes sports, he is 55" }],
       userProfile: USER,
     },
-    checks: [hasProducts(2), shortMessage(200)],
+    checks: [hasProducts(2), shortMessage(300)],
   },
   {
     name: "multi-turn context: sports → football",
@@ -32,7 +32,7 @@ const TESTS = [
       ],
       userProfile: USER,
     },
-    checks: [hasProducts(2), shortMessage(200)],
+    checks: [hasProducts(2), shortMessage(300)],
   },
   {
     name: "product integrity — id + name + price",
