@@ -308,7 +308,11 @@ function removeSkeletons() {
 }
 
 function scrollToBottom() {
-  setTimeout(() => { $msgs.scrollTop = $msgs.scrollHeight; }, 50);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      $msgs.scrollTop = $msgs.scrollHeight;
+    });
+  });
 }
 
 // ── SEND MESSAGE ──────────────────────────────────────────────────────────────
