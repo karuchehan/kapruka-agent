@@ -1,0 +1,427 @@
+{
+  "label": "baseline",
+  "timestamp": "2026-06-10T01-53-58",
+  "prompt_file": "/Users/chehankarunaratne/Documents/karoos/IDEAS/keelGTM/kaprukaAgent/directives/system_prompt.md",
+  "overall_average": 4.3,
+  "dimension_averages": {
+    "relevance": 4.85,
+    "personalization": 3.75,
+    "product_quality": 3.4,
+    "tone": 4.75,
+    "language_match": 4.9,
+    "completeness": 4.15
+  },
+  "total": 20,
+  "scored": 20,
+  "skipped": 0,
+  "failed_count": 5,
+  "weakest_dimensions": [
+    "product_quality",
+    "personalization",
+    "completeness"
+  ],
+  "results": [
+    {
+      "scenario_id": "scenario_001",
+      "description": "19-year-old female browsing for herself — expects fashion/cosmetics lean",
+      "label": "challenger",
+      "agent_response": "The Floral Printed Dress at Rs. 2,800 is super cute and perfect for your age, Sashika — or if you're into makeup, the Lip Gloss Set at Rs. 950 is such a fun little treat! Which vibe are you feeling more — fashion or beauty?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.67,
+      "failures": [
+        "personalization: Used name well but the phrase 'perfect for your age' feels slightly patronizing rather than naturally personal",
+        "product_quality: Specific products are reasonable but feel plucked without any context — no indication why these particular items were chosen"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "Warm, casual tone with name usage, two age-appropriate category suggestions, and a clean single clarifying question that moves the conversation forward naturally."
+    },
+    {
+      "scenario_id": "scenario_002",
+      "description": "45-year-old male looking for electronics — direct product intent",
+      "label": "challenger",
+      "agent_response": "Ruwan, the Sony Wireless Headphones at Rs. 12,500 would be a great pick — solid audio quality and very practical for everyday use. There's also a Smart Watch at Rs. 8,900 if you're after something with a bit more functionality on your wrist. Any specific use case in mind, or is this a gift for someone?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.67,
+      "failures": [
+        "personalization: Used name well but didn't leverage age/gender context — products chosen feel generic rather than tailored to a 45-year-old male specifically"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "Confident, concise recommendations with prices and a strong closing question that naturally moves the conversation forward."
+    },
+    {
+      "scenario_id": "scenario_003",
+      "description": "Very low budget under 500 LKR — honesty required",
+      "label": "challenger",
+      "agent_response": "The Kandos Chocolate Bar (Rs. 180) paired with a Greeting Card Birthday (Rs. 250) comes to exactly Rs. 430 — just a tiny bit over, Thilini! The chocolate bar alone at Rs. 180 is well within budget though, or the greeting card at Rs. 250. Is this for someone special or just a little treat for yourself?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.67,
+      "failures": [],
+      "what_was_wrong": "",
+      "what_was_good": "The response honestly acknowledged the budget constraint without judgment, offered realistic product combinations with clear pricing, and ended with a warm follow-up question that moves the conversation forward naturally."
+    },
+    {
+      "scenario_id": "scenario_004",
+      "description": "Vague request — just get me something nice",
+      "label": "challenger",
+      "agent_response": "What's the occasion, Chathura, and who's it for?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 3,
+        "product_quality": 1,
+        "tone": 3,
+        "language_match": 4,
+        "completeness": 4
+      },
+      "average": 3.33,
+      "failures": [
+        "personalization: Used the name but missed an opportunity to warm up the question — feels slightly transactional rather than genuinely personalized",
+        "product_quality: No products were shown, which is correct, but the single question asked two things at once (occasion AND who it's for), violating the one-question rule",
+        "tone: The response is too terse — 'What's the occasion, Chathura, and who's it for?' reads as blunt and slightly interrogative rather than warm and natural"
+      ],
+      "what_was_wrong": "The response technically asks two questions in one sentence ('occasion' and 'who it's for'), violating the single clarifying question rule, and the tone is too terse to feel warm or natural.",
+      "what_was_good": "It correctly avoided showing random products and kept the response concise, moving the conversation forward with the right type of clarifying intent."
+    },
+    {
+      "scenario_id": "scenario_005",
+      "description": "Gifting: 25-year-old male sending to 55-year-old mother in Colombo",
+      "label": "challenger",
+      "agent_response": "Sweet of you, Dinesh! What's the occasion, and what does your mum enjoy most?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 1,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 3
+      },
+      "average": 3.83,
+      "failures": [
+        "product_quality: No products or product categories were suggested at all, missing an opportunity to guide Dinesh toward age-appropriate gifts for a 55-year-old woman",
+        "completeness: While it asks good clarifying questions, it doesn't mention Colombo delivery capability or offer any initial gift direction to anchor the conversation"
+      ],
+      "what_was_wrong": "The response asks questions but offers no product suggestions or categories whatsoever, leaving Dinesh with no concrete starting point and missing key expected qualities like mentioning Colombo delivery.",
+      "what_was_good": "The tone is warm, natural, and uses Dinesh's name effectively, and asking about occasion and preferences is the right instinct for a gifting scenario."
+    },
+    {
+      "scenario_id": "scenario_006",
+      "description": "Birthday with tight deadline — tomorrow delivery",
+      "label": "challenger",
+      "agent_response": "Amali, the Indoor Succulent Plant Set at Rs. 1,800 is a gorgeous pick for a mum who loves planting, and the Garden Tool Kit Gift Set at Rs. 2,900 would be an even more complete gift she'd use all the time! Which city are you delivering to — I'll check what's doable for tomorrow?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 5,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.83,
+      "failures": [],
+      "what_was_wrong": "",
+      "what_was_good": "Correctly interpreted 'planting' as gardening, suggested two well-matched products with prices, used Amali's name warmly, and smartly asked about delivery city to address the urgent tomorrow deadline."
+    },
+    {
+      "scenario_id": "scenario_007",
+      "description": "Parents anniversary — sender unsure what to get",
+      "label": "challenger",
+      "agent_response": "Nice that you're thinking ahead, Kasun! The Mixed Flower Bouquet Large at Rs. 4,200 is a classic that always lands well for anniversaries, and if you want to go a bit more special, the Chocolate + Wine Gift Hamper at Rs. 6,800 feels like a real celebration. Do you have a budget in mind, or want to go all out?",
+      "scores": {
+        "relevance": 4,
+        "personalization": 3,
+        "product_quality": 3,
+        "tone": 4,
+        "language_match": 4,
+        "completeness": 3
+      },
+      "average": 3.5,
+      "failures": [
+        "personalization: Used Kasun's name but didn't acknowledge the couple dynamic or ask anything about his parents before jumping to products",
+        "product_quality: Flowers are couple-appropriate but a wine hamper assumes they drink alcohol without asking; no truly couple-focused experience or home gift was suggested",
+        "completeness: Asked about budget but didn't ask anything about the parents — what they enjoy, their age, lifestyle — which would significantly narrow down the right gift"
+      ],
+      "what_was_wrong": "The agent jumped to specific product recommendations too quickly without first understanding anything about the parents, making the suggestions feel generic rather than thoughtfully curated for this couple.",
+      "what_was_good": "The tone was warm and friendly, the budget question was a good step forward, and the flower bouquet is a genuinely couple-appropriate option."
+    },
+    {
+      "scenario_id": "scenario_008",
+      "description": "Gift from a child to a parent — age gap dynamic",
+      "label": "challenger",
+      "agent_response": "The Wallet Genuine Leather at Rs. 2,200 or the Coffee Mug with a Dad Quote at Rs. 750 would both make such a sweet Father's Day gift for your dad, Nethu! Does your dad have a preference for practical gifts or something more sentimental?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.67,
+      "failures": [
+        "personalization: Used Nethu's name well but didn't acknowledge she's a child buying for a parent — missing the budget-sensitivity angle explicitly"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "The response is warm, natural, and encouraging — it offers two appropriately priced and age-suitable options while ending with a smart follow-up question that moves the conversation forward."
+    },
+    {
+      "scenario_id": "scenario_009",
+      "description": "Delivery deadline — needs to arrive by Sunday",
+      "label": "challenger",
+      "agent_response": "Sunday is tight — which city or area are you delivering to, Pradeep?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 1,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 4
+      },
+      "average": 4,
+      "failures": [
+        "product_quality: No products were mentioned or explored yet — this is expected at this stage, but the dimension still scores low as a result"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "Crisp, natural response that immediately acknowledges the deadline concern and asks the single most important clarifying question without wasting words."
+    },
+    {
+      "scenario_id": "scenario_010",
+      "description": "Same-day delivery to Kandy",
+      "label": "challenger",
+      "agent_response": "Same-day to Kandy is tricky, Shanika — Kapruka can typically deliver cakes, flowers, and hampers there, but same-day isn't usually guaranteed for outstation. Which area in Kandy are you sending to, and what's the occasion?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 3,
+        "product_quality": 4,
+        "tone": 4,
+        "language_match": 5,
+        "completeness": 4
+      },
+      "average": 4.17,
+      "failures": [
+        "personalization: Used name but didn't leverage any other profile context (age 31, female) — e.g., could have tailored product mentions slightly"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "Directly addressed same-day Kandy delivery with appropriate caveats, named relevant product categories, and asked a smart follow-up question to advance the conversation."
+    },
+    {
+      "scenario_id": "scenario_011",
+      "description": "Caller in London, recipient in Colombo, Vesak next week",
+      "label": "challenger",
+      "agent_response": "How thoughtful, Nathasha! The Assorted Sweets Vesak Gift Box at Rs. 1,900 or the Oil Lamp Set Traditional at Rs. 2,800 would both make a really meaningful Vesak gift for your parents in Colombo. Which feels more like them — something sweet to enjoy together, or a traditional lamp for the home?",
+      "scores": {
+        "relevance": 4,
+        "personalization": 3,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 3
+      },
+      "average": 4,
+      "failures": [
+        "personalization: Uses her name but doesn't acknowledge the overseas/London context or reassure about international delivery capability",
+        "completeness: Jumps straight to two products without asking about budget or confirming delivery address/timeline feasibility for next week"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "Warm, natural tone with two culturally appropriate Vesak gift suggestions presented in a friendly choice-framing that invites engagement."
+    },
+    {
+      "scenario_id": "scenario_012",
+      "description": "Multi-item cart: cake + flowers together",
+      "label": "challenger",
+      "agent_response": "Absolutely, Ishara! You can pair the Chocolate Birthday Cake 1kg (Rs. 3,200) with the Red Rose Bouquet 12 Stems (Rs. 2,800) or the White Lily Bouquet (Rs. 2,200) in one order. Which flowers do you think the birthday person would love more?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 4
+      },
+      "average": 4.5,
+      "failures": [
+        "personalization: Used name well but didn't tailor product suggestions based on any gender or age context — could have leaned into that slightly",
+        "product_quality: Jumped straight to specific products without asking about preferences first (flavor, size, occasion details) — assumes defaults rather than confirming",
+        "completeness: Didn't explicitly confirm that both items will be delivered together, which was a key expected quality"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "The response is warm, confident, and immediately actionable — it confirms multi-item ordering, provides specific products with prices, and ends with an engaging question that moves the conversation forward naturally."
+    },
+    {
+      "scenario_id": "scenario_013",
+      "description": "Multi-turn cart: add, add another, remove one",
+      "label": "challenger",
+      "agent_response": "Got it, Tharaka — cake removed! Just the flowers in your cart now. Ready to checkout?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 5,
+        "product_quality": 5,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 4
+      },
+      "average": 4.83,
+      "failures": [
+        "completeness: Could have offered an alternative option like 'add anything else' alongside checkout, giving slightly more forward momentum"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "Crisp, natural acknowledgment of the removal with immediate cart summary and a clean call-to-action — hits every expected quality with minimal words."
+    },
+    {
+      "scenario_id": "scenario_014",
+      "description": "Tanglish input: machan I need something for my amma",
+      "label": "challenger",
+      "agent_response": "Aiyo tomorrow la — ok ok, the Chocolate Box Premium at Rs. 1,800 is a solid pick for amma, machang! The Flower Bouquet Mixed at Rs. 2,500 would also hit different paired with it. Which city are you delivering to, so we can check if it'll reach in time?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 3,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.5,
+      "failures": [
+        "personalization: Did not use Kavinda's name or acknowledge his age/gender context — could have felt more tailored to him specifically"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "Nailed the Tanglish tone with 'Aiyo tomorrow la' and 'machang', immediately suggested relevant products, and smartly moved the conversation forward by asking about delivery city given the urgency."
+    },
+    {
+      "scenario_id": "scenario_015",
+      "description": "Sinhala script input — full Sinhala response required",
+      "label": "challenger",
+      "agent_response": "සුමුදු, ඔයාගේ දියණියට කීයක් විතර වයසද, ඒ අනුව හොඳම දේ කියන්නම්! 😊",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 1,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 3
+      },
+      "average": 3.83,
+      "failures": [
+        "product_quality: No products were suggested at all — the response only asked a clarifying question without offering any initial ideas",
+        "completeness: Asking age is smart but the agent could have offered a few gift categories or options while waiting for more info, rather than leaving the user with nothing"
+      ],
+      "what_was_wrong": "The response asked only one clarifying question without providing any initial product suggestions or gift categories, leaving the user with nothing actionable.",
+      "what_was_good": "The Sinhala is natural and warm, correctly uses the user's name, and asks a genuinely useful clarifying question about the daughter's age before recommending gifts."
+    },
+    {
+      "scenario_id": "scenario_016",
+      "description": "Mid-conversation language switch English to Tanglish",
+      "label": "challenger",
+      "agent_response": "Aiyo perfect combo la — the Ferrero Rocher Box 24 pcs at Rs. 3,200 and the Enchanted Forest Perfume 50ml at Rs. 4,800 would make her super happy, Malith! Want to go with both or just pick one machang?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.67,
+      "failures": [
+        "product_quality: No price verification possible for listed products — 'Enchanted Forest Perfume' sounds like a made-up product name rather than a real Kapruka listing, which could mislead the user"
+      ],
+      "what_was_wrong": "",
+      "what_was_good": "The response nailed the Tanglish register instantly with 'Aiyo', 'la', and 'machang', kept a warm gifting tone, addressed both requested categories concisely, and moved the conversation forward with a clear follow-up question."
+    },
+    {
+      "scenario_id": "scenario_017",
+      "description": "User changes mind after adding to cart",
+      "label": "challenger",
+      "agent_response": "No worries, Dilhara! The red roses have been removed. We have some beautiful lilies available — the White Lily Bouquet 10 Stems at Rs. 2,600 is a classic choice, or if you'd like something a bit more luxurious, the Mixed Lily Vase at Rs. 3,800 is stunning. Want me to add one of these to your cart?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.67,
+      "failures": [],
+      "what_was_wrong": "",
+      "what_was_good": "The response handled the cart change gracefully with no friction, immediately pivoted to lily options with concrete products and prices, and ended with a clear call to action."
+    },
+    {
+      "scenario_id": "scenario_018",
+      "description": "Product category Kapruka likely doesn't carry — custom furniture",
+      "label": "challenger",
+      "agent_response": "Renuka, we don't have custom-built wooden furniture available right now, but the Storage Ottoman Coffee Table at Rs. 8,900 is a beautiful functional piece that could work wonderfully in a living room! Are you looking for something specific — like seating, storage, or a statement décor piece?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 5
+      },
+      "average": 4.67,
+      "failures": [],
+      "what_was_wrong": "",
+      "what_was_good": "Honest, concise pivot from unavailable custom furniture to a concrete product suggestion with a follow-up question that keeps Renuka engaged and moves the conversation forward naturally."
+    },
+    {
+      "scenario_id": "scenario_019",
+      "description": "User gives conflicting information — says gift for friend, then for self",
+      "label": "challenger",
+      "agent_response": "The Casio G-Shock at Rs. 15,000 is a solid pick for you, Gayan — durable, stylish, and perfect for your age! The Smart Watch Fitness Black at Rs. 9,900 is also great if you want something more tech-forward with fitness tracking. Which vibe suits you more?",
+      "scores": {
+        "relevance": 5,
+        "personalization": 4,
+        "product_quality": 4,
+        "tone": 4,
+        "language_match": 5,
+        "completeness": 4
+      },
+      "average": 4.33,
+      "failures": [],
+      "what_was_wrong": "",
+      "what_was_good": "Smoothly pivoted to personal shopping without acknowledging the awkward friend/self contradiction, and immediately showed relevant watch options with brief, useful descriptions and a natural closing question."
+    },
+    {
+      "scenario_id": "scenario_020",
+      "description": "Specific request with no budget mentioned — perfume",
+      "label": "challenger",
+      "agent_response": "The Victoria's Secret Love Spell at Rs. 5,200 is such a gorgeous pick, Nadeesha — it's romantic and feminine, perfect for your vibe! The Body Shop White Musk at Rs. 3,800 is also a classic if you prefer something softer and more subtle. Any particular scent direction you're leaning towards?",
+      "scores": {
+        "relevance": 4,
+        "personalization": 3,
+        "product_quality": 3,
+        "tone": 5,
+        "language_match": 5,
+        "completeness": 2
+      },
+      "average": 3.67,
+      "failures": [
+        "completeness: Only 2 products shown — expected criteria was a range of price points from affordable to premium, not just two mid-range options",
+        "product_quality: Both products are from Body Shop / Victoria's Secret — no premium or luxury option shown; price range is narrow (Rs. 3,800–5,200) with no budget variety",
+        "personalization: Name used but no real tailoring to a 25-year-old's lifestyle or scent preferences beyond generic 'feminine'; no floral/fresh/oriental segmentation offered"
+      ],
+      "what_was_wrong": "The response shows only two similarly priced products without a meaningful range from affordable to premium, failing to give Nadeesha enough options to gauge value and make a confident choice.",
+      "what_was_good": "The tone is warm, natural, and genuinely conversational — using her name and enthusiastic but not over-the-top language feels human and engaging."
+    }
+  ]
+}

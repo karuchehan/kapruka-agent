@@ -215,3 +215,47 @@ Rate limits: 60 req/min per IP, 30 orders/hour per IP. No auth needed.
 3. Deploy to Vercel
 
 ---
+
+## Session 006 — 2026-06-10 (Autoresearch Iteration 2)
+
+### What We Did
+- Ran full autoresearch iteration 2: baseline 4.11 (initial) → 4.07 (comparison run), challenger 4.30
+- **BASELINE HOLDS** — challenger regressed product_quality 3.55→3.40 despite massive gains in completeness (+0.55), relevance (+0.40), language_match (+0.25)
+- Committed iteration 2 results (execution/results/, execution/resources.md)
+
+### Autoresearch Iteration 2 Results
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.45 | 4.85 ▲ |
+| personalization | 3.60 | 3.75 ▲ |
+| product_quality | 3.55 | 3.40 ▼ REGRESSION |
+| tone | 4.60 | 4.75 ▲ |
+| language_match | 4.65 | 4.90 ▲ |
+| completeness | 3.60 | 4.15 ▲ |
+
+### Remaining Failures (4 scenarios)
+1. **scenario_005**: Rushes to products for gifting without asking occasion/budget/preferences
+2. **scenario_007**: Shows products immediately despite "I have no idea what to get"
+3. **scenario_009**: Asks for city (correct rule working) but response cold — ignores Sunday urgency, no warmth
+4. **scenario_010**: Avoids answering Kandy same-day feasibility, deflects to sub-area clarification
+
+### Second-Layer Patterns (new this iteration)
+- **Delivery responses are correct but cold** — the DELIVERY rule made Claude ask for city but the judge penalizes abruptness. Fix: acknowledge urgency warmly, THEN ask for city.
+- **Budget overflow** — scenario_003 still suggests combos over stated budget (Rs. 400 → Rs. 6,800 combo suggested)
+- **Single-question rule violated** — challenger asked two questions in one sentence (scenario_004)
+- **Structural tension (2 iterations in a row)** — qualification rules improve completeness but always hurt product_quality. Root cause: rules apply to all searches, not just gifting. Next iteration must scope to GIFTING ONLY.
+
+### Mistakes / Lessons
+- "Do not repeat" confirmed: adding MORE qualification rules to fix gifting scenarios breaks self-shopping scenarios — Claude becomes too cautious
+- Challenger changes were too broad this iteration (applied gifting qualification rules globally)
+- product_quality regression pattern: 2 iterations in a row blocked at the same wall
+
+### Next Steps (Iteration 3)
+1. Manually patch system_prompt.md before generating challenger:
+   - Delivery section: add warmth instruction ("acknowledge urgency first, then ask for city")
+   - Add BUDGET HARD RULE scoped to gifting only
+   - Scope all qualification rules to "IF gifting context detected" — not all searches
+2. Run iteration 3: `node execution/orchestrator.js`
+3. Target: break product_quality regression pattern
+
+---
