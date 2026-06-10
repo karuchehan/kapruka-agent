@@ -265,7 +265,7 @@ html, body {
    scrollIntoView(block:'end') on this element scrolls the last message fully into view.
    Height is small (20px) — the real clearance comes from JS-measured padding-bottom. */
 #scroll-anchor {
-  height: 20px;
+  height: 8px;
   flex-shrink: 0;
 }
 
@@ -389,11 +389,10 @@ html, body {
   scroll-snap-align: start;
   flex-shrink: 0;
   width: 200px;
+  height: 380px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  /* No overflow: hidden — it clips the card body in flex containers.
-     Image corners are clipped via border-radius on the img itself. */
   overflow: visible;
   display: flex;
   flex-direction: column;
@@ -408,7 +407,7 @@ html, body {
 
 .product-card-image {
   width: 100%;
-  height: 160px;
+  height: 220px;
   object-fit: cover;
   background: var(--bg-secondary);
   display: block;
@@ -418,7 +417,7 @@ html, body {
 
 .product-card-image-placeholder {
   width: 100%;
-  height: 160px;
+  height: 220px;
   background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
   display: flex;
   align-items: center;
@@ -431,9 +430,10 @@ html, body {
 
 .product-card-body {
   padding: 12px;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
 }
 
 .product-card-name {
@@ -455,6 +455,7 @@ html, body {
 
 .product-card-add {
   width: 100%;
+  margin-top: auto;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   background: var(--accent);
