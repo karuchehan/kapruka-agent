@@ -373,9 +373,11 @@ html, body {
   overflow-y: visible;
   display: flex;
   gap: 14px;
-  padding: 4px 2px 12px;
+  padding: 4px 0 16px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
+  /* Prevent first card from being clipped at container edge */
+  scroll-padding-left: 4px;
 }
 
 .products-carousel::-webkit-scrollbar { height: 3px; }

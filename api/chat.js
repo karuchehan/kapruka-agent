@@ -50,7 +50,7 @@ const STOP = new Set([
 
 // ── INTENT DETECTION ──────────────────────────────────────────────────────────
 
-// Context words that pollute product search — occasions, recipients, intent verbs
+// Context words that pollute product search — occasions, recipients, intent verbs, locations
 const CONTEXT_WORDS = new Set([
   "gift","gifts","present","presents","surprise","buy","purchase","send","order",
   "birthday","anniversary","christmas","valentine","wedding","graduation","newborn",
@@ -63,6 +63,13 @@ const CONTEXT_WORDS = new Set([
   "celebrate","celebrating","occasion","event","party","ceremony",
   "abroad","international","overseas","overseas","deliver","delivery","send",
   "lucky","sweet","love",
+  // Sri Lankan cities and districts — must never become product search terms
+  "colombo","kandy","galle","negombo","jaffna","matara","ratnapura","kurunegala",
+  "anuradhapura","polonnaruwa","badulla","nuwara","eliya","trincomalee","batticaloa",
+  "ampara","kalmunai","vavuniya","mannar","puttalam","chilaw","kalutara","panadura",
+  "moratuwa","dehiwala","mount","lavinia","nugegoda","kottawa","kaduwela","kadawatha",
+  "maharagama","piliyandala","homagama","bandaragama","beruwala","aluthgama","hikkaduwa",
+  "tangalle","hambantota","matale","dambulla","sigiriya","haputale","ella","bandarawela",
 ]);
 
 function extractKeywords(text) {
@@ -91,8 +98,9 @@ function buildSearchQuery(messages) {
     }
   }
 
-  const query = allKeywords.slice(0, 5).join(" ");
-  return query || userMessages[userMessages.length - 1]?.trim().slice(0, 60) || "";
+  // Return empty if no meaningful product keywords — do NOT fall back to raw message
+  // text, which would search city names, pronouns, or filler as product queries
+  return allKeywords.slice(0, 5).join(" ");
 }
 
 function detectIntent(messages) {
