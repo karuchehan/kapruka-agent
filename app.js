@@ -193,7 +193,7 @@ function addMessage(role, text) {
   row.appendChild(bubble);
 
   $msgs.appendChild(row);
-  gsap.from(row, { opacity: 0, y: 16, duration: 0.4, ease: "power2.out" });
+  gsap.from(row, { opacity: 0, y: 12, duration: 0.3, ease: "power2.out" });
   scrollToBottom();
   return row;
 }
@@ -210,18 +210,35 @@ function showTyping() {
 
   const wrap = document.createElement("div");
   wrap.className = "typing-dots";
-  wrap.innerHTML = "<span></span><span></span><span></span>";
+  const dots = [0, 1, 2].map(() => {
+    const s = document.createElement("span");
+    wrap.appendChild(s);
+    return s;
+  });
   row.appendChild(wrap);
 
   $msgs.appendChild(row);
   gsap.from(row, { opacity: 0, y: 10, duration: 0.3 });
+
+  gsap.to(dots, {
+    scaleY: 1.7,
+    duration: 0.35,
+    repeat: -1,
+    yoyo: true,
+    stagger: 0.15,
+    ease: "power1.inOut",
+  });
+
   scrollToBottom();
   return row;
 }
 
 function removeTyping() {
   const el = document.getElementById("typing-row");
-  if (el) el.remove();
+  if (el) {
+    gsap.killTweensOf(el.querySelectorAll("span"));
+    el.remove();
+  }
 }
 
 function addProductCards(products) {
@@ -233,6 +250,9 @@ function addProductCards(products) {
   products.forEach((p) => {
     const card = document.createElement("div");
     card.className = "product-card";
+
+    card.addEventListener("mouseenter", () => gsap.to(card, { y: -4, duration: 0.2, ease: "power2.out" }));
+    card.addEventListener("mouseleave", () => gsap.to(card, { y: 0, duration: 0.2, ease: "power2.out" }));
 
     if (p.image_url) {
       const img = document.createElement("img");
@@ -271,7 +291,7 @@ function addProductCards(products) {
 
   $msgs.appendChild(wrap);
   gsap.from(wrap.children, {
-    opacity: 0, y: 24, stagger: 0.08, duration: 0.45, ease: "power2.out"
+    opacity: 0, y: 16, stagger: 0.07, duration: 0.4, ease: "power2.out"
   });
   scrollToBottom();
 }
@@ -542,11 +562,17 @@ function makeCartPlaceholder() {
 function openCart() {
   $cartPanel.classList.add("open");
   $cartOverlay.classList.add("active");
+  gsap.fromTo($cartPanel, { x: "100%" }, { x: "0%", duration: 0.35, ease: "power3.out" });
 }
 
 function closeCart() {
-  $cartPanel.classList.remove("open");
   $cartOverlay.classList.remove("active");
+  gsap.to($cartPanel, {
+    x: "100%",
+    duration: 0.3,
+    ease: "power3.in",
+    onComplete: () => $cartPanel.classList.remove("open"),
+  });
 }
 
 $cartBtn.addEventListener("click",    openCart);
@@ -633,5 +659,6 @@ window._addToCart = addToCart;
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 
+gsap.from(document.body, { opacity: 0, duration: 0.5, ease: "power2.out" });
 updateCartUI();
 obStart();
