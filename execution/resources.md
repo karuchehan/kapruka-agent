@@ -4,6 +4,34 @@
 
 ## What Works (Confirmed Improvements)
 <!-- populated automatically -->
+### Iteration 3 — 2026-06-10 — Winner: **CHALLENGER**
+
+**Scores:** baseline 4.12 → challenger 4.29
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.55 | 4.8 ▲ +0.25 |
+| personalization | 3.7 | 3.75 → |
+| product_quality | 3.45 | 3.45 → |
+| tone | 4.7 | 4.9 ▲ +0.20 |
+| language_match | 4.7 | 4.85 ▲ +0.15 |
+| completeness | 3.6 | 4 ▲ +0.40 |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_004**: The agent ignored the expected behavior entirely — it should have asked one warm clarifying question instead of jumping to random product recommendations with no context about the recipient or occasion. *(dims: relevance: User gave a vague request; agent should have asked a clarifying question (for whom, what occasion) instead of jumping to products, personalization: Used the name but ignored the core issue — no context was gathered before recommending; gender assumption led to male grooming products without asking, product_quality: Products were suggested without knowing who the gift is for, the occasion, or the budget — completely context-free, completeness: Did not ask the single most important clarifying question (who is this for / what occasion); conversation is not meaningfully advanced, tone: Slightly casual but the unsolicited product dump undermines warmth and feels presumptuous)*
+  - **scenario_007**: The response skips any discovery questions entirely and jumps to specific products, which feels presumptuous when the user explicitly said they have no idea what to get — asking about budget or preferences was essential here. *(dims: completeness: jumped straight to product recommendations without asking any clarifying questions (budget, parents' preferences, occasion style) — misses a key expected quality, personalization: uses Kasun's name but doesn't leverage his age (23) or any other context to make the suggestion feel truly tailored, completeness: does not move the conversation forward interactively — no follow-up question asked to refine the recommendation)*
+  - **scenario_009**: The response doesn't acknowledge or caveat the Sunday deadline feasibility at all — it jumps to asking questions without addressing whether Sunday delivery is actually possible, which was the user's core concern. *(dims: product_quality: No products were mentioned or explored at all — this dimension cannot be rated meaningfully and scores minimum as there was no product engagement, relevance: The response didn't directly address whether Sunday delivery is feasible or caveat the uncertainty — it skipped past the deadline question slightly)*
+  - **scenario_010**: The response completely avoids answering the core question about same-day Kandy delivery availability, offering no information about which categories typically qualify, making it unhelpful despite having a friendly tone. *(dims: relevance: The response doesn't actually answer whether same-day delivery to Kandy is possible — it deflects entirely without providing any useful information, product_quality: No product categories or options were mentioned at all, missing a key expected quality, completeness: While it asks two questions, it fails to provide any substantive information about what is or isn't available for same-day delivery to Kandy, leaving the user no better informed, personalization: Using the name is minimal personalization; age/gender context not leveraged at all)*
+
+**What challenger targeted:**
+  (not recorded)
+
+**Outcome:** No regressions — challenger promoted.
+
+---
+
 
 ### Manual Patch — 2026-06-10 — v4.0 System Prompt (DO NOT REVERT)
 
@@ -96,11 +124,13 @@ The loop cannot break this pattern on its own because it doesn't know *which* ru
 
 | Run | Date | Baseline | Challenger | Winner | Key Changes |
 |---|---|---|---|---|---|
+| 3 | 2026-06-10 | 4.12 | 4.29 | CHALLENGER | relevance: 4.55 → 4.8 (+0.25); tone: 4.7 → 4.9 (+0.20) |
 | 2 | 2026-06-10 | 4.07 | 4.3 | BASELINE | relevance: 4.45 → 4.85 (+0.40); personalization: 3.6 → 3.75 (+0.15) |
 | 1 | 2026-06-10 | 4.02 | 4.14 | BASELINE | challenger regressed product_quality (-0.20) despite improving personalization (+0.35), completeness (+0.40) |
 
 ## Weakest Dimensions Over Time
 <!-- populated automatically -->
+- **Run 3**: product_quality, completeness, personalization
 - **Run 2**: product_quality, personalization, completeness
 
 - **Run 1**: product_quality (3.45), completeness (3.45), personalization (3.55)

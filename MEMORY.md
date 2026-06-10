@@ -259,3 +259,47 @@ Rate limits: 60 req/min per IP, 30 orders/hour per IP. No auth needed.
 3. Target: break product_quality regression pattern
 
 ---
+
+## Session 007 — 2026-06-10 (Autoresearch Iteration 3 — First Promotion)
+
+### What We Did
+- Applied v4.0 manual patches to system_prompt.md before running iteration 3
+- Kicked off iteration 3: **CHALLENGER PROMOTED** (first promotion after 2 blocked iterations)
+- Committed all results and MEMORY.md
+
+### Autoresearch Iteration 3 Results
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.55 | 4.80 ▲ |
+| personalization | 3.70 | 3.75 → |
+| product_quality | 3.45 | 3.45 → (NO REGRESSION) |
+| tone | 4.70 | 4.90 ▲ |
+| language_match | 4.70 | 4.85 ▲ |
+| completeness | 3.60 | 4.00 ▲ |
+
+**Winner: CHALLENGER (4.29 vs 4.12 baseline)**
+
+### What The Challenger Fixed
+- **scenario_004** ✓: Now correctly asks one warm clarifying question (who/occasion) instead of dumping random products
+- **scenario_007** ✓: Now asks discovery question for "I have no idea" gifting signals before showing products
+- **scenario_015** ✓: Sinhala script input now handled properly (language_match improved)
+- Added VAGUE REQUESTS section: ambiguous requests with no context → ask ONE question before showing products
+- Added GIFTING WITH NO IDEA sub-section: uncertainty signals → ask before showing
+- Added age/gender demographic mapping (explicit: 45yo male → home audio/TV/laptop, NOT fitness trackers)
+- Rewired SAME-DAY DELIVERY rule: honest answer about Kandy feasibility BEFORE sub-area questions
+
+### What The Manual Patches Unlocked
+The v4.0 patches (MODE B scoped to GIFTING ONLY, delivery warmth, budget rule) gave the loop a clean foundation. The loop then correctly identified that scenario_004/007 needed a VAGUE REQUESTS section and rewired the delivery rule without triggering product_quality regression. The structural tension was resolved by scoping.
+
+### Remaining Failures (4 scenarios in new v5 baseline)
+1. **scenario_005**: Still rushes to products for gifting without qualifying occasion/preferences (completeness)
+2. **scenario_009**: Delivery warmth not quite calibrated — still not acknowledging Sunday feasibility properly
+3. **scenario_010**: Kandy same-day now too abrupt — correct to say not available but not mentioning which categories (flowers/cakes) might have faster options
+4. **scenario_011**: London caller, Colombo recipient, Vesak — persistent failure (completeness), unknown exact cause
+
+### Next Steps (Iteration 4)
+1. Run iteration 4 immediately: `node execution/orchestrator.js`
+2. Loop now has clean baseline — let it target product_quality + personalization
+3. Scenario_011 needs investigation: read the specific failure reason more carefully
+
+---
