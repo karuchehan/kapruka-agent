@@ -372,12 +372,11 @@ html, body {
   overflow-x: auto;
   overflow-y: visible;
   display: flex;
+  align-items: flex-start;
   gap: 14px;
   padding: 4px 0 16px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-  /* Prevent first card from being clipped at container edge */
-  scroll-padding-left: 4px;
 }
 
 .products-carousel::-webkit-scrollbar { height: 3px; }
@@ -390,7 +389,11 @@ html, body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  /* No overflow: hidden — it clips the card body in flex containers.
+     Image corners are clipped via border-radius on the img itself. */
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
   transition: border-color var(--transition), transform var(--transition);
   cursor: pointer;
 }
@@ -406,6 +409,8 @@ html, body {
   object-fit: cover;
   background: var(--bg-secondary);
   display: block;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  flex-shrink: 0;
 }
 
 .product-card-image-placeholder {
@@ -417,6 +422,8 @@ html, body {
   justify-content: center;
   color: var(--text-muted);
   font-size: 32px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  flex-shrink: 0;
 }
 
 .product-card-body {
@@ -489,7 +496,7 @@ html, body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .skeleton-img  { height: 160px; }
