@@ -1,0 +1,58 @@
+[
+  {
+    "id": "product_card_style",
+    "name": "Product Card Style",
+    "description": "Visual design of product cards: corners, shadows, image ratio, text weight, button shape",
+    "current_approach": "Dark card (#1c1717) with subtle border, 14px radius, 160px image height, bold name (weight 600), full-red Add to Cart button, GSAP hover lift y:-4",
+    "hypothesis": "Card elevation, image aspect ratio, or typography contrast could be improved to make cards feel more premium and more obviously shoppable"
+  },
+  {
+    "id": "chat_bubble_style",
+    "name": "Chat Bubble Style",
+    "description": "Visual treatment of user and agent message bubbles: colors, radius, tails, padding",
+    "current_approach": "User: solid red (#e63329) bg, white text, 18px radius with flat bottom-right corner. Agent: dark card (#1c1717) bg, white text, 18px radius with flat bottom-left corner. Padding 14px 18px.",
+    "hypothesis": "Bubble contrast, border treatment, or tail shape could make the conversation feel more personal and less clinical"
+  },
+  {
+    "id": "typography_and_spacing",
+    "name": "Typography & Spacing",
+    "description": "Font sizing, weights, line heights, and spacing between chat elements",
+    "current_approach": "Inter 15px body, Playfair Display for brand name, gap 20px between messages, bubbles at 14.5px Inter, agent avatar 30px circle",
+    "hypothesis": "Tighter tracking, adjusted font size hierarchy, or different gap values could create a more premium reading experience"
+  },
+  {
+    "id": "color_accent_usage",
+    "name": "Color Accent Usage",
+    "description": "How and where the Kapruka red (#e63329) is applied across the interface",
+    "current_approach": "Red on: brand name, user bubbles, prices, send button, mic button, Add to Cart button, agent avatar, cart badge, typing dots, pulsing brand dot",
+    "hypothesis": "Red may be slightly overused — strategic reduction to 3-4 key elements could make the accent feel more deliberate and premium"
+  },
+  {
+    "id": "animation_timing_and_feel",
+    "name": "Animation Timing & Feel",
+    "description": "GSAP animation durations, easing, and stagger values across all animated elements",
+    "current_approach": "Message: y:12 0.3s power2.out. Card stagger: y:16 stagger:0.07 duration:0.4 power2.out. Card hover: y:-4 0.2s. Cart open: 0.35s power3.out. Cart close: 0.3s power3.in.",
+    "hypothesis": "Micro-adjustments to easing curves or stagger values could make the UI feel more fluid or snappier depending on direction"
+  },
+  {
+    "id": "input_bar_design",
+    "name": "Input Bar Design",
+    "description": "Visual design of the message input area: shape, background, button sizing, padding, focus state",
+    "current_approach": "Dark (#231c1c) input container with 14px radius, red send button (38px circle), red mic button outline (38px circle), 1px border, red accent on focus",
+    "hypothesis": "The input bar background or button visual weight could be adjusted to feel more refined and less boxy"
+  },
+  {
+    "id": "onboarding_screen",
+    "name": "Onboarding Screen",
+    "description": "The first screen users see: brand lockup, conversation bubbles, input field, background",
+    "current_approach": "Centered max-width 480px, Kapruka brand name in red Playfair Display 26px, animated red dot, conversation bubbles, input row at bottom, animated canvas background",
+    "hypothesis": "The brand lockup size, vertical spacing, or bubble visual treatment could create a stronger first impression"
+  },
+  {
+    "id": "mobile_layout",
+    "name": "Mobile Layout",
+    "description": "How the UI adapts at 375px width: padding, card sizes, bubble max-widths, font adjustments",
+    "current_approach": "Product cards 175px wide, images 140px tall, bubbles max-width 88%, font 14px for bubbles, padding 16px 14px with 140px bottom clearance for input",
+    "hypothesis": "Card widths, padding balance, or touch target sizes at mobile viewport could be optimised for better usability and visual density"
+  }
+]
