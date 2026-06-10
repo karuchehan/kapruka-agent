@@ -1,118 +1,396 @@
-{
-  "scenarios": [
-    {
-      "id": "personal_electronics",
-      "category": "personal_shopping",
-      "user_profile": { "name": "Kasun", "age": 28, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "I need a birthday gift for myself, I'm into electronics" }
-      ]
-    },
-    {
-      "id": "personal_fashion",
-      "category": "personal_shopping",
-      "user_profile": { "name": "Nimesha", "age": 22, "gender": "female" },
-      "messages": [
-        { "role": "user", "content": "What's good for a 25-year-old girl who likes fashion?" }
-      ]
-    },
-    {
-      "id": "chocolates_budget",
-      "category": "personal_shopping",
-      "user_profile": { "name": "Roshan", "age": 35, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "Show me your best chocolates under 2000 rupees" }
-      ]
-    },
-    {
-      "id": "gifting_mum_birthday",
-      "category": "gifting",
-      "user_profile": { "name": "Priya", "age": 30, "gender": "female" },
-      "messages": [
-        { "role": "user", "content": "I want to send something to my mum in Colombo for her birthday" }
-      ]
-    },
-    {
-      "id": "gifting_anniversary",
-      "category": "gifting",
-      "user_profile": { "name": "Dinesh", "age": 40, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "My parents' anniversary is this Friday, what should I send?" }
-      ]
-    },
-    {
-      "id": "gifting_son_to_father",
-      "category": "gifting",
-      "user_profile": { "name": "Ashan", "age": 25, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "A gift from a 25-year-old son to a 60-year-old father" }
-      ]
-    },
-    {
-      "id": "delivery_sunday",
-      "category": "delivery_constraints",
-      "user_profile": { "name": "Malini", "age": 33, "gender": "female" },
-      "messages": [
-        { "role": "user", "content": "I want to send flowers but they need to arrive by Sunday" }
-      ]
-    },
-    {
-      "id": "delivery_sameday_kandy",
-      "category": "delivery_constraints",
-      "user_profile": { "name": "Tharaka", "age": 27, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "Can anything be delivered same day to Kandy?" }
-      ]
-    },
-    {
-      "id": "delivery_vesak_london",
-      "category": "delivery_constraints",
-      "user_profile": { "name": "Chamari", "age": 29, "gender": "female" },
-      "messages": [
-        { "role": "user", "content": "I'm in London, can I send something for Vesak next week?" }
-      ]
-    },
-    {
-      "id": "multi_item_cake_flowers",
-      "category": "multi_item",
-      "user_profile": { "name": "Ruwan", "age": 32, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "Can I send a cake and flowers together?" }
-      ]
-    },
-    {
-      "id": "tanglish_amma_gift",
-      "category": "language",
-      "user_profile": { "name": "Madush", "age": 24, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "machan I need a gift for my amma la" }
-      ]
-    },
-    {
-      "id": "vague_request",
-      "category": "edge_cases",
-      "user_profile": { "name": "Saman", "age": 45, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "just get me something nice" }
-      ]
-    },
-    {
-      "id": "low_budget",
-      "category": "edge_cases",
-      "user_profile": { "name": "Dulani", "age": 19, "gender": "female" },
-      "messages": [
-        { "role": "user", "content": "What can I get for under 500 rupees?" }
-      ]
-    },
-    {
-      "id": "change_of_mind",
-      "category": "edge_cases",
-      "user_profile": { "name": "Isuru", "age": 31, "gender": "male" },
-      "messages": [
-        { "role": "user", "content": "Add the roses to my cart" },
-        { "role": "assistant", "content": "Done! Added a bouquet of roses to your cart." },
-        { "role": "user", "content": "Actually remove that, I want to go with chocolates instead" }
-      ]
-    }
-  ]
-}
+[
+  {
+    "id": "scenario_001",
+    "description": "19-year-old female browsing for herself — expects fashion/cosmetics lean",
+    "user_profile": { "name": "Sashika", "age": 19, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "hey I'm just looking around, want something nice for myself" }
+    ],
+    "expected_qualities": [
+      "uses the user's name Sashika",
+      "suggests categories appropriate for a 19-year-old female (fashion, cosmetics, lifestyle)",
+      "warm and friendly tone, not corporate",
+      "asks one clarifying question to narrow down — does not overwhelm",
+      "does not suggest electronics or home goods as first option"
+    ],
+    "simulated_products": [
+      { "name": "Lakme Face Wash", "price": 1200 },
+      { "name": "Floral Printed Dress", "price": 2800 },
+      { "name": "Lip Gloss Set", "price": 950 }
+    ]
+  },
+  {
+    "id": "scenario_002",
+    "description": "45-year-old male looking for electronics — direct product intent",
+    "user_profile": { "name": "Ruwan", "age": 45, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "I want to buy some electronics, what do you have?" }
+    ],
+    "expected_qualities": [
+      "uses the user's name Ruwan",
+      "suggests electronics appropriate for a 45-year-old male",
+      "confident recommendations, not a list of generic options",
+      "mentions price or value proposition",
+      "moves conversation toward a specific product or category"
+    ],
+    "simulated_products": [
+      { "name": "Sony Wireless Headphones", "price": 12500 },
+      { "name": "Smart Watch Fitness Tracker", "price": 8900 },
+      { "name": "Portable Bluetooth Speaker", "price": 5400 }
+    ]
+  },
+  {
+    "id": "scenario_003",
+    "description": "Very low budget under 500 LKR — honesty required",
+    "user_profile": { "name": "Thilini", "age": 24, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "I only have 400 rupees, what can I get?" }
+    ],
+    "expected_qualities": [
+      "acknowledges the budget honestly — does not pretend expensive items are available",
+      "does not make the user feel bad about their budget",
+      "suggests realistic options at that price point (snacks, small gifts, cards)",
+      "stays warm and helpful in tone",
+      "does not upsell aggressively"
+    ],
+    "simulated_products": [
+      { "name": "Kandos Chocolate Bar", "price": 180 },
+      { "name": "Greeting Card Birthday", "price": 250 },
+      { "name": "Vicks Inhaler", "price": 350 }
+    ]
+  },
+  {
+    "id": "scenario_004",
+    "description": "Vague request — just get me something nice",
+    "user_profile": { "name": "Chathura", "age": 32, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "just get me something nice" }
+    ],
+    "expected_qualities": [
+      "asks exactly one clarifying question — for who and what occasion",
+      "does not show random products without context",
+      "keeps the question warm, not interrogative",
+      "does not ask multiple questions at once",
+      "acknowledges the vagueness naturally"
+    ],
+    "simulated_products": []
+  },
+  {
+    "id": "scenario_005",
+    "description": "Gifting: 25-year-old male sending to 55-year-old mother in Colombo",
+    "user_profile": { "name": "Dinesh", "age": 25, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "I want to send a gift to my mum in Colombo, she's 55" }
+    ],
+    "expected_qualities": [
+      "recognises this is a gifting scenario",
+      "tailors suggestions for a 55-year-old female recipient",
+      "asks about occasion or recipient preferences to refine",
+      "mentions delivery to Colombo is possible",
+      "does not suggest gifts more appropriate for a young person"
+    ],
+    "simulated_products": [
+      { "name": "Flower Bouquet Red Roses", "price": 3500 },
+      { "name": "Assorted Chocolates Gift Box", "price": 2200 },
+      { "name": "Spa Gift Voucher", "price": 5000 }
+    ]
+  },
+  {
+    "id": "scenario_006",
+    "description": "Birthday with tight deadline — tomorrow delivery",
+    "user_profile": { "name": "Amali", "age": 28, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "my mothers birthday is tomorrow and need to buy her a gift, she likes planting" }
+    ],
+    "expected_qualities": [
+      "understands 'planting' means gardening/plants — NOT planners, planning books, or office supplies",
+      "shows or asks about plant-related gifts (indoor plants, garden tools, flower seeds, pots)",
+      "acknowledges the urgency — tomorrow delivery",
+      "does not suggest cakes or generic birthday items as primary recommendation",
+      "uses warm tone appropriate for a gifting scenario"
+    ],
+    "simulated_products": [
+      { "name": "Indoor Succulent Plant Set", "price": 1800 },
+      { "name": "Garden Tool Kit Gift Set", "price": 2900 },
+      { "name": "Flower Seeds Assorted Pack", "price": 650 }
+    ]
+  },
+  {
+    "id": "scenario_007",
+    "description": "Parents anniversary — sender unsure what to get",
+    "user_profile": { "name": "Kasun", "age": 23, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "it's my parents' anniversary next week and I have no idea what to get them" }
+    ],
+    "expected_qualities": [
+      "recognises both recipients (couple, not individual)",
+      "asks at least one question to narrow down — budget, or what they enjoy",
+      "suggests couple-appropriate gifts (experience, home items, flowers, dinner)",
+      "tone is warm and relatable — speaks like a friend who has been there",
+      "does not suggest single-person gifts as primary option"
+    ],
+    "simulated_products": [
+      { "name": "Couple Photo Frame Silver", "price": 1500 },
+      { "name": "Mixed Flower Bouquet Large", "price": 4200 },
+      { "name": "Chocolate + Wine Gift Hamper", "price": 6800 }
+    ]
+  },
+  {
+    "id": "scenario_008",
+    "description": "Gift from a child to a parent — age gap dynamic",
+    "user_profile": { "name": "Nethu", "age": 14, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "I want to buy something for my dad for father's day, he's 48" }
+    ],
+    "expected_qualities": [
+      "treats a 14-year-old respectfully — not condescending",
+      "suggests budget-friendly options first — assumes limited funds",
+      "tailors suggestion for a 48-year-old male recipient",
+      "mentions Father's Day context positively",
+      "sweet, encouraging tone appropriate for the relationship"
+    ],
+    "simulated_products": [
+      { "name": "Men's Grooming Kit", "price": 1800 },
+      { "name": "Wallet Genuine Leather", "price": 2200 },
+      { "name": "Coffee Mug Dad Quote", "price": 750 }
+    ]
+  },
+  {
+    "id": "scenario_009",
+    "description": "Delivery deadline — needs to arrive by Sunday",
+    "user_profile": { "name": "Pradeep", "age": 38, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "I need something delivered by this Sunday. Is that possible?" }
+    ],
+    "expected_qualities": [
+      "addresses the delivery deadline directly",
+      "does not promise delivery without checking or caveating",
+      "asks for the delivery city/area to assess feasibility",
+      "keeps response concise — this is an availability question, not a product pitch yet",
+      "moves toward understanding what they want to buy"
+    ],
+    "simulated_products": []
+  },
+  {
+    "id": "scenario_010",
+    "description": "Same-day delivery to Kandy",
+    "user_profile": { "name": "Shanika", "age": 31, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "Can anything get to Kandy today?" }
+    ],
+    "expected_qualities": [
+      "answers the same-day Kandy question directly",
+      "does not make up availability — caveats appropriately",
+      "asks what they want to send to help narrow down options",
+      "if same-day is possible for some items, mentions which categories typically qualify",
+      "concise and helpful"
+    ],
+    "simulated_products": []
+  },
+  {
+    "id": "scenario_011",
+    "description": "Caller in London, recipient in Colombo, Vesak next week",
+    "user_profile": { "name": "Nathasha", "age": 27, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "I'm in London and want to send something to my parents in Colombo for Vesak, it's next week" }
+    ],
+    "expected_qualities": [
+      "acknowledges the international sender context (Kapruka specialises in overseas gifting)",
+      "mentions Vesak-appropriate gift ideas (lamp, flowers, sweets, merit card)",
+      "does not suggest items that are culturally inappropriate for Vesak",
+      "reassures that international delivery is handled well by Kapruka",
+      "asks about budget or specific preference to narrow down"
+    ],
+    "simulated_products": [
+      { "name": "Vesak Lantern Handmade", "price": 1200 },
+      { "name": "Oil Lamp Set Traditional", "price": 2800 },
+      { "name": "Assorted Sweets Vesak Gift Box", "price": 1900 }
+    ]
+  },
+  {
+    "id": "scenario_012",
+    "description": "Multi-item cart: cake + flowers together",
+    "user_profile": { "name": "Ishara", "age": 29, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "Can I add a birthday cake and flowers together in one order?" }
+    ],
+    "expected_qualities": [
+      "confirms that multi-item orders are possible on Kapruka",
+      "asks for cake preference (flavour, size) or flowers preference (type, colour)",
+      "moves conversation toward building the cart",
+      "mentions that both will be delivered together",
+      "warm and helpful tone"
+    ],
+    "simulated_products": [
+      { "name": "Chocolate Birthday Cake 1kg", "price": 3200 },
+      { "name": "Red Rose Bouquet 12 Stems", "price": 2800 },
+      { "name": "White Lily Bouquet", "price": 2200 }
+    ]
+  },
+  {
+    "id": "scenario_013",
+    "description": "Multi-turn cart: add, add another, remove one",
+    "user_profile": { "name": "Tharaka", "age": 33, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "Add the chocolate cake to my cart" },
+      { "role": "assistant", "content": "Done! Chocolate Birthday Cake added to your cart. Anything else to add, Tharaka?" },
+      { "role": "user", "content": "also add the flowers" },
+      { "role": "assistant", "content": "Red Rose Bouquet added too! Your cart now has the cake and flowers. Shall I keep going or do you want to checkout?" },
+      { "role": "user", "content": "actually remove the cake, just flowers is fine" }
+    ],
+    "expected_qualities": [
+      "acknowledges the removal request clearly — confirms cake is removed",
+      "updates the cart summary (flowers only now)",
+      "does not argue or push back on the removal",
+      "offers to proceed to checkout or add something else",
+      "tone stays smooth — handles the change naturally"
+    ],
+    "simulated_products": []
+  },
+  {
+    "id": "scenario_014",
+    "description": "Tanglish input: machan I need something for my amma",
+    "user_profile": { "name": "Kavinda", "age": 22, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "machan I need something for my amma la, her birthday is tomorrow" }
+    ],
+    "expected_qualities": [
+      "responds in Tanglish to match the user's register — NOT formal English",
+      "uses casual Sri Lankan tone (machan, la, etc. — at least mimics the register)",
+      "acknowledges tomorrow urgency",
+      "asks what amma likes or suggests appropriate gifts for a mother",
+      "feels like talking to a friend who gets the culture"
+    ],
+    "simulated_products": [
+      { "name": "Flower Bouquet Mixed", "price": 2500 },
+      { "name": "Saree Gift Voucher", "price": 5000 },
+      { "name": "Chocolate Box Premium", "price": 1800 }
+    ]
+  },
+  {
+    "id": "scenario_015",
+    "description": "Sinhala script input — full Sinhala response required",
+    "user_profile": { "name": "Sumudu", "age": 35, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "මගේ දියණියට දවසක් කොළඹ ගිහින් ගෙනියන්න හොඳ තෑග්ගක් ඕනෑ" }
+    ],
+    "expected_qualities": [
+      "responds entirely in Sinhala script — no English sentences",
+      "product names and prices may remain in English within the Sinhala response",
+      "understands the request: a gift to bring back to their daughter from Colombo",
+      "suggests appropriate gifts for a daughter (age unknown — should ask)",
+      "warm and natural Sinhala tone — not machine-translated sounding"
+    ],
+    "simulated_products": [
+      { "name": "School Bag Backpack", "price": 2200 },
+      { "name": "Chocolate Gift Set", "price": 1500 },
+      { "name": "Stuffed Toy Bear", "price": 1800 }
+    ]
+  },
+  {
+    "id": "scenario_016",
+    "description": "Mid-conversation language switch English to Tanglish",
+    "user_profile": { "name": "Malith", "age": 26, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "I want to buy a gift for my girlfriend" },
+      { "role": "assistant", "content": "How lovely! What kind of things does she like, Malith — fashion, jewellery, skincare?" },
+      { "role": "user", "content": "she likes chocolates and perfumes la, can you show me something nice machang" }
+    ],
+    "expected_qualities": [
+      "switches to Tanglish register to match the user — 'la', 'machang', casual tone",
+      "does NOT continue in formal English after the user switched",
+      "shows chocolate + perfume options as requested",
+      "uses warm gifting tone (girlfriend gift)",
+      "keeps response concise — this is a product show, not an explanation"
+    ],
+    "simulated_products": [
+      { "name": "Ferrero Rocher Box 24 pcs", "price": 3200 },
+      { "name": "Enchanted Forest Perfume 50ml", "price": 4800 },
+      { "name": "Body Mist Vanilla Rose", "price": 1600 }
+    ]
+  },
+  {
+    "id": "scenario_017",
+    "description": "User changes mind after adding to cart",
+    "user_profile": { "name": "Dilhara", "age": 30, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "Add the red roses to my cart" },
+      { "role": "assistant", "content": "Red Rose Bouquet added! Great choice, Dilhara. Anything else?" },
+      { "role": "user", "content": "actually, I changed my mind, remove them and show me lilies instead" }
+    ],
+    "expected_qualities": [
+      "removes roses without any friction or re-confirmation request",
+      "immediately pivots to showing lily options",
+      "one brief acknowledgment ('Got it!') then straight to lilies",
+      "does not lecture or ask 'are you sure?'",
+      "keeps momentum — handles the change gracefully"
+    ],
+    "simulated_products": [
+      { "name": "White Lily Bouquet 10 Stems", "price": 2600 },
+      { "name": "Pink Lily Arrangement", "price": 3100 },
+      { "name": "Mixed Lily Vase", "price": 3800 }
+    ]
+  },
+  {
+    "id": "scenario_018",
+    "description": "Product category Kapruka likely doesn't carry — custom furniture",
+    "user_profile": { "name": "Renuka", "age": 42, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "I need custom-built wooden furniture for my living room, can you help?" }
+    ],
+    "expected_qualities": [
+      "honest about what Kapruka doesn't carry — does not pretend to have custom furniture",
+      "does not apologise excessively — just straightforward",
+      "suggests the closest alternative Kapruka does carry (home decor, storage, decorative items)",
+      "keeps the user engaged rather than just saying no",
+      "one sentence honest + pivot to what IS available"
+    ],
+    "simulated_products": [
+      { "name": "Decorative Wall Mirror", "price": 4500 },
+      { "name": "Storage Ottoman Coffee Table", "price": 8900 },
+      { "name": "Throw Pillow Set 4pc", "price": 2200 }
+    ]
+  },
+  {
+    "id": "scenario_019",
+    "description": "User gives conflicting information — says gift for friend, then for self",
+    "user_profile": { "name": "Gayan", "age": 27, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "I'm looking for a gift for my friend" },
+      { "role": "assistant", "content": "Nice! What does your friend enjoy — sports, tech, food? And are they male or female, Gayan?" },
+      { "role": "user", "content": "actually it's for me, I want a new watch" }
+    ],
+    "expected_qualities": [
+      "smoothly pivots from gifting to personal shopping without making it awkward",
+      "no confusion — immediately shows watches",
+      "does not reference the earlier 'friend' context",
+      "shows watches appropriate for a 27-year-old male",
+      "concise — just show the watches"
+    ],
+    "simulated_products": [
+      { "name": "Casio G-Shock Watch", "price": 15000 },
+      { "name": "Classic Analog Watch Stainless", "price": 8500 },
+      { "name": "Smart Watch Fitness Black", "price": 9900 }
+    ]
+  },
+  {
+    "id": "scenario_020",
+    "description": "Specific request with no budget mentioned — perfume",
+    "user_profile": { "name": "Nadeesha", "age": 25, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "I want to buy a perfume for myself" }
+    ],
+    "expected_qualities": [
+      "shows perfumes immediately — clear product intent, no need to ask what they want",
+      "range of price points shown — from affordable to premium",
+      "tailored for a 25-year-old female (floral, fresh, feminine options)",
+      "does not ask budget before showing — show first, they will say if too expensive",
+      "confident recommendations with a brief description of each"
+    ],
+    "simulated_products": [
+      { "name": "Victoria's Secret Love Spell 75ml", "price": 5200 },
+      { "name": "Body Shop White Musk 30ml", "price": 3800 },
+      { "name": "Engage Floral Perfume 150ml", "price": 1900 }
+    ]
+  }
+]
