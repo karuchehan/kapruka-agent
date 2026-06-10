@@ -5,6 +5,25 @@
 ## What Works (Confirmed Improvements)
 <!-- populated automatically -->
 
+### Manual Patch — 2026-06-10 — v4.0 System Prompt (DO NOT REVERT)
+
+These three rules were patched manually after 2 consecutive autoresearch iterations both failed with the same product_quality regression. The loop was generating challengers that were too broad — applying gifting qualification rules globally, which made Claude too cautious in self-shopping scenarios.
+
+**Why manual instead of through the loop:**
+The loop cannot break this pattern on its own because it doesn't know *which* rule causes the regression. It sees "qualification rules improved completeness" and keeps adding more of them. The regression source is scope creep — rules intended for gifting accidentally suppressing products in self-shopping turns.
+
+**The three protected rules (treat as stable — do not modify in challenger generation):**
+
+1. **MODE B scoped to GIFTING ONLY** — self-shopping always uses MODE A (show products + optional follow-up question). Before this fix, MODE B was triggering for all vague requests, causing Claude to withhold products when it should have shown them. This was the root cause of the product_quality regression in iterations 1 and 2.
+
+2. **DELIVERY warmth before city question** — When a user asks about delivery or mentions a deadline, Claude must acknowledge urgency warmly first ("I'd love to get something there by Sunday!"), then ask for city. Before this fix, the delivery rule was technically correct (ask for city) but the judge consistently penalized the cold, abrupt tone. The fix is phrasing, not a new rule.
+
+3. **BUDGET HARD RULE (gifting only)** — When the user states a budget, never suggest items or combinations exceeding it. Lead with within-budget options. Only mention pricier items with an explicit caveat ("if you want to stretch a little..."). Scoped to gifting context only.
+
+**For future challenger generation:** These rules may be *refined* but not removed or weakened. If a challenger wants to modify delivery behavior, the warmth acknowledgment must be preserved. If a challenger wants to modify MODE B, the GIFTING ONLY scope must be preserved.
+
+---
+
 ## What Does Not Work (Tried And Discarded)
 <!-- populated automatically -->
 ### Iteration 2 — 2026-06-10 — Winner: **BASELINE**
