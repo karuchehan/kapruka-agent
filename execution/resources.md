@@ -4,6 +4,34 @@
 
 ## What Works (Confirmed Improvements)
 <!-- populated automatically -->
+### Iteration 4 — 2026-06-10 — Winner: **CHALLENGER**
+
+**Scores:** baseline 4.19 → challenger 4.5
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.75 | 5 ▲ +0.25 |
+| personalization | 3.7 | 3.95 ▲ +0.25 |
+| product_quality | 3.35 | 3.95 ▲ +0.60 |
+| tone | 4.75 | 4.9 ▲ +0.15 |
+| language_match | 4.8 | 4.95 ▲ +0.15 |
+| completeness | 3.8 | 4.25 ▲ +0.45 |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_004**: The response asks two questions simultaneously ('for whom' and 'what occasion') in a single sentence, directly violating the requirement to ask exactly one clarifying question. *(dims: product_quality: No products were suggested or referenced, but more critically the clarifying question asks two things at once ('for yourself or someone special, AND what's the occasion') — violating the one-question rule, personalization: Used the name but ignored gender/age context that could have shaped the question, completeness: Asks two sub-questions in one sentence, which may confuse and slow down the conversation rather than move it forward cleanly)*
+  - **scenario_009**: The response implies Sunday delivery is doable without any caveat or verification, which could set false expectations before knowing the area or product. *(dims: product_quality: No products were mentioned or suggested — this dimension is not applicable yet, but scoring reflects no product guidance at this stage, relevance: Did not caveat or acknowledge uncertainty about Sunday delivery feasibility before asking follow-up questions — slightly over-promises with 'I'd love to help you get something there by Sunday')*
+  - **scenario_010**: The response dismissed same-day delivery too quickly and failed to mention any product categories that might qualify, missing a key expected quality of the response. *(dims: product_quality: No product categories were mentioned at all — the response missed the opportunity to indicate which types of items (e.g. cakes, flowers, groceries) might qualify for faster delivery to Kandy, personalization: Used name but made no use of gender or age context, which could have helped tailor suggestions, completeness: Deflected to next-day without exploring whether any same-day options exist for specific categories, leaving the user less informed than they could be)*
+  - **scenario_011**: The response skips the essential step of acknowledging the international sender context and providing reassurance about how Kapruka handles overseas gifting, making it feel premature and incomplete for someone ordering from London. *(dims: completeness: Jumps straight to specific products without asking about budget, delivery address, or preferences — critical for an international sender, personalization: Uses the name but ignores the international context entirely — no reassurance about overseas ordering or Kapruka's cross-border service, completeness: Does not acknowledge that the user is calling from London or explain how they can place the order from abroad)*
+
+**What challenger targeted:**
+  (not recorded)
+
+**Outcome:** No regressions — challenger promoted.
+
+---
+
 ### Iteration 3 — 2026-06-10 — Winner: **CHALLENGER**
 
 **Scores:** baseline 4.12 → challenger 4.29
@@ -32,6 +60,27 @@
 
 ---
 
+
+### Protected Behavioral Rules — Delivery + Completeness (DO NOT REVERT)
+
+**Scenarios 009 & 010 — Delivery honesty pattern:**
+
+The correct behavior is NOT to say "not available" and NOT to promise delivery without checking. Be specific and helpful.
+
+- For Kandy same-day: "Same-day to Kandy is possible for flowers and cakes but not for most other categories — want me to check what's available?"
+- For Sunday deadlines: acknowledge urgency first, then ask city, then check
+
+**Pattern: validate → clarify → check → confirm. Never guess. Never deflect.**
+
+This is a protected behavioral rule. The loop must not override or weaken it. If a challenger modifies delivery behavior, the validate→clarify→check→confirm sequence must be preserved exactly.
+
+**Scenario 011 — London expat / international sender completeness:**
+
+Agent is over-qualifying and under-delivering. After getting city and occasion, immediately search and show products — do NOT keep asking qualification questions. The user has given enough context. Search, surface options, let the user react.
+
+Rule: once city + occasion are known, go to products. Additional questions come AFTER showing options, not before.
+
+---
 
 ### Manual Patch — 2026-06-10 — v4.0 System Prompt (DO NOT REVERT)
 
@@ -124,12 +173,14 @@ The loop cannot break this pattern on its own because it doesn't know *which* ru
 
 | Run | Date | Baseline | Challenger | Winner | Key Changes |
 |---|---|---|---|---|---|
+| 4 | 2026-06-10 | 4.19 | 4.5 | CHALLENGER | relevance: 4.75 → 5 (+0.25); personalization: 3.7 → 3.95 (+0.25) |
 | 3 | 2026-06-10 | 4.12 | 4.29 | CHALLENGER | relevance: 4.55 → 4.8 (+0.25); tone: 4.7 → 4.9 (+0.20) |
 | 2 | 2026-06-10 | 4.07 | 4.3 | BASELINE | relevance: 4.45 → 4.85 (+0.40); personalization: 3.6 → 3.75 (+0.15) |
 | 1 | 2026-06-10 | 4.02 | 4.14 | BASELINE | challenger regressed product_quality (-0.20) despite improving personalization (+0.35), completeness (+0.40) |
 
 ## Weakest Dimensions Over Time
 <!-- populated automatically -->
+- **Run 4**: product_quality, personalization, completeness
 - **Run 3**: product_quality, completeness, personalization
 - **Run 2**: product_quality, personalization, completeness
 
