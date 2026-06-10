@@ -565,6 +565,69 @@ $checkoutBtn.addEventListener("click", () => {
   }
 });
 
+// ── VOICE INPUT ───────────────────────────────────────────────────────────────
+
+(function initVoiceInput() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const $mic = document.getElementById("mic-btn");
+
+  if (!SR || !$mic) {
+    if ($mic) $mic.style.display = "none";
+    return;
+  }
+
+  const recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+
+  let micTween = null;
+  let autoSubmitTimer = null;
+  let finalTranscript = "";
+  let isListening = false;
+
+  $mic.addEventListener("click", () => {
+    if (isListening) { recognition.stop(); return; }
+    clearTimeout(autoSubmitTimer);
+    finalTranscript = "";
+    $chatInput.value = "";
+    autoResizeTextarea();
+    try { recognition.start(); } catch (_) {}
+  });
+
+  recognition.onstart = () => {
+    isListening = true;
+    $mic.classList.add("listening");
+    micTween = gsap.to($mic, { scale: 1.15, duration: 0.4, repeat: -1, yoyo: true, ease: "power1.inOut" });
+  };
+
+  recognition.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    $chatInput.value = finalTranscript || interim;
+    autoResizeTextarea();
+  };
+
+  function stopListening() {
+    isListening = false;
+    $mic.classList.remove("listening");
+    if (micTween) { micTween.kill(); micTween = null; }
+    gsap.to($mic, { scale: 1, duration: 0.2, ease: "power2.out" });
+  }
+
+  recognition.onend = () => {
+    stopListening();
+    if (finalTranscript.trim()) {
+      autoSubmitTimer = setTimeout(sendMessage, 1200);
+    }
+  };
+
+  recognition.onerror = () => stopListening();
+})();
+
 // ── EXPOSE addToCart for external use (product cards rendered dynamically) ──
 window._addToCart = addToCart;
 
