@@ -48,23 +48,86 @@ function appendToResources(entry) {
 
   let content = fs.readFileSync(RESOURCES_PATH, "utf8");
 
-  // Append to iteration history table
+  // ── Dimension score table ─────────────────────────────────────────────────
+  const allDims = [...new Set([
+    ...Object.keys(entry.baselineDims || {}),
+    ...Object.keys(entry.challengerDims || {}),
+  ])];
+  const dimTableRows = allDims.map(d => {
+    const b   = entry.baselineDims?.[d]   ?? "—";
+    const c   = entry.challengerDims?.[d] ?? "—";
+    const diff = (typeof b === "number" && typeof c === "number")
+      ? (c - b >= 0.05 ? ` ▲ +${(c - b).toFixed(2)}` : c - b <= -0.05 ? ` ▼ ${(c - b).toFixed(2)}` : " →")
+      : "";
+    return `| ${d} | ${b} | ${c}${diff} |`;
+  }).join("\n");
+
+  // ── Failed scenarios list ─────────────────────────────────────────────────
+  const failedList = (entry.failedScenarios || [])
+    .map(f => `  - **${f.id}**: ${f.what_was_wrong || f.description} *(dims: ${(f.failures || []).join(", ") || "n/a"})*`)
+    .join("\n");
+
+  // ── Challenger changes ────────────────────────────────────────────────────
+  const changesBlock = entry.challengerChanges
+    ? entry.challengerChanges.split("\n").map(l => `  ${l}`).join("\n")
+    : "  (not recorded)";
+
+  // ── Regression reason ─────────────────────────────────────────────────────
+  const regressionNote = entry.regressions?.length
+    ? `**Blocked by regression:** ${entry.regressions.join("; ")}`
+    : entry.winner === "CHALLENGER"
+    ? "No regressions — challenger promoted."
+    : "Challenger did not exceed baseline average.";
+
+  // ── Full detail block ─────────────────────────────────────────────────────
+  const detail = `
+### Iteration ${entry.run} — ${entry.date} — Winner: **${entry.winner}**
+
+**Scores:** baseline ${entry.baselineScore} → challenger ${entry.challengerScore}
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+${dimTableRows}
+
+**Baseline failed scenarios (what needed fixing):**
+${failedList || "  (none — all passed)"}
+
+**What challenger targeted:**
+${changesBlock}
+
+**Outcome:** ${regressionNote}
+
+---
+`;
+
+  // Insert under the right section
+  if (entry.winner === "CHALLENGER") {
+    content = content.replace(
+      "## What Works (Confirmed Improvements)\n<!-- populated automatically -->",
+      `## What Works (Confirmed Improvements)\n<!-- populated automatically -->${detail}`
+    );
+  } else {
+    content = content.replace(
+      "## What Does Not Work (Tried And Discarded)\n<!-- populated automatically -->",
+      `## What Does Not Work (Tried And Discarded)\n<!-- populated automatically -->${detail}`
+    );
+  }
+
+  // ── Iteration history table row ───────────────────────────────────────────
   const tableRow = `| ${entry.run} | ${entry.date} | ${entry.baselineScore} | ${entry.challengerScore} | ${entry.winner} | ${entry.keyChanges} |`;
   content = content.replace(
     /(\| Run \| Date \|.*\|.*\n\|---.*\n)/,
     `$1${tableRow}\n`
   );
 
-  // Append to What Works or What Does Not Work
-  if (entry.winner === "CHALLENGER") {
-    const section = `\n### Iteration ${entry.run} — ${entry.date}\n${entry.improvements}\n`;
-    content = content.replace("## What Works (Confirmed Improvements)\n<!-- populated automatically -->",
-      `## What Works (Confirmed Improvements)\n<!-- populated automatically -->${section}`);
-  } else {
-    const section = `\n### Iteration ${entry.run} — ${entry.date}\nChallenger scored ${entry.challengerScore} vs baseline ${entry.baselineScore}. Discarded.\n`;
-    content = content.replace("## What Does Not Work (Tried And Discarded)\n<!-- populated automatically -->",
-      `## What Does Not Work (Tried And Discarded)\n<!-- populated automatically -->${section}`);
-  }
+  // ── Weakest dimensions tracker ────────────────────────────────────────────
+  const weakLine = `- **Run ${entry.run}**: ${(entry.weakestDims || []).join(", ") || "n/a"}`;
+  content = content.replace(
+    "## Weakest Dimensions Over Time\n<!-- populated automatically -->",
+    `## Weakest Dimensions Over Time\n<!-- populated automatically -->\n${weakLine}`
+  );
 
   fs.writeFileSync(RESOURCES_PATH, content);
 }
@@ -150,16 +213,35 @@ export async function compareAndPromote() {
     console.log(`\n  BASELINE HOLDS — challenger discarded`);
   }
 
+  // ── Extract challenger changes comment ───────────────────────────────────
+  let challengerChanges = "(not recorded)";
+  try {
+    const cText = fs.readFileSync(CHALLENGER_PATH, "utf8");
+    const m = cText.match(/<!--\s*CHANGES IN THIS VERSION:([\s\S]*?)-->/);
+    if (m) challengerChanges = m[1].trim();
+  } catch (_) { /* challenger already deleted if baseline won */ }
+
+  // ── Collect baseline failed scenarios ────────────────────────────────────
+  const failedScenarios = (baselineData.results || [])
+    .filter(r => !r.skipped && r.scores && Object.values(r.scores).some(v => v < 3))
+    .map(r => ({ id: r.scenario_id, what_was_wrong: r.what_was_wrong, failures: r.failures, description: r.description }));
+
   // ── Update resources ──────────────────────────────────────────────────────
   try {
     appendToResources({
-      run:              runNo,
-      date:             new Date().toISOString().slice(0, 10),
-      baselineScore:    bAvg,
-      challengerScore:  cAvg,
+      run:               runNo,
+      date:              new Date().toISOString().slice(0, 10),
+      baselineScore:     bAvg,
+      challengerScore:   cAvg,
+      baselineDims:      bDims,
+      challengerDims:    cDims,
       winner,
-      keyChanges:       improvements.slice(0, 2).join("; ") || "no significant changes",
-      improvements:     improvements.join("\n"),
+      improvements,
+      regressions,
+      keyChanges:        improvements.slice(0, 2).join("; ") || regressions.slice(0, 1).join("; ") || "no significant changes",
+      challengerChanges,
+      failedScenarios,
+      weakestDims:       baselineData.weakest_dimensions || [],
     });
   } catch (err) {
     console.error(`  [warn] Could not update resources.md: ${err.message}`);
