@@ -1,7 +1,6 @@
 import Anthropic  from "@anthropic-ai/sdk";
 import fs         from "fs";
 import path       from "path";
-import { spawn }  from "child_process";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,14 +13,19 @@ const BASE_SYSTEM_PROMPT = fs.readFileSync(
 
 const CHECKOUT_RE = /\[CHECKOUT_URL\](https?:\/\/[^\s]+)\[\/CHECKOUT_URL\]/;
 
-// ── SENTENCE TRUNCATOR ────────────────────────────────────────────────────────
+// ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
 
-function truncateToSentences(text, max) {
-  // Split on sentence-ending punctuation followed by space or end
-  const matches = text.match(/[^.!?]+[.!?]+(\s|$)/g);
-  if (!matches) return text;
-  return matches.slice(0, max).join("").trim();
-}
+const MCP_URL  = "https://mcp.kapruka.com/mcp";
+const MCP_HDRS = { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" };
+const TOOL_MAP = {
+  search_products: "kapruka_search_products",
+  get_product:     "kapruka_get_product",
+  list_categories: "kapruka_list_categories",
+  list_cities:     "kapruka_list_delivery_cities",
+  check_delivery:  "kapruka_check_delivery",
+  create_order:    "kapruka_create_order",
+  track_order:     "kapruka_track_order",
+};
 
 // ── STOPWORDS ─────────────────────────────────────────────────────────────────
 
@@ -121,34 +125,65 @@ function detectIntent(messages) {
   return { type: "search", query };
 }
 
-// ── PYTHON MCP CALLER ─────────────────────────────────────────────────────────
+// ── NODE.JS MCP CALLER ────────────────────────────────────────────────────────
 
-function callMCP(tool, args, timeoutMs = 18000) {
-  return new Promise((resolve, reject) => {
-    const scriptPath = path.join(ROOT, "execution", "tools", "kapruka_mcp.py");
-    const proc = spawn("python3", [scriptPath, tool, JSON.stringify(args)]);
+async function callMCP(tool, args, timeoutMs = 18000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    let stdout = "", stderr = "";
-    proc.stdout.on("data", d => (stdout += d));
-    proc.stderr.on("data", d => (stderr += d));
+  try {
+    const toolName = TOOL_MAP[tool] || tool;
 
-    const timer = setTimeout(() => {
-      proc.kill();
-      reject(new Error(`MCP ${tool} timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    proc.on("close", code => {
-      clearTimeout(timer);
-      if (code !== 0) {
-        return reject(new Error(`MCP ${tool} failed (${code}): ${stderr.trim()}`));
-      }
-      try {
-        resolve(JSON.parse(stdout));
-      } catch {
-        reject(new Error(`MCP ${tool} returned invalid JSON: ${stdout.slice(0, 200)}`));
-      }
+    const initResp = await fetch(MCP_URL, {
+      method: "POST",
+      headers: MCP_HDRS,
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "kapruka-agent", version: "1.0" },
+        },
+      }),
+      signal: controller.signal,
     });
-  });
+    if (!initResp.ok) throw new Error(`MCP init ${initResp.status}`);
+    const sessionId = initResp.headers.get("mcp-session-id");
+    if (!sessionId) throw new Error("No MCP session ID");
+
+    const toolResp = await fetch(MCP_URL, {
+      method: "POST",
+      headers: { ...MCP_HDRS, "Mcp-Session-Id": sessionId },
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 2,
+        method: "tools/call",
+        params: {
+          name: toolName,
+          arguments: { params: { ...args, response_format: "json" } },
+        },
+      }),
+      signal: controller.signal,
+    });
+    if (!toolResp.ok) throw new Error(`MCP call ${toolResp.status}`);
+
+    const text = await toolResp.text();
+    for (const line of text.split("\n")) {
+      if (!line.startsWith("data: ")) continue;
+      const payload = JSON.parse(line.slice(6));
+      if (payload.error) throw new Error(payload.error.message || "MCP error");
+      const result = payload.result || {};
+      if (result.isError) throw new Error(result.content?.[0]?.text || "MCP error");
+      const content = result.content || [];
+      if (content[0]?.type === "text") {
+        try { return JSON.parse(content[0].text); }
+        catch { return { raw: content[0].text }; }
+      }
+    }
+    throw new Error("Empty MCP response");
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── SYSTEM PROMPT BUILDER ─────────────────────────────────────────────────────
@@ -328,9 +363,6 @@ export default async function handler(req, res) {
       .replace(/\[PRODUCTS\][\s\S]*?\[\/PRODUCTS\]/g, "")
       .replace(CHECKOUT_RE, "")
       .trim();
-
-    // Hard cap: keep only first 3 sentences
-    message = truncateToSentences(message, 3);
 
   } catch (err) {
     console.error("Claude error:", err.message);
