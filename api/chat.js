@@ -152,22 +152,27 @@ function callMCP(tool, args, timeoutMs = 18000) {
 }
 
 // ── SYSTEM PROMPT BUILDER ─────────────────────────────────────────────────────
+//
+// Returns an array of content blocks for the `system` parameter.
+// Block 1: BASE_SYSTEM_PROMPT — static, identical every request → cache_control applied
+//           → all requests share the same cache key, reads cost 10% of base price
+// Block 2: dynamic context (user profile + live products) — changes per request, not cached
 
-function buildSystemPrompt(userProfile, recipientProfile, liveProducts) {
-  let parts = [];
+function buildSystemPrompt(userProfile, recipientProfile, liveProducts, trackingData) {
+  const dynamicParts = [];
 
   if (userProfile?.name) {
     let p = `USER PROFILE\nName: ${userProfile.name}`;
     if (userProfile.age)    p += ` | Age: ${userProfile.age}`;
     if (userProfile.gender) p += ` | Gender: ${userProfile.gender}`;
-    parts.push(p);
+    dynamicParts.push(p);
   }
 
   if (recipientProfile?.relationship) {
     let r = `RECIPIENT PROFILE\nRelationship: ${recipientProfile.relationship}`;
     if (recipientProfile.age)    r += ` | Age: ${recipientProfile.age}`;
     if (recipientProfile.gender) r += ` | Gender: ${recipientProfile.gender}`;
-    parts.push(r);
+    dynamicParts.push(r);
   }
 
   // Slim product list for Claude — name + price only, no image URLs
@@ -175,12 +180,29 @@ function buildSystemPrompt(userProfile, recipientProfile, liveProducts) {
     const slim = liveProducts.map((p, i) =>
       `${i + 1}. ${p.name} — LKR ${p.price}`
     ).join("\n");
-    parts.push(`AVAILABLE PRODUCTS (already fetched — recommend from these):\n${slim}`);
+    dynamicParts.push(`AVAILABLE PRODUCTS (already fetched — recommend from these):\n${slim}`);
   }
 
-  parts.push(BASE_SYSTEM_PROMPT);
+  if (trackingData) {
+    dynamicParts.push(`Order tracking result:\n${JSON.stringify(trackingData, null, 2)}`);
+  }
 
-  return parts.join("\n\n---\n\n");
+  const blocks = [
+    {
+      type: "text",
+      text: BASE_SYSTEM_PROMPT,
+      cache_control: { type: "ephemeral" },
+    },
+  ];
+
+  if (dynamicParts.length) {
+    blocks.push({
+      type: "text",
+      text: dynamicParts.join("\n\n---\n\n"),
+    });
+  }
+
+  return blocks;
 }
 
 // ── NORMALISE PRODUCT FIELDS ──────────────────────────────────────────────────
@@ -269,25 +291,28 @@ export default async function handler(req, res) {
   let checkoutUrl = null;
 
   try {
-    const systemPrompt = buildSystemPrompt(userProfile, recipientProfile, products);
-
-    const extraContext = trackingData
-      ? `\n\nOrder tracking result:\n${JSON.stringify(trackingData, null, 2)}`
-      : "";
-
-    const augmentedSystem = extraContext
-      ? systemPrompt + extraContext
-      : systemPrompt;
+    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, trackingData);
 
     const response = await client.messages.create(
       {
         model:      "claude-sonnet-4-6",
         max_tokens: 768,
-        system:     augmentedSystem,
+        system:     systemBlocks,
         messages,
       },
       { timeout: 30_000 }
     );
+
+    // Log cache hit/miss stats
+    const u = response.usage;
+    if (u) {
+      console.log(
+        `tokens — in: ${u.input_tokens}` +
+        ` | cache_write: ${u.cache_creation_input_tokens || 0}` +
+        ` | cache_read: ${u.cache_read_input_tokens || 0}` +
+        ` | out: ${u.output_tokens}`
+      );
+    }
 
     const rawText = response.content
       .filter(b => b.type === "text")
