@@ -171,3 +171,47 @@ Rate limits: 60 req/min per IP, 30 orders/hour per IP. No auth needed.
 3. Deploy to Vercel
 
 ---
+
+## Session 005 — 2026-06-10 (Autoresearch Loop)
+
+### What We Did
+- Identified root cause of "planting → planners" bug: Kapruka MCP search returns irrelevant results for some keywords. No fix possible without better category metadata — documented.
+- Fixed critical system prompt bug: MODE A said "Do NOT list products in text — they appear as cards automatically." This caused Claude to write teasers with no product names. Fixed to: name products by their actual name and price in the response text.
+- Built complete 7-file autoresearch loop (Karpathy-style):
+  - `execution/test_scenarios.json` — 20 scenarios covering all edge cases
+  - `execution/score_response.js` — second Claude call as judge (6 dimensions, 1-5 strict scoring)
+  - `execution/run_tests.js` — SDK-direct test runner, injects simulated products per scenario
+  - `execution/generate_challenger.js` — reads failures + resources.md, generates targeted improved prompt
+  - `execution/compare_and_promote.js` — promotes challenger only if higher avg AND no regressions
+  - `execution/resources.md` — auto-updated learnings log
+  - `execution/orchestrator.js` — one command, full iteration
+- Fixed bug in generate_challenger.js: looked for `baseline_*` files but initial run saves as `run_*`
+- Ran full Iteration 1: baseline 4.02, challenger 4.14 → **BASELINE HOLDS** (challenger regressed product_quality 3.45→3.25 despite improving personalization +0.35, completeness +0.40)
+- Committed `9056d6f` → pushed to karuchehan/kapruka-agent
+
+### Autoresearch Iteration 1 Results
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.55 | 4.65 ✓ |
+| personalization | 3.55 | 3.90 ✓ |
+| product_quality | 3.45 | 3.25 ✗ REGRESSION |
+| tone | — | — |
+| language_match | — | — |
+| completeness | 3.45 | 3.85 ✓ |
+
+### Remaining Failure Patterns (from results)
+1. **Tanglish (scenarios 014, 016)**: Agent responds in formal English when user writes in casual Sri Lankan mixed style. Both baseline and challenger fail this consistently. `language_match` is a persistent weak dimension.
+2. **Delivery scenarios (009, 010)**: Agent either overpromises same-day delivery or fails to ask for the delivery city before confirming.
+3. **product_quality (3.25–3.45)**: Still weakest dimension — simulated products sometimes not matched to user need.
+
+### Mistakes / Lessons
+- `MODE A: "Do NOT list products"` was the biggest UX bug — caused all the "showing nothing" complaints
+- Challenger promotion requires ZERO regressions — even one dimension drop kills promotion. This is correct behaviour but means incremental gains are harder.
+- The test runner run prefix (`run_*`) vs compare prefix (`baseline_*`) mismatch — fixed.
+
+### Next Steps
+1. Run `node execution/orchestrator.js` again targeting Tanglish + delivery scenarios
+2. Manually strengthen Tanglish rules in system prompt before next iteration
+3. Deploy to Vercel
+
+---

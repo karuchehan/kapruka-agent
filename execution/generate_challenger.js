@@ -22,8 +22,9 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 function latestResultFile() {
   const resultsDir = path.join(__dirname, "results");
   if (!fs.existsSync(resultsDir)) return null;
+  // Accept baseline_* first, fall back to any run_* file
   const files = fs.readdirSync(resultsDir)
-    .filter(f => f.startsWith("baseline_") && f.endsWith(".json"))
+    .filter(f => f.endsWith(".json") && !f.startsWith("challenger_"))
     .sort()
     .reverse();
   return files.length ? path.join(resultsDir, files[0]) : null;
