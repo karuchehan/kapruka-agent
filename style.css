@@ -258,15 +258,14 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  /* padding-bottom set dynamically by JS = inputArea.offsetHeight + 20px */
 }
 
-/* Spacer ensures content clears the input bar in flex overflow containers.
-   padding-bottom is ignored in some Chrome/Safari versions when overflow-y: auto
-   is set on a flex container — ::after as a flex item is the reliable fix. */
-#messages-container::after {
-  content: '';
-  display: block;
-  min-height: 120px;
+/* Scroll anchor — always the last DOM node in #messages-container.
+   scrollIntoView(block:'end') on this element scrolls the last message fully into view.
+   Height is small (20px) — the real clearance comes from JS-measured padding-bottom. */
+#scroll-anchor {
+  height: 20px;
   flex-shrink: 0;
 }
 
@@ -797,7 +796,6 @@ html, body {
 /* ── MOBILE ── */
 @media (max-width: 600px) {
   #messages-container { padding: 16px 14px 0; }
-  #messages-container::after { min-height: 140px; }
 
   .message-bubble { max-width: 88%; font-size: 14px; }
 

@@ -29,6 +29,8 @@ const $obSend  = document.getElementById("onboarding-send");
 
 const $chat       = document.getElementById("chat-screen");
 const $msgs       = document.getElementById("messages-container");
+const $anchor     = document.getElementById("scroll-anchor");
+const $inputArea  = document.getElementById("input-area");
 const $chatInput  = document.getElementById("chat-input");
 const $sendBtn    = document.getElementById("send-btn");
 
@@ -160,6 +162,7 @@ function transitionToChat() {
     onComplete: () => {
       $ob.classList.add("hidden");
       $chat.classList.remove("hidden");
+      updateScrollPadding();
       gsap.from($chat, { opacity: 0, duration: 0.5, ease: "power2.out" });
       $chatInput.focus();
     }
@@ -192,7 +195,7 @@ function addMessage(role, text) {
     .replace(/\*(.+?)\*/g, "<em>$1</em>");
   row.appendChild(bubble);
 
-  $msgs.appendChild(row);
+  $msgs.insertBefore(row, $anchor);
   gsap.from(row, { opacity: 0, y: 12, duration: 0.3, ease: "power2.out" });
   scrollToBottom();
   return row;
@@ -217,7 +220,7 @@ function showTyping() {
   });
   row.appendChild(wrap);
 
-  $msgs.appendChild(row);
+  $msgs.insertBefore(row, $anchor);
   gsap.from(row, { opacity: 0, y: 10, duration: 0.3 });
 
   gsap.to(dots, {
@@ -289,7 +292,7 @@ function addProductCards(products) {
     wrap.appendChild(card);
   });
 
-  $msgs.appendChild(wrap);
+  $msgs.insertBefore(wrap, $anchor);
   gsap.from(wrap.children, {
     opacity: 0, y: 16, stagger: 0.07, duration: 0.4, ease: "power2.out"
   });
@@ -318,7 +321,7 @@ function showSkeletonCards(n = 3) {
     wrap.appendChild(card);
   }
 
-  $msgs.appendChild(wrap);
+  $msgs.insertBefore(wrap, $anchor);
   scrollToBottom();
 }
 
@@ -327,12 +330,14 @@ function removeSkeletons() {
   if (el) el.remove();
 }
 
+function updateScrollPadding() {
+  $msgs.style.paddingBottom = ($inputArea.offsetHeight + 20) + "px";
+}
+
 function scrollToBottom() {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      $msgs.scrollTop = $msgs.scrollHeight;
-    });
-  });
+  setTimeout(() => {
+    $anchor.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, 100);
 }
 
 // ── SEND MESSAGE ──────────────────────────────────────────────────────────────
@@ -658,6 +663,9 @@ $checkoutBtn.addEventListener("click", () => {
 window._addToCart = addToCart;
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
+
+updateScrollPadding();
+window.addEventListener("resize", updateScrollPadding);
 
 gsap.from(document.body, { opacity: 0, duration: 0.5, ease: "power2.out" });
 updateCartUI();
