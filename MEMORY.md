@@ -446,3 +446,41 @@ The `::after` pseudo-element approach fixed the browser CSS padding-bottom bug b
 3. Then visual autoresearch loop when ready
 
 ---
+
+## Session 012 — 2026-06-12 (Next.js Migration + Carousel Height Collapse Fix)
+
+### What We Did
+- Committed full Next.js 15 + React 19 + TypeScript migration (30 files, 3658 insertions)
+- Fixed carousel thin-strip bug (root cause identified and fixed)
+- Pushed to `karuchehan/kapruka-agent` — commit `24abd1c`
+
+### Carousel Thin-Strip Bug — Root Cause
+
+**CSS spec (Flexbox §4.5):** When a flex item has `overflow` other than `visible` in the main axis direction, `min-height: auto` resolves to `0` (not the content height). `.products-carousel { overflow-y: hidden }` was in a column-flex parent (`#messages-container`). With default `flex-shrink: 1`, the flex algorithm could collapse the carousel to near-zero height. `overflow-y: hidden` then clipped the 380px cards to that collapsed strip.
+
+Bug only manifested late in conversations (multiple carousels + many message bubbles) — enough total flex content to exceed container height and trigger shrinking.
+
+### Fixes Applied
+
+| File | Change |
+|---|---|
+| `app/globals.css` | Added `flex-shrink: 0` to `.products-carousel` — blocks flex algorithm from shrinking it |
+| `app/globals.css` | Reverted `html,body { overflow: clip }` → `overflow: hidden` — `clip` on root element has unpredictable BFC effects; y-transform horizontal-shift root cause was already gone |
+| `components/ProductCarousel.tsx` | Removed `y: 16` from GSAP fromTo — pure opacity, no transform (matches MessageBubble fix from prior session) |
+
+### All 4 CLAUDE.md Checks — PASS
+1. TS CLEAN — no errors
+2. `overflow: hidden` — only on `html,body` (root) + 3 leaf nodes (text-clamp, skeleton card, cart item ellipsis)
+3. `overflow-x: hidden` — none
+4. `#messages-container { overflow-y: auto }` — confirmed
+
+### Mistakes / Lessons
+- `overflow-y: hidden` on a flex item silently zeros out `min-height: auto` per CSS spec — this is a non-obvious spec behavior that causes catastrophic height collapse when parent flex shrinking occurs
+- `overflow: clip` on `html` is a newer CSS value — reverted to `overflow: hidden` since it's more predictable on the root element and the original reason for using `clip` (horizontal shift from y-transforms) was already resolved
+
+### Next Steps
+1. Visual verify carousel fix in browser — product cards should be full 380px height, horizontally scrollable
+2. Add `.env.local` and `.next/` to `.gitignore` (currently untracked, not committed — good, but should be explicit)
+3. Deploy to Vercel
+
+---
