@@ -633,3 +633,33 @@ Query-token DILUTION, same class as Session-014 currency leak:
 2. Optional: per-session product-id cache; broaden GENERIC_QUERY_WORDS audit.
 
 ---
+
+## Session 015c — 2026-06-12 (Prod "Network error" — function timeout)
+
+### Symptom
+Live site: "gift for brother-in-law, likes electrical equipment" → bubble "Sorry, something went wrong: Network error". That string is useChat.ts `!res.ok` branch where `res.json()` ALSO failed → body was non-JSON (platform 5xx/504 HTML), NOT the route's own error handler (which always returns JSON).
+
+### Diagnosis
+- Reproduced locally: HTTP 200, ~3s. Works. So NOT a code bug — environment/platform.
+- `app/api/chat/route.ts` had NO `maxDuration` → ran under platform default cap. Cold start + cross-region MCP latency (init + call + possible fallback re-search) before the Anthropic call can exceed the cap → Vercel returns non-JSON 504 → client shows "Network error". Client 22s abort is LONGER than the platform cap, so platform fails first (else it'd be the catch-branch "Connection error").
+- `next.config.ts` already bundles `directives/` via outputFileTracingIncludes — so the readFileSync-missing-file theory was wrong.
+- Could NOT query prod: `vercel whoami` → "token provided via VERCEL_TOKEN is not valid". No prod log access this session.
+
+### Fix (commit 67c9c95, pushed → auto-deploy)
+`export const maxDuration = 60;` on the route (Hobby max).
+
+### UNVERIFIED — user must confirm post-deploy
+1. Retry after redeploy. If fixed → was the timeout.
+2. Verify ANTHROPIC_API_KEY is set in Vercel project env (would normally yield a JSON error, not "Network error", but confirm anyway).
+3. If still failing → read Vercel function logs (dashboard → deployment → Functions) for the real stack.
+
+### Separate bugs spotted in the curl output (NOT the screenshot issue)
+- Intra-response duplicate: `BOOK001868` ("17 Indisputable Law Of Teamwork") appeared TWICE in one products array. Task-1 `shownProductIds` dedupes ACROSS the conversation but NOT within a single response (filter checks the Set before forEach adds). Needs intra-array dedupe by id.
+- "electrical equipment" → returned self-help books ("Law of Success", "48 Laws of Power"). MCP relevance miss; gate produced 0 genre matches → zero-fallback returned the books. Same dilution class as autobiography but here the gate can't rescue (0 survivors).
+
+### Next Steps
+1. User verifies prod after redeploy (+ env + logs).
+2. Fix intra-response duplicate dedupe.
+3. Consider relevance gate behavior when 0 survivors on a clearly-typed query.
+
+---
