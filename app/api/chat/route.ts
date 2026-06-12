@@ -45,6 +45,8 @@ const STOP = new Set([
   "within","along","following","across","behind","beyond","plus","except","however",
   // time words — never product keywords
   "day","today","tomorrow","yesterday","week","month","soon","next","last","time",
+  // currency / budget tokens — never product keywords (leak into MCP query otherwise)
+  "rs","lkr","rupees","rupee","budget","price","priced","cost","costs",
   // generic qualifiers
   "stuff","things","thing","kind","types","type","bit","lot","way",
   // 2-char noise words (now reachable since extractKeywords uses >= 2)
