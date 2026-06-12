@@ -594,3 +594,42 @@ Bug only manifested late in conversations (multiple carousels + many message bub
 5. Carry-over from Session 014: autoresearch w/ budget dimension, card-size visual, Vercel deploy, `kapruka_direction_prompt.md`.
 
 ---
+
+## Session 015b — 2026-06-12 (Live MCP Verification + Genre-Aware Relevance)
+
+### What We Did (continuation of 015)
+Inspected live `kapruka_search_products` and ran the 3 end-to-end acceptance tests against `/api/chat` (user-approved Anthropic calls). Commit `38d2aab`.
+
+### Live MCP field findings (probe, no Anthropic call)
+- `kapruka_search_products` result fields: `id, name, summary, price{amount,currency}, compare_at_price, in_stock, stock_level, image_url, category{id,name,slug}, rating, ships_internationally, url`.
+- **`category` is an OBJECT and almost always `{name:"General"}`** — useless for genre. Original `String(p.category)` would yield "[object Object]".
+- **Genre signal lives in `summary`** (e.g. "...Non Fiction Autobiography").
+- **MCP itself returns duplicate rows** (same title twice) — a source-level contributor to duplicate cards (Task-1 Set + slice mask it client-side).
+
+### Root cause of "autobiography → fiction/piano books" (data-confirmed)
+Query-token DILUTION, same class as Session-014 currency leak:
+- `q="autobiographies"` → 3 real autobiographies (Gandhi, Gorky).
+- `q="books likes autobiographies"` (what buildSearchQuery produced) → 7 piano courses. The generic word **"books"** poisons MCP ranking; "likes" was noise (only "like" was a stopword).
+
+### Fixes layered on top of commit 720d090
+- `normaliseProduct`: extract `category.name` from the object; capture `summary`. Gate haystack = name+category+summary.
+- Relevance gate fallback **<2 → zero** (DEVIATION from the written spec): live data showed the genre word often in only ONE summary, so <2 re-admitted fiction. One on-topic card beats four with three off-topic. Easy to revert if undesired.
+- `extractKeywords`: drop GENERIC_QUERY_WORDS (book/books/item/product/thing) when a specific token survives; keep them only if alone ("show me books" still works). Added likes/liked/wanted/wants/needs/needed to STOP.
+- LAST SHOWN PRODUCTS injection now includes a summary snippet.
+
+### Verification (all PASS, end-to-end /api/chat)
+1. "I'm looking for some books, he likes autobiographies" → 1 card: Gandhi's *Experiments With Truth* (real autobiography). No piano books/fiction.
+2. "what is that book about?" → described Gandhi's autobiography from LAST SHOWN context, **0 products** (no re-search), no category deflection, price Rs.3,550.
+3. Price follow-up → Rs.3,550 consistent with card, **0 products** (no re-search).
+- Deterministic gate suite: 6/6. `npx tsc --noEmit` clean throughout.
+
+### Gaps / Lessons
+- Gate has false-negatives: Gorky's *Mage Sarasavi* IS an autobiography but its summary omits the word → dropped. Acceptable tradeoff (precision over recall) but worth noting.
+- Generic container words poison MCP relevance — strip them when a specific token exists. Third instance of "the query string sent to MCP is the bug, not the filter" (after currency tokens). Consider an audit of all query-noise classes.
+- A per-session product-id cache is still the only hard guarantee against price flips if a follow-up ever DOES re-search; Fix 1 removes the common trigger, not the possibility.
+
+### Next Steps
+1. Carry-over: autoresearch w/ budget+relevance dimension, card-size visual, Vercel deploy, `kapruka_direction_prompt.md`.
+2. Optional: per-session product-id cache; broaden GENERIC_QUERY_WORDS audit.
+
+---
