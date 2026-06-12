@@ -663,3 +663,32 @@ Live site: "gift for brother-in-law, likes electrical equipment" → bubble "Sor
 3. Consider relevance gate behavior when 0 survivors on a clearly-typed query.
 
 ---
+
+## Session 015d — 2026-06-12 (REAL prod cause: stale deployment, not timeout)
+
+### Correction to 015c
+The timeout theory was WRONG. maxDuration=60 is harmless hygiene but not the fix.
+
+### Actual root cause (probed prod directly)
+- `GET https://kapruka-agent.vercel.app/api/chat` → **404** (not 405) — route ABSENT from deployed build.
+- Root `/` → `age: 698654`s ≈ **8 days old**, x-vercel-cache HIT.
+- Production is serving a deployment from ~June 4, BEFORE the Next.js migration (June 11). That build has no `app/api/chat/route.ts` → POST /api/chat returns 404 HTML → useChat `res.json()` fails → "Sorry, something went wrong: Network error" (the screenshot).
+- **None of this session's fixes are live.** All committed + pushed to GitHub `main`, but Vercel is NOT auto-deploying from `main` (git integration disconnected / wrong branch / never set up — project may only ever have been deployed via CLI).
+- Local `next build` is CLEAN and includes `/api/chat` (ƒ Dynamic) — code is deployable; the gap is purely deploy.
+- Could not deploy from this session: `vercel whoami` → "VERCEL_TOKEN is not valid". No auth.
+
+### Fixes committed this session (pushed, awaiting deploy)
+- 14f690f: intra-response dedupe (useChat) + zero-fallback tightening (productFilter — specific query + 0 matches → return [] so agent asks follow-up).
+- 67c9c95: maxDuration=60 on route (hygiene).
+- Earlier: 720d090, 38d2aab (the 3 core fixes + genre relevance), 52ccabc (scenarios + gitignore).
+
+### USER ACTION REQUIRED (I cannot deploy — no Vercel auth)
+1. Deploy: `! vercel login` then `! vercel --prod` from the project dir. OR connect the GitHub repo (karuchehan/kapruka-agent) in Vercel dashboard → enable auto-deploy on push to main.
+2. Set ANTHROPIC_API_KEY in Vercel project env (Production) BEFORE/at deploy — else /api/chat 500s (JSON error) after the route is live.
+3. After deploy: re-test the brother-in-law message; expect 200 + a follow-up question (electrical equipment now returns 0 products via zero-fallback tightening).
+
+### Next Steps
+1. User deploys + sets env, then we verify prod end-to-end.
+2. Investigate WHY auto-deploy stopped (git integration vs CLI-only history).
+
+---
