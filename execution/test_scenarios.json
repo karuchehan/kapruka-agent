@@ -392,5 +392,66 @@
       { "name": "Body Shop White Musk 30ml", "price": 3800 },
       { "name": "Engage Floral Perfume 150ml", "price": 1900 }
     ]
+  },
+  {
+    "id": "scenario_021_autobiography_relevance",
+    "category": "product_relevance",
+    "description": "User asks for autobiographies — agent must return ACTUAL autobiographies/memoirs, not fiction novels. Tests loose keyword matching on 'autobiography' that returns fiction.",
+    "user_profile": { "name": "Roshan", "age": 34, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "I'm looking for some books, he likes autobiographies" }
+    ],
+    "expected_qualities": [
+      "recommends ONLY the genuine autobiographies/memoirs from the available list (Mandela, Michelle Obama, Kalam)",
+      "filters OUT the fiction novels in the list — does NOT present 'No Time Like The Present' (Gordimer fiction) or 'A Game of Thrones' as autobiographies",
+      "if it cannot find enough genuine autobiographies, says so honestly rather than passing fiction off as autobiography",
+      "product_quality must score 1 if any fiction title is recommended as an autobiography",
+      "stays on the book category — does not pivot away from books"
+    ],
+    "simulated_products": [
+      { "name": "Long Walk to Freedom — Nelson Mandela", "price": 3200 },
+      { "name": "Becoming — Michelle Obama", "price": 3800 },
+      { "name": "Wings of Fire — A.P.J. Abdul Kalam", "price": 1900 },
+      { "name": "No Time Like The Present — Nadine Gordimer", "price": 5310 },
+      { "name": "A Game of Thrones — George R.R. Martin", "price": 2400 }
+    ]
+  },
+  {
+    "id": "scenario_022_describe_book_context",
+    "category": "context_retention",
+    "description": "A book was already shown. User asks 'what is that book about?' — agent must describe the book using the title/author context it already has, NOT deflect or claim it lacks details.",
+    "user_profile": { "name": "Amaya", "age": 29, "gender": "female" },
+    "messages": [
+      { "role": "user", "content": "show me some good books" },
+      { "role": "assistant", "content": "Here are a few great picks, Amaya — including 'Long Walk to Freedom' by Nelson Mandela, his autobiography." },
+      { "role": "user", "content": "what is that book about?" }
+    ],
+    "expected_qualities": [
+      "describes the book using the title and author already in context (Mandela's autobiography — his life, anti-apartheid struggle, imprisonment, presidency)",
+      "does NOT say it lacks description details or cannot help",
+      "does NOT deflect by suggesting a different category (e.g. 'want to look at gadgets instead?')",
+      "completeness/relevance must score 1 if the agent deflects or claims no details available",
+      "stays warm and keeps the book conversation going"
+    ],
+    "simulated_products": []
+  },
+  {
+    "id": "scenario_023_no_unprompted_category_switch",
+    "category": "context_retention",
+    "description": "User pushes back / is unsatisfied within a category. Agent must NOT suggest switching to a different category (gadgets/accessories) unless the user explicitly asks. Must keep helping within the current category.",
+    "user_profile": { "name": "Nuwan", "age": 31, "gender": "male" },
+    "messages": [
+      { "role": "user", "content": "I want a book about Sri Lankan history" },
+      { "role": "assistant", "content": "Great choice, Nuwan! Let me find some Sri Lankan history books for you." },
+      { "role": "user", "content": "these aren't quite what I'm after" }
+    ],
+    "expected_qualities": [
+      "keeps helping WITHIN the book category — asks a refining question or shows different books",
+      "does NOT suggest switching to a different category like gadgets, electronics, or accessories",
+      "does NOT deflect away from books just because the user pushed back",
+      "relevance must score 1 if the agent suggests a different category unprompted",
+      "stays patient and warm — treats pushback as a chance to refine, not abandon"
+    ],
+    "simulated_products": []
   }
 ]

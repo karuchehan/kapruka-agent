@@ -7,3 +7,6 @@ node_modules/
 *.log
 .vercel
 tsconfig.tsbuildinfo
+
+# Autoresearch run output (disposable)
+execution/results/
