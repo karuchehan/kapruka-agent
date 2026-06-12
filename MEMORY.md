@@ -484,3 +484,44 @@ Bug only manifested late in conversations (multiple carousels + many message bub
 3. Deploy to Vercel
 
 ---
+
+## Session 013 — 2026-06-12 (Relevancy: Budget + Junk Filtering)
+
+### What We Did
+- `.gitignore`: added `.env.local`, `.next/`, `tsconfig.tsbuildinfo` — commit `3b13383`
+- Fixed product relevancy (budget overflow + vendor-listing junk) — commit `e506894`
+
+### Critical Architecture Insight
+**Product cards are chosen by `route.ts`, NOT by Claude.** The route does `products = result.results.slice(0,4)` and ships that array to the frontend; Claude only writes the text. A system-prompt-only relevancy fix is therefore INEFFECTIVE for the rendered cards — an over-budget or vendor-listing card still renders because the code put it there. Relevancy MUST be enforced in code. (This was the root reason the prior budget/junk bugs persisted despite prompt rules.)
+
+### Fixes Applied
+| File | Change |
+|---|---|
+| `lib/productFilter.ts` (new) | `extractBudget` (parses "under Rs 2000", "budget is 2,000", "around Rs. 500"; scans newest user msg first; applies whole conversation), `isVendorName` (company markers: Pvt/Ltd/Enterprises/Traders/Distributors/Holdings/Importers/Exporters + suffix-only Electronics/Trading/Stores/Mart/Emporium/Agencies), `isJunkProduct` (no-image OR price≤0 OR vendor-name), `filterProducts` (junk then over-budget) |
+| `app/api/chat/route.ts` | Imports + applies `filterProducts<Product>(...)` to MCP results BEFORE slicing to 4, for both primary and fallback search. `budget = extractBudget(messages)` computed once per request. |
+| `directives/system_prompt.md` | Added BUDGET HARD RULE (never show over-budget; if nothing fits → "Nothing on Kapruka fits that budget for [category] right now" + one follow-up) and PRODUCT QUALITY FILTER (skip vendor/shop listings). Governs Claude's WORDS to match the code filter. |
+| `execution/test_relevancy.mjs` (new) | Deterministic test vs LIVE MCP — no Anthropic call, zero API cost. Mirrors the pure filter fns. |
+
+### Test Results — 16/16 PASS (no Anthropic call)
+- `extractBudget`: "under Rs 2000"→2000, "below 2,000"→2000, "around Rs. 500"→500, none→null ✓
+- `isVendorName`: "Dinapala Electronics"→vendor, "ABC Traders (Pvt) Ltd"→vendor, "Sigma Distributors"→vendor; real long product names→not vendor; "Marketing Management Book"→not vendor (no false positive) ✓
+- Scenario "earphones under Rs 2000": 6 of 8 raw results were over budget → dropped; 2 remain, both ≤ Rs 2000 ✓
+- Scenario "portable scales": no junk in this run (all imaged + priced) ✓
+- Scenario "earphones under Rs 1" (impossible): 0 cards → Claude must say so, not show junk ✓
+
+### Decisions Made (user)
+- Vendor junk: chose **vendor-name keyword filter** (over price-outlier or prompt-only)
+- Live agent text test: **push code now, validate Claude wording later via autoresearch** (no Anthropic call this session — honored API-key confirmation rule)
+
+### Known Gaps / Lessons
+- Vendor detection is keyword-based — unlisted vendor patterns (a shop name with no company marker + a normal-looking price) can still slip through. Autoresearch loop with the new relevancy/budget scoring dimension should surface + tune these.
+- Removed bare "marketing" from vendor markers — would false-positive on "Marketing" book titles; company names with Marketing are already caught by Pvt/Ltd.
+- `filterProducts<Product>(...)` needs explicit `<Product>` generic — `result.results` is `any` (JSON.parse), so without it the generic defaults to the bare `FilterableProduct` shape and tsc errors on missing `id`/`url`.
+
+### Next Steps
+1. Run prompt autoresearch loop — add a 7th scoring dimension: **budget compliance** (every shown product ≤ stated budget) alongside relevancy. Confirm Anthropic API call before running.
+2. Minor visual: card sizes inconsistent between carousel rows (row 1 cards larger than row 2) — investigate `.product-card` / image aspect ratio. Low priority.
+3. Deploy to Vercel.
+4. Process `kapruka_direction_prompt.md` (user will drop it in — main session).
+
+---
