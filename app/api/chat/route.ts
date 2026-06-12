@@ -8,6 +8,13 @@ const BASE_SYSTEM_PROMPT = readFileSync(
   "utf8"
 );
 
+// Raise the serverless function timeout. The handler chains MCP init+call
+// (+ a possible fallback re-search) and an Anthropic call; on the platform's
+// low default cap a cold start + cross-region MCP latency can exceed it, and
+// Vercel then returns a non-JSON 5xx — which the client surfaces as the
+// unhelpful "Network error". 60s is the Hobby maximum.
+export const maxDuration = 60;
+
 const CHECKOUT_RE = /\[CHECKOUT_URL\](https?:\/\/[^\s]+)\[\/CHECKOUT_URL\]/;
 
 // ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
