@@ -525,3 +525,30 @@ Bug only manifested late in conversations (multiple carousels + many message bub
 4. Process `kapruka_direction_prompt.md` (user will drop it in — main session).
 
 ---
+
+## Session 014 — 2026-06-12 (Currency-Token Leak in Search Query)
+
+### The Bug (reported)
+"headphones exist on Kapruka under Rs 20,000 (verified, 321 results) but the agent returns gift vouchers instead."
+
+### Diagnosis (live MCP, no Anthropic call — `execution/diag_headphones.mjs`)
+**Root cause: currency token `"rs"` leaked into the MCP search query.**
+- For "I want headphones under Rs 20000", `buildSearchQuery` produced **`"headphones rs"`** — `"20000"` dropped by `/^\d+$/`, `"under"` is a stopword, but `"rs"` was NOT in STOP so it survived.
+- MCP search `"headphones rs"` → **1 junk result** (kids RGB headphone).
+- MCP search clean `"headphones"` → **6 real headphones** (Sony WH-1000XM5, Armaggeddon Rs.11850, Anker Rs.13000, Sony WH-CH720N Rs.31900, Ugreen stand Rs.6220, Baseus Rs.23280); 3 under Rs 20000.
+- **Budget filter was innocent** — on clean query it correctly kept 3 ≤20000, dropped the Rs.913000/31900/23280 ones.
+
+### Fix (commit `c089d70`)
+- `route.ts` STOP set: added `rs`, `lkr`, `rupees`, `rupee`, `budget`, `price`, `priced`, `cost`, `costs`.
+- After fix: `buildSearchQuery("...headphones under Rs 20000")` → `"headphones"`, budget 20000 → 3 valid products.
+- `execution/diag_headphones.mjs`: live-MCP diagnostic with a **regression guard** (`exit 1` if query isn't clean `"headphones"`).
+
+### Lessons
+- Keyword extraction must strip currency/unit tokens, not just digits. `/^\d+$/` removes "20000" but the unit word "rs"/"lkr" rides along and silently destroys MCP relevance.
+- General pattern: any budget/price phrasing ("Rs", "LKR", "rupees", "budget") is metadata, never a product keyword. Extracted into budget logic, never into the search string.
+- Always check the ACTUAL query string sent to MCP before blaming the filter — the filter was correct; the query was poisoned upstream.
+
+### Next Steps
+1. Same as Session 013 next-steps (autoresearch w/ budget dimension, card-size visual, Vercel deploy, kapruka_direction_prompt.md).
+
+---
