@@ -552,3 +552,45 @@ Bug only manifested late in conversations (multiple carousels + many message bub
 1. Same as Session 013 next-steps (autoresearch w/ budget dimension, card-size visual, Vercel deploy, kapruka_direction_prompt.md).
 
 ---
+
+## Session 015 — 2026-06-12 (Duplicate Cards + Conversation-Quality Bugs: Code vs Prompt Split)
+
+### What We Did
+**Task 1 — conversation-wide card dedupe (`hooks/useChat.ts`).**
+- responseId guard only prevented dupes WITHIN one response. Same product reappeared across message rows.
+- Added `shownProductIds` ref (Set), filter carousel products against it, record survivors, reset in `initWithOnboarding`.
+- Critical: filtering + Set mutation done OUTSIDE the `setChatItems` updater — updaters run twice under React Strict Mode; mutating the ref inside would filter the 2nd pass against an already-populated set and DROP the whole carousel.
+
+**Task 2 — added scenarios 21/22/23 to `execution/test_scenarios.json`** (autobiography relevance, describe-book-from-context, no-unprompted-category-switch). Ran baseline only (~46 sonnet calls, user-approved): avg 4.51, all 3 NEW scenarios PASSED (4.83/4.67/4.33). Only failure: scenario_015 Sinhala (product_quality:2).
+
+**Conclusion: autoresearch was the WRONG tool.** The reported bugs are code-layer, not prompt. `run_tests.js` is SDK-direct with curated injected products — it never calls live MCP, so it can't reproduce retrieval bugs. Running the full loop would have tuned Sinhala, not the book bugs.
+
+### Diagnosis (no API — read `route.ts` + `productFilter.ts`)
+- **Cards bypass the model entirely** (`route.ts` returns `products` separately; comment at search site says cards come from this array, not Claude). No prompt change can fix card relevance.
+- **Fiction for "autobiographies":** `filterProducts` only dropped junk/budget — zero relevance/type matching. MCP fuzzy results flowed straight to cards.
+- **Deflection + price flip:** `detectIntent` treated nearly every non-ack message as a NEW search. "what is that book about?" → re-search "book" → fresh random books injected, model pivots; same title resurfaced with a different ranked variant/price. Root = over-eager re-searching.
+
+### Fixes (commit `720d090`) — 3 fixes, one commit, TS clean after each
+- **Fix 1** `detectIntent`: follow-up patterns (`what is/tell me more/how much ... that/it/this`) + short(<6w)+pronoun+no-new-keyword → `type:"none"`, no re-search. Highest leverage — kills source of dupes, deflection, price flip.
+- **Fix 2** `productFilter.ts`: relevance gate after junk/budget — keep products whose name/category shares a stemmed query token; skip gate (return pre-gate) if <2 survive. Added light `stem()` (strip trailing ies/es/s/y) so "autobiographies"~"autobiography".
+- **Fix 3** `route.ts` + `useChat.ts`: client sends `lastShownProducts` (most recent carousel); API injects "LAST SHOWN PRODUCTS" block so Claude answers follow-ups about shown items without re-searching.
+- Deterministic test (`tsx`, no API): relevance gate + follow-up regex — 13/14, the 1 "fail" was a wrong test expectation (gate correctly skips at <2 survivors), not a code bug.
+
+### Gaps Identified
+- **Fix 2 depends on MCP returning a category field.** `normaliseProduct` now reads `category`/`category_name`/`type`, but if MCP omits it AND titles lack the genre word (real autobiographies don't contain "autobiography"), the gate drops to <2 and falls back — fiction still shows. NOT yet verified against live MCP what category field (if any) `kapruka_search_products` returns.
+- **End-to-end behavior NOT yet verified** — the 3 acceptance tests ("autobiographies" → only autobiographies; "what is that book about?" → describes, no re-search; price consistent across messages) hit `/api/chat` = Anthropic call. Deferred pending explicit API approval.
+- Price flip has a second-order path: if a follow-up DOES re-search (not caught by Fix 1), no per-id session cache exists. Fix 1 removes the common trigger but not a hard guarantee.
+
+### Mistakes & Lessons
+- Don't reach for the autoresearch loop on a bug you can't reproduce in its harness. The harness tests prompt-quality-given-products, not retrieval. Verify the failing layer before picking the tool.
+- When a UI artifact (cards) is produced by deterministic code and NOT the model, prompt tuning is structurally incapable of fixing it — trace the data path first.
+- React Strict Mode: never mutate a ref/external state inside a setState updater. Compute side effects outside the updater.
+
+### Next Steps
+1. **Get API approval** to run the 3 end-to-end acceptance tests against `/api/chat` (live MCP + sonnet).
+2. **Confirm MCP category field** — inspect a live `kapruka_search_products` result to see if `category`/`type` is populated; if not, Fix 2 needs a different signal (or accept it only helps literal-noun queries).
+3. Consider per-id product cache for the session as a hard guarantee against price flips.
+4. Scenarios 21/22/23 remain useful as REGRESSION GUARDS once the loop is run again with a budget/relevance dimension.
+5. Carry-over from Session 014: autoresearch w/ budget dimension, card-size visual, Vercel deploy, `kapruka_direction_prompt.md`.
+
+---
