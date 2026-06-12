@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { extractBudget, filterProducts } from "@/lib/productFilter";
 
 const BASE_SYSTEM_PROMPT = readFileSync(
   join(process.cwd(), "directives", "system_prompt.md"),
@@ -271,6 +272,7 @@ export async function POST(req: Request) {
   }
 
   const intent = detectIntent(messages);
+  const budget = extractBudget(messages);
 
   let products: Product[] = [];
   let trackingData = null;
@@ -283,8 +285,11 @@ export async function POST(req: Request) {
         in_stock_only: true,
         sort:          "relevance",
       });
+      // Filter junk (vendor listings, no-image, zero-price) and over-budget
+      // BEFORE slicing — cards rendered in UI come from this array, not Claude.
       if (result.results?.length) {
-        products = result.results.slice(0, 4).map(normaliseProduct);
+        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget);
+        products = candidates.slice(0, 4);
       }
 
       if (products.length < 2) {
@@ -294,8 +299,9 @@ export async function POST(req: Request) {
         if (fallbackQ && fallbackQ !== (intent as { query: string }).query) {
           try {
             const r2 = await callMCP("search_products", { q: fallbackQ, limit: 8, in_stock_only: true, sort: "relevance" });
-            if ((r2.results?.length || 0) > products.length) {
-              products = r2.results.slice(0, 4).map(normaliseProduct);
+            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget);
+            if (c2.length > products.length) {
+              products = c2.slice(0, 4);
             }
           } catch { /* best-effort */ }
         }
