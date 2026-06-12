@@ -8,6 +8,7 @@ interface FilterableProduct {
   price: number;
   image_url: string;
   category?: string;
+  summary?: string;
 }
 
 interface BudgetMessage {
@@ -88,20 +89,27 @@ function stemTokens(text: string): string[] {
     .filter((t) => t.length >= 3);
 }
 
-// Keep only products whose name or category shares a (stemmed) token with the
-// search query. Guards against MCP returning off-type results (e.g. fiction for
-// an "autobiography" query). If fewer than 2 products survive the gate, it is
-// skipped entirely and the pre-gate list is returned (existing fallback).
+// Keep only products whose name/category/summary shares a (stemmed) token with
+// the search query. Guards against MCP returning off-type results (e.g. fiction
+// for an "autobiography" query).
+//
+// Fallback is at ZERO survivors, not <2. Live MCP data showed the genre word
+// often appears in only ONE result's summary (e.g. Gandhi's says "Autobiography"
+// but Gorky's says "Translations") — a <2 threshold re-admitted the fiction in
+// exactly the case the gate exists to catch. One on-topic card beats four with
+// three off-topic. (route.ts has its own <2 re-search fallback for thin results.)
 function relevanceGate<T extends FilterableProduct>(products: T[], queryTokens: string[]): T[] {
   const qStems = [...new Set(queryTokens.map(stem).filter((t) => t.length >= 3))];
   if (!qStems.length) return products;
 
   const gated = products.filter((p) => {
-    const hay = stemTokens(`${p.name} ${p.category ?? ""}`);
+    // Genre/type signal lives in name + category + summary (MCP category is
+    // almost always "General"; summary carries "Non Fiction Autobiography" etc).
+    const hay = stemTokens(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
     return qStems.some((q) => hay.some((h) => h === q || h.includes(q) || q.includes(h)));
   });
 
-  return gated.length >= 2 ? gated : products;
+  return gated.length >= 1 ? gated : products;
 }
 
 // Drop junk, then drop anything over the stated budget (if any), then (if a

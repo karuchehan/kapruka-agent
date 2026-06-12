@@ -51,6 +51,8 @@ const STOP = new Set([
   "stuff","things","thing","kind","types","type","bit","lot","way",
   // 2-char noise words (now reachable since extractKeywords uses >= 2)
   "no","hi","lo","ah","aw","uh","um","ha","oh","oi",
+  // verb noise that rides into queries ("he likes X" → "likes" is not a product)
+  "likes","liked","wanted","wants","needs","needed",
 ]);
 
 // ── INTENT DETECTION ──────────────────────────────────────────────────────────
@@ -76,12 +78,25 @@ const CONTEXT_WORDS = new Set([
   "tangalle","hambantota","matale","dambulla","sigiriya","haputale","ella","bandarawela",
 ]);
 
+// Generic container words. Valid as a lone query ("show me books") but when a
+// MORE specific token is present ("books ... autobiographies"), they poison MCP
+// ranking — MCP weights "books" and returns piano courses over the genre asked
+// for. Same failure class as the Session-014 currency-token leak: drop the
+// generic word when something specific survives alongside it.
+const GENERIC_QUERY_WORDS = new Set([
+  "book", "books", "item", "items", "product", "products", "thing", "things",
+]);
+
 function extractKeywords(text: string): string[] {
-  return text.toLowerCase()
+  const filtered = text.toLowerCase()
     .replace(/[^a-z0-9 ]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length >= 2 && !STOP.has(w) && !CONTEXT_WORDS.has(w) && !/^\d+$/.test(w))
-    .slice(0, 7);
+    .filter((w) => w.length >= 2 && !STOP.has(w) && !CONTEXT_WORDS.has(w) && !/^\d+$/.test(w));
+
+  // Prefer specific tokens; only fall back to generic container words if that is
+  // all we have (so "show me books" still searches "books").
+  const specific = filtered.filter((w) => !GENERIC_QUERY_WORDS.has(w));
+  return (specific.length ? specific : filtered).slice(0, 7);
 }
 
 interface ApiMessage { role: "user" | "assistant"; content: string; }
@@ -253,7 +268,10 @@ function buildSystemPrompt(
   // product context available, keeping names and prices consistent across turns.
   if (lastShownProducts?.length) {
     const slim = lastShownProducts
-      .map((p, i) => `${i + 1}. ${p.name} — LKR ${p.price}${p.category ? ` (${p.category})` : ""}`)
+      .map((p, i) => {
+        const desc = p.summary ? ` — ${p.summary.slice(0, 200)}` : "";
+        return `${i + 1}. ${p.name} — LKR ${p.price}${desc}`;
+      })
       .join("\n");
     dynamicParts.push(
       `LAST SHOWN PRODUCTS (the user may be referring to one of these — answer questions about them directly from this list; do not say you lack details):\n${slim}`
@@ -275,18 +293,26 @@ function buildSystemPrompt(
 
 // ── PRODUCT NORMALISE ─────────────────────────────────────────────────────────
 
-interface Product { id: string; name: string; price: number; image_url: string; url: string; category?: string; }
+interface Product { id: string; name: string; price: number; image_url: string; url: string; category?: string; summary?: string; }
 
 function normaliseProduct(p: Record<string, unknown>): Product {
   const rawPrice = (p.price ?? p.sale_price ?? p.regular_price ?? 0) as number | { amount?: number };
   const price = typeof rawPrice === "object" ? (rawPrice?.amount ?? 0) : rawPrice;
+  // MCP returns `category` as an object {id,name,slug} that is almost always
+  // "General" — useless for genre. The real type/genre signal lives in `summary`
+  // (e.g. "Non Fiction Autobiography"). Capture both; the relevance gate reads them.
+  const cat = p.category;
+  const category = typeof cat === "object" && cat !== null
+    ? String((cat as { name?: string }).name || "")
+    : String(cat || p.category_name || p.type || "");
   return {
     id:        String(p.id || p.product_id || ""),
     name:      String(p.name || p.title || ""),
     price:     Number(price),
     image_url: String(p.image_url || p.image || p.thumbnail || ""),
     url:       String(p.url || p.product_url || p.link || ""),
-    category:  String(p.category || p.category_name || p.type || ""),
+    category,
+    summary:   String(p.summary || p.description || p.short_description || ""),
   };
 }
 
