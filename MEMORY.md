@@ -303,3 +303,146 @@ The v4.0 patches (MODE B scoped to GIFTING ONLY, delivery warmth, budget rule) g
 3. Scenario_011 needs investigation: read the specific failure reason more carefully
 
 ---
+
+## Session 008 — 2026-06-10 (Task 1: Scroll Fix)
+
+### What We Did
+- Read all 5 required files: `index.html`, `app.js`, `style.css`, `directives/ui_design.md`, `directives/system_prompt.md`
+- Diagnosed scroll cutoff bug in `style.css`: `#messages-container` had `padding: 24px 20px 120px` but Chrome/Safari ignore `padding-bottom` on flex containers with `overflow-y: auto` — the padding exists in CSS but the browser clips it when calculating scrollable area
+- **Fix applied**: Replaced `padding: 24px 20px 120px` with `padding: 24px 20px 0` + added `#messages-container::after { content: ''; display: block; min-height: 120px; flex-shrink: 0; }` — the `::after` behaves as a real flex item so scrollHeight counts it correctly
+- Mobile override added: `#messages-container::after { min-height: 140px; }` inside `@media (max-width: 600px)`
+- Confirmed JS already correct: `scrollToBottom()` uses double rAF + `$msgs.scrollTop = $msgs.scrollHeight`. `addProductCards()` already calls `scrollToBottom()` after append.
+- Committed `931e329` → pushed to `karuchehan/kapruka-agent`
+
+### Gaps Identified
+- Visual verification (vercel dev + browser) cannot be done from CLI — user should verify the fix manually per the 6 checks in the task spec
+- Tasks 2 (Kapruka reskin) and 3 (visual autoresearch loop) still pending
+
+### Mistakes / Lessons
+- The flex overflow padding-bottom bug: CSS `padding-bottom` on a `display: flex; overflow-y: auto` container is silently clipped in Chrome/Safari. The `::after` pseudo-element fix is the correct cross-browser workaround.
+
+### Next Steps
+1. User verify scroll fix: `vercel dev`, ask for birthday gifts, confirm cards visible, test at 375px width
+2. Start Task 2: Kapruka UI reskin
+
+---
+
+## Session 009 — 2026-06-10 (Task 2: Kapruka UI Reskin)
+
+### What We Did
+- Fetched kapruka.com for brand reference — confirmed red accent, light site background (our dark theme is intentional departure)
+- Applied 20 targeted changes across `style.css` and `app.js`
+
+**CSS changes (`style.css`):**
+- Warmer dark palette: `--bg-primary: #0d0a0a`, `--bg-secondary: #141010`, `--bg-card: #1c1717`, `--bg-input: #231c1c`
+- Brand name `.brand-name` → `color: var(--accent)` (red wordmark instead of white)
+- Message bubbles: padding `14px 18px`, radius `18px` with flat corner on conversation side
+- User bubbles: full solid red background + white text (was ghost/translucent)
+- Product card `.product-card:hover`: box-shadow `0 8px 28px rgba(0,0,0,0.35)` (removed CSS transform — GSAP handles it)
+- Product card name: `font-weight: 600` (was 500)
+- "Add to Cart" button: full red fill with white text (was ghost outline)
+- Typing dots: CSS `dot-bounce` animation removed, changed color to `--accent`, added `transform-origin: center bottom` for GSAP
+- Input inner radius: `radius-md` (14px) instead of `radius-lg` (20px) — less pill-shaped
+- Mic button: accent red border + icon by default (was gray)
+- Cart panel: removed CSS `transition` — GSAP handles animation
+
+**JS changes (`app.js`):**
+- Init: `gsap.from(document.body, { opacity: 0, duration: 0.5 })` — page load fade
+- `showTyping()`: GSAP `scaleY: 1.7, stagger: 0.15` bounce on red dots (3 dots created programmatically)
+- `removeTyping()`: `gsap.killTweensOf(el.querySelectorAll("span"))` before DOM removal
+- `addProductCards()`: mouseenter/mouseleave GSAP `y: -4` hover lift on every card
+- Product card stagger: `y: 16, stagger: 0.07, duration: 0.4` (tighter than before)
+- `addMessage()`: entrance `y: 12, duration: 0.3` (was `y: 16, 0.4`) — snappier
+- `openCart()`: `gsap.fromTo($cartPanel, { x: '100%' }, { x: '0%', duration: 0.35, ease: 'power3.out' })`
+- `closeCart()`: `gsap.to($cartPanel, { x: '100%', 0.3s power3.in, onComplete: remove class })`
+
+- Verified all 20 changes with automated node check — all pass
+- Committed `562ee3a` → pushed to `karuchehan/kapruka-agent`
+
+### Gaps / Visual Verification Needed
+- Visual check still needed: `vercel dev`, onboarding screenshot, product cards, mobile viewport, GSAP animations firing
+- Cart animation: GSAP now drives open/close — confirm CSS class `#cart-panel.open` no longer has conflicting CSS transform
+
+### Mistakes / Lessons
+- `#cart-panel.open { transform: translateX(0) }` was in CSS — removed when switching to GSAP. If left in, CSS would fight GSAP inline styles.
+- Typing dots: had to create spans programmatically (not innerHTML) to get array reference for GSAP tween.
+
+### Next Steps
+1. Visual verify Task 2 before using in production
+2. Start Task 3: Visual Autoresearch Loop (5 files to build)
+
+---
+
+## Session 010 — 2026-06-10 (Task 3: Visual Autoresearch Loop)
+
+### What We Did
+- Built full visual autoresearch loop — human is judge, loop improves CSS
+
+**Files created:**
+- `execution/visual_test_areas.json` — 8 areas with id/name/description/current_approach/hypothesis
+- `execution/visual_resources.md` — living log: approved/rejected sections + iteration history table
+- `execution/visual_challengers/` — directory for challenger CSS files and backup
+- `execution/generate_visual_challenger.js` — Claude call → JSON {area, hypothesis, css_override} → saves challenger_[timestamp].css
+- `execution/apply_visual_challenger.js` — finds latest challenger, backs up style.css → baseline_backup.css, appends challenger CSS
+- `execution/visual_decision.js` — accepts `win` or `lose`, promotes or reverts, logs to visual_resources.md
+- `execution/visual_orchestrator.js` — master script: generate + apply, then exit with review instructions
+
+**Architecture decisions:**
+- Loop ONLY touches style.css — never app.js, index.html, or directives
+- Always creates baseline_backup.css before applying challenger — no data loss possible
+- visual_resources.md grows over iterations — feed back into each challenger generation
+- REJECTED entries include a "Reason: <!-- Add note -->" prompt so human notes survive
+
+**All syntax checks passed. Committed `7994781` → pushed to `karuchehan/kapruka-agent`**
+
+### How To Run The Visual Loop
+```bash
+node execution/visual_orchestrator.js   # generates + applies challenger
+vercel dev                               # open browser to review
+node execution/visual_decision.js win   # OR: node execution/visual_decision.js lose
+# Repeat
+```
+
+### Gaps / Verification Needed
+- generate_visual_challenger.js makes an Anthropic API call — must confirm with user before running
+- Loop not run yet — first iteration is when user kicks it off
+
+### Mistakes / Lessons
+- Need to handle case where Claude returns JSON wrapped in markdown fences — added strip logic in generate_visual_challenger.js
+- Table row regex in visual_decision.js targets `| # | ... |` header then `| --- |` separator — must match exactly what's in visual_resources.md initial structure
+
+### Next Steps
+1. User visual-verify Tasks 1 and 2 in browser (vercel dev)
+2. When ready, run visual loop: `node execution/visual_orchestrator.js` (confirm API call first)
+3. Run 10-15 visual iterations over coming days
+
+---
+
+## Session 011 — 2026-06-10 (Scroll Anchor Fix — Two Bugs)
+
+### What We Did
+Screenshots showed two clear bugs: (1) product cards clipped with only top edge visible, (2) massive blank gap between last message and input bar.
+
+**Root cause analysis:**
+1. Cards clipped: `scrollToBottom()` fired immediately after `appendChild` — DOM hadn't computed card heights yet
+2. Blank gap: `#messages-container::after { min-height: 120px }` was too tall, and scroll targeted `scrollHeight` (wrong anchor)
+
+**Fix applied (`index.html`, `style.css`, `app.js`):**
+- Added `<div id="scroll-anchor"></div>` as last DOM child of `#messages-container`
+- Removed `#messages-container::after` entirely (was the source of the blank gap)
+- Added `#scroll-anchor { height: 20px; flex-shrink: 0; }` — minimal spacer
+- `updateScrollPadding()`: measures `$inputArea.offsetHeight + 20` and sets `$msgs.style.paddingBottom` as inline style (bypasses the flex overflow CSS padding-bottom browser bug). Called at init, `transitionToChat()`, and `window.resize`.
+- `scrollToBottom()` now: `setTimeout(fn, 100)` → `$anchor.scrollIntoView({ behavior: 'smooth', block: 'end' })`. 100ms delay gives DOM time to fully compute card layout.
+- All `$msgs.appendChild(x)` replaced with `$msgs.insertBefore(x, $anchor)` — ensures anchor stays last after every content insert.
+
+**16/16 automated checks passed. Committed `32156e8` → pushed.**
+
+### Key lesson
+The `::after` pseudo-element approach fixed the browser CSS padding-bottom bug but introduced a hard-coded large gap. The correct fix is: (1) JS-measured padding-bottom (bypasses the bug, right size), (2) scroll anchor with scrollIntoView rather than scrollHeight, (3) 100ms delay for layout to settle.
+
+### Next Steps
+1. Verify in browser: `vercel dev` — product cards fully visible, gap small and clean, no overlap
+2. Test at 375px mobile width
+3. Then visual autoresearch loop when ready
+
+---

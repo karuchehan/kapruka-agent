@@ -34,28 +34,26 @@ When something breaks:
 4. Re-run and confirm
 5. System is now stronger
 
+## Stack (migrated to Next.js + React — 2026-06-11)
+
+**Reason:** Vanilla HTML/CSS/JS caused recurring layout bugs with product card carousels and DOM reflow. React's component model isolates these permanently.
+
 ## File Structure
 
 ```
 kapruka-agent/
 ├── CLAUDE.md                        ← You are here
-├── directives/
-│   ├── project_overview.md          ← Full project context
-│   ├── tech_stack.md                ← Stack decisions and reasoning
-│   ├── agent_concept.md             ← What the agent is and how it behaves
-│   ├── ui_design.md                 ← Visual design and UX requirements
-│   ├── onboarding_flow.md           ← User onboarding logic
-│   ├── scoring_strategy.md          ← How to maximize the judging rubric
-│   ├── autoresearch_loop.md         ← Autonomous prompt testing and improvement
-│   └── deployment.md                ← Vercel deployment instructions
-├── execution/
-│   └── (scripts go here as we build)
-├── api/
-│   └── chat.js                      ← Vercel serverless function
-├── index.html                       ← Main chat UI
-├── style.css                        ← All styling
-├── app.js                           ← Frontend logic
-└── .env                             ← API keys (never commit)
+├── app/
+│   ├── layout.tsx                   ← Root layout (fonts, metadata)
+│   ├── page.tsx                     ← Entry: onboarding → chat
+│   ├── globals.css                  ← All styling (CSS variables, components)
+│   └── api/chat/route.ts            ← API route (port of api/chat.js)
+├── components/                      ← React components
+├── hooks/                           ← useChat, useCart, useVoiceOutput, useVoiceInput
+├── lib/types.ts                     ← Shared TypeScript interfaces
+├── directives/                      ← Markdown prompts (UNCHANGED)
+├── execution/                       ← Visual autoresearch loop (UNCHANGED)
+└── .env.local                       ← API keys (never commit)
 ```
 
 ## Key Constraints
@@ -64,16 +62,49 @@ kapruka-agent/
 - Solo builder
 - Must be live on a public URL when submitted
 - Judges open the URL and use it immediately — it must just work
-- No React, no Next.js, no build tools — pure vanilla HTML/CSS/JS
-- One Vercel serverless function for the backend
+- Stack: Next.js 15 + React 19 + TypeScript + GSAP (@gsap/react)
+- Old files (index.html, app.js, style.css, api/chat.js) are legacy — do not edit them
 
 ## Operating Principles
 
 1. Check `/directives/` before writing any code
 2. Self-anneal when things break — fix, test, update directive
-3. Keep the frontend vanilla — no frameworks, no npm on the frontend
+3. Components go in `/components/`, hooks in `/hooks/`, styles in `app/globals.css`
 4. Every decision should serve the judging rubric (see `scoring_strategy.md`)
 5. When in doubt, prioritize feel and visuals over clever backend logic
+
+## MANDATORY SELF-VERIFICATION RULE
+
+After EVERY change to `globals.css`, any layout component, or any `overflow`/`scroll`-related property — run ALL 4 checks before reporting back. Do not ask the user to test. YOU verify first.
+
+**Check 1 — TypeScript**
+```
+npx tsc --noEmit
+```
+Must be TS CLEAN. Fix all errors before continuing.
+
+**Check 2 — No `overflow: hidden` on scroll ancestors**
+```
+grep -rn "overflow: hidden" app/ components/ --include="*.css" --include="*.tsx" --include="*.ts"
+```
+For every result: confirm it is NOT on `#chat-screen`, `#messages-container`, or any ancestor of the messages list. If it is — remove it before stopping.
+
+**Check 3 — No `overflow-x: hidden` on scroll ancestors**
+```
+grep -rn "overflow-x: hidden" app/ components/ --include="*.css" --include="*.tsx" --include="*.ts"
+```
+Same rule — must not exist on any messages ancestor.
+
+**Check 4 — Vertical scroll intact**
+```
+grep -n "overflow-y" app/globals.css
+```
+Confirm `#messages-container` has `overflow-y: auto` or `overflow-y: scroll` — NOT `hidden`, NOT `clip`.
+
+**Only report a fix as complete after all 4 checks pass.**
+Never report "TS clean" as the final verification for layout changes. All 4 must pass.
+
+---
 
 ## Hard Rules
 
