@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import type { ChatItem, ApiMessage, UserProfile, RecipientProfile } from "@/lib/types";
+import type { ChatItem, ApiMessage, UserProfile, RecipientProfile, Product } from "@/lib/types";
 
 let _id = 0;
 const uid = () => `ci-${++_id}`;
@@ -10,8 +10,16 @@ export function useChat() {
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const isSendingRef = useRef(false);
+  // Product ids already shown in any carousel this session — prevents the same
+  // product reappearing in a later message row. Reset only when a new session starts.
+  const shownProductIds = useRef<Set<string>>(new Set());
+  // The most recent carousel shown — sent to the API so the agent can answer
+  // follow-ups ("what is that book about?") without re-searching.
+  const lastShownProducts = useRef<Product[]>([]);
 
   function initWithOnboarding(messages: ApiMessage[]) {
+    shownProductIds.current = new Set(); // new session — clear dedupe history
+    lastShownProducts.current = [];
     setApiMessages(messages);
     // Show the final onboarding agent message as the chat screen's welcome bubble
     const lastAgent = [...messages].reverse().find((m) => m.role === "assistant");
@@ -58,6 +66,7 @@ export function useChat() {
           messages: newApiMessages,
           userProfile,
           recipientProfile,
+          lastShownProducts: lastShownProducts.current,
         }),
       });
       clearTimeout(clientTimeout);
@@ -82,13 +91,28 @@ export function useChat() {
       // was already applied (handles Strict Mode double-invocation and any real double-call).
       const responseId = uid();
 
+      // Filter out products already shown anywhere this session, then record the
+      // survivors. Done OUTSIDE the updater: setState updaters run twice under
+      // Strict Mode, and mutating the ref inside would filter the second pass
+      // against an already-populated set and drop the whole carousel.
+      let freshProducts: Product[] = [];
+      if (data.products?.length) {
+        freshProducts = (data.products as Product[]).filter(
+          (p) => !shownProductIds.current.has(p.id)
+        );
+        freshProducts.forEach((p) => shownProductIds.current.add(p.id));
+        // Remember this carousel so the next request can answer follow-ups
+        // about these items without a re-search.
+        if (freshProducts.length) lastShownProducts.current = freshProducts;
+      }
+
       setChatItems((prev) => {
         const base = removePlaceholders(prev);
         if (base.some((i) => i.id === responseId)) return base; // already applied
         const additions: ChatItem[] = [];
         if (data.message) additions.push({ id: responseId, type: "agent", text: data.message });
-        if (data.products?.length) {
-          additions.push({ id: uid(), type: "products", products: data.products, checkoutUrl: data.checkoutUrl });
+        if (freshProducts.length) {
+          additions.push({ id: uid(), type: "products", products: freshProducts, checkoutUrl: data.checkoutUrl });
         }
         return [...base, ...additions];
       });

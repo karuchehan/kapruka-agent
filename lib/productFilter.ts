@@ -7,6 +7,7 @@ interface FilterableProduct {
   name: string;
   price: number;
   image_url: string;
+  category?: string;
 }
 
 interface BudgetMessage {
@@ -71,12 +72,47 @@ export function isJunkProduct(p: FilterableProduct): boolean {
   return false;
 }
 
-// Drop junk, then drop anything over the stated budget (if any).
+// Light stem: lowercase, strip non-alnum, drop a common trailing inflection so
+// "autobiographies" ~ "autobiography", "watches" ~ "watch". Not linguistically
+// correct — just enough to match a query genre token against a product/category.
+function stem(w: string): string {
+  const base = w.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return base.replace(/(ies|es|s|y)$/, "");
+}
+
+function stemTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map(stem)
+    .filter((t) => t.length >= 3);
+}
+
+// Keep only products whose name or category shares a (stemmed) token with the
+// search query. Guards against MCP returning off-type results (e.g. fiction for
+// an "autobiography" query). If fewer than 2 products survive the gate, it is
+// skipped entirely and the pre-gate list is returned (existing fallback).
+function relevanceGate<T extends FilterableProduct>(products: T[], queryTokens: string[]): T[] {
+  const qStems = [...new Set(queryTokens.map(stem).filter((t) => t.length >= 3))];
+  if (!qStems.length) return products;
+
+  const gated = products.filter((p) => {
+    const hay = stemTokens(`${p.name} ${p.category ?? ""}`);
+    return qStems.some((q) => hay.some((h) => h === q || h.includes(q) || q.includes(h)));
+  });
+
+  return gated.length >= 2 ? gated : products;
+}
+
+// Drop junk, then drop anything over the stated budget (if any), then (if a
+// query is supplied) drop off-topic results via the relevance gate.
 export function filterProducts<T extends FilterableProduct>(
   products: T[],
-  budget: number | null
+  budget: number | null,
+  queryTokens?: string[]
 ): T[] {
   let out = products.filter((p) => !isJunkProduct(p));
   if (budget != null) out = out.filter((p) => p.price <= budget);
+  if (queryTokens?.length) out = relevanceGate(out, queryTokens);
   return out;
 }

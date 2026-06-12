@@ -133,6 +133,25 @@ function detectIntent(messages: ApiMessage[]) {
     return { type: "none" };
   }
 
+  // Follow-up questions about an ALREADY-shown item — do NOT re-search.
+  // Re-searching here was the source of card duplicates, "I don't have details"
+  // deflection, and price flips (same title, different ranked variant per call).
+  // Let these pass through to Claude with existing context (see LAST SHOWN PRODUCTS).
+  const FOLLOWUP_RE = /\b(what(?:'?s| is| does| are)|tell me more|how much|what does)\b[\s\S]*\b(that|it|this|they|them|those|these)\b/i;
+  if (FOLLOWUP_RE.test(lower)) {
+    return { type: "none" };
+  }
+  // Generic: short message (<6 words) referencing "that/it/this" with no NEW
+  // product/category keyword of its own → it's about something already shown.
+  const refersToShown = /\b(that|it|this|they|them|those|these)\b/i.test(lower);
+  if (
+    text.trim().split(/\s+/).length < 6 &&
+    refersToShown &&
+    extractKeywords(text).length === 0
+  ) {
+    return { type: "none" };
+  }
+
   const query = buildSearchQuery(messages);
   return { type: "search", query };
 }
@@ -204,7 +223,8 @@ function buildSystemPrompt(
   userProfile: UserProfile | null,
   recipientProfile: RecipientProfile | null,
   liveProducts: Product[],
-  trackingData: unknown
+  trackingData: unknown,
+  lastShownProducts: Product[]
 ) {
   const dynamicParts: string[] = [];
 
@@ -227,6 +247,19 @@ function buildSystemPrompt(
     dynamicParts.push(`AVAILABLE PRODUCTS (already fetched — recommend from these):\n${slim}`);
   }
 
+  // Products shown in the previous carousel. When the user asks "what is that
+  // book about?" / "how much is that?" we do NOT re-search — Claude answers from
+  // these. No fresh products are injected for follow-ups, so this is the only
+  // product context available, keeping names and prices consistent across turns.
+  if (lastShownProducts?.length) {
+    const slim = lastShownProducts
+      .map((p, i) => `${i + 1}. ${p.name} — LKR ${p.price}${p.category ? ` (${p.category})` : ""}`)
+      .join("\n");
+    dynamicParts.push(
+      `LAST SHOWN PRODUCTS (the user may be referring to one of these — answer questions about them directly from this list; do not say you lack details):\n${slim}`
+    );
+  }
+
   if (trackingData) {
     dynamicParts.push(`Order tracking result:\n${JSON.stringify(trackingData, null, 2)}`);
   }
@@ -242,7 +275,7 @@ function buildSystemPrompt(
 
 // ── PRODUCT NORMALISE ─────────────────────────────────────────────────────────
 
-interface Product { id: string; name: string; price: number; image_url: string; url: string; }
+interface Product { id: string; name: string; price: number; image_url: string; url: string; category?: string; }
 
 function normaliseProduct(p: Record<string, unknown>): Product {
   const rawPrice = (p.price ?? p.sale_price ?? p.regular_price ?? 0) as number | { amount?: number };
@@ -253,6 +286,7 @@ function normaliseProduct(p: Record<string, unknown>): Product {
     price:     Number(price),
     image_url: String(p.image_url || p.image || p.thumbnail || ""),
     url:       String(p.url || p.product_url || p.link || ""),
+    category:  String(p.category || p.category_name || p.type || ""),
   };
 }
 
@@ -267,11 +301,15 @@ function truncateToSentences(text: string, n = 2): string {
 // ── ROUTE HANDLER ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const { messages, userProfile, recipientProfile } = await req.json();
+  const { messages, userProfile, recipientProfile, lastShownProducts } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
     return Response.json({ error: "messages array required" }, { status: 400 });
   }
+
+  const priorProducts: Product[] = Array.isArray(lastShownProducts)
+    ? (lastShownProducts as Product[])
+    : [];
 
   const intent = detectIntent(messages);
   const budget = extractBudget(messages);
@@ -287,10 +325,12 @@ export async function POST(req: Request) {
         in_stock_only: true,
         sort:          "relevance",
       });
-      // Filter junk (vendor listings, no-image, zero-price) and over-budget
-      // BEFORE slicing — cards rendered in UI come from this array, not Claude.
+      // Filter junk (vendor listings, no-image, zero-price), over-budget, and
+      // off-topic results (relevance gate) BEFORE slicing — cards rendered in UI
+      // come from this array, not Claude.
+      const queryTokens = (intent as { query: string }).query.split(/\s+/);
       if (result.results?.length) {
-        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget);
+        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens);
         products = candidates.slice(0, 4);
       }
 
@@ -301,7 +341,7 @@ export async function POST(req: Request) {
         if (fallbackQ && fallbackQ !== (intent as { query: string }).query) {
           try {
             const r2 = await callMCP("search_products", { q: fallbackQ, limit: 8, in_stock_only: true, sort: "relevance" });
-            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget);
+            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws);
             if (c2.length > products.length) {
               products = c2.slice(0, 4);
             }
@@ -320,7 +360,7 @@ export async function POST(req: Request) {
   let checkoutUrl: string | null = null;
 
   try {
-    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, trackingData);
+    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, trackingData, priorProducts);
 
     const response = await client.messages.create(
       {
