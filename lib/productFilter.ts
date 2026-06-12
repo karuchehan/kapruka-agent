@@ -73,6 +73,12 @@ export function isJunkProduct(p: FilterableProduct): boolean {
   return false;
 }
 
+// Generic container stems (mirror of route.ts GENERIC_QUERY_WORDS, after stem()).
+// A query made only of these is too broad to discriminate — keep the unfiltered
+// fallback. A query with anything ELSE is specific enough that zero matches means
+// MCP returned junk → return empty rather than show wrong products.
+const GENERIC_FILTER_STEMS = new Set(["book", "item", "product", "thing"]);
+
 // Light stem: lowercase, strip non-alnum, drop a common trailing inflection so
 // "autobiographies" ~ "autobiography", "watches" ~ "watch". Not linguistically
 // correct — just enough to match a query genre token against a product/category.
@@ -109,7 +115,15 @@ function relevanceGate<T extends FilterableProduct>(products: T[], queryTokens: 
     return qStems.some((q) => hay.some((h) => h === q || h.includes(q) || q.includes(h)));
   });
 
-  return gated.length >= 1 ? gated : products;
+  if (gated.length >= 1) return gated;
+
+  // Zero genre matches. If the query carried a SPECIFIC token (not just a
+  // generic container like "book"/"thing"), MCP returned off-topic junk —
+  // return nothing so the agent asks a follow-up rather than showing wrong
+  // products (e.g. "electrical equipment" matched self-help books). Only fall
+  // back to the unfiltered list when the query was purely generic.
+  const hasSpecific = qStems.some((q) => !GENERIC_FILTER_STEMS.has(q));
+  return hasSpecific ? [] : products;
 }
 
 // Drop junk, then drop anything over the stated budget (if any), then (if a

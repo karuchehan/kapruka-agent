@@ -97,10 +97,14 @@ export function useChat() {
       // against an already-populated set and drop the whole carousel.
       let freshProducts: Product[] = [];
       if (data.products?.length) {
-        freshProducts = (data.products as Product[]).filter(
-          (p) => !shownProductIds.current.has(p.id)
-        );
-        freshProducts.forEach((p) => shownProductIds.current.add(p.id));
+        // Reject ids already shown this session AND repeats within THIS response
+        // (MCP itself returns duplicate rows) — add to the Set during the filter
+        // so the second occurrence of a same-response id is dropped too.
+        freshProducts = (data.products as Product[]).filter((p) => {
+          if (shownProductIds.current.has(p.id)) return false;
+          shownProductIds.current.add(p.id);
+          return true;
+        });
         // Remember this carousel so the next request can answer follow-ups
         // about these items without a re-search.
         if (freshProducts.length) lastShownProducts.current = freshProducts;
