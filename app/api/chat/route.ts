@@ -371,6 +371,17 @@ export async function POST(req: Request) {
   const intent = detectIntent(messages);
   const budget = extractBudget(messages);
 
+  // Sticky category context across the WHOLE conversation. The per-turn search
+  // query leads with the current message ("adventure"), losing the "book"
+  // constraint — so MCP returns cakes/games/tours that share the genre word.
+  // Detect a book flow from the full transcript and pass it to the filter so
+  // non-book results are dropped even when the latest message omits "book".
+  const convText = (messages as ApiMessage[]).map((m) => m.content).join(" ").toLowerCase();
+  const categoryHint: "book" | null =
+    /\b(books?|novels?|read(?:s|ing)?|author|fiction|non[\s-]?fiction|autobiograph|memoir|biograph|paperback|hardcover|storybook)\b/.test(convText)
+      ? "book"
+      : null;
+
   let products: Product[] = [];
   let trackingData = null;
 
@@ -387,7 +398,7 @@ export async function POST(req: Request) {
       // come from this array, not Claude.
       const queryTokens = (intent as { query: string }).query.split(/\s+/);
       if (result.results?.length) {
-        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens);
+        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, categoryHint);
         products = candidates.slice(0, 4);
       }
 
@@ -398,7 +409,7 @@ export async function POST(req: Request) {
         if (fallbackQ && fallbackQ !== (intent as { query: string }).query) {
           try {
             const r2 = await callMCP("search_products", { q: fallbackQ, limit: 8, in_stock_only: true, sort: "relevance" });
-            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws);
+            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint);
             if (c2.length > products.length) {
               products = c2.slice(0, 4);
             }

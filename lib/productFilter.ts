@@ -62,6 +62,22 @@ export function isVendorName(name: string): boolean {
   return false;
 }
 
+// Products that are clearly NOT books. When the shopper is in a book flow
+// (categoryHint === "book") these leak in via loose MCP matching on a single
+// genre word — e.g. "Winnie's Woodland Adventure ... Cake", "Uncharted 4
+// (PS4 Game)", and "Ceylon Extreme Adventures — Full Day Tour Package" all
+// share the token "adventure" with an "adventure" query. Reject them so a book
+// search never surfaces a cake, a video game, or an experience voucher.
+// Markers are deliberately specific (console brands, "(ps4 game)", "cake",
+// "tour package") so a genuine title like "A Game of Thrones" is NOT caught by
+// a bare "game", and "Diary of a Wimpy Kid: The Getaway" is not caught by a
+// bare "getaway".
+const NON_BOOK_MARKERS = /\b(?:cake|gateau|cupcake|hamper|bouquet|flowers?|chocolates?|playstation|ps[45]|xbox|nintendo|console|tour\s+package|day\s+tour|voucher|experience|spa\s+package)\b|\(\s*ps[45][^)]*\)|\(\s*nintendo[^)]*\)|game\s*\)/i;
+
+export function isNonBook(name: string): boolean {
+  return NON_BOOK_MARKERS.test(name);
+}
+
 // A result is junk (vendor/shop listing, not a real product) when:
 // - it has no image (vendor listings on Kapruka MCP frequently lack one), or
 // - its price is zero/negative (placeholder listing), or
@@ -108,10 +124,15 @@ function relevanceGate<T extends FilterableProduct>(products: T[], queryTokens: 
   const qStems = [...new Set(queryTokens.map(stem).filter((t) => t.length >= 3))];
   if (!qStems.length) return products;
 
+  const wantsFiction = qStems.includes("fiction");
   const gated = products.filter((p) => {
     // Genre/type signal lives in name + category + summary (MCP category is
     // almost always "General"; summary carries "Non Fiction Autobiography" etc).
-    const hay = stemTokens(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
+    const raw = `${p.name} ${p.category ?? ""} ${p.summary ?? ""}`.toLowerCase();
+    // "Non Fiction" tokenises to ["non","fiction"], so a non-fiction title would
+    // otherwise satisfy a "fiction" query. Exclude it explicitly.
+    if (wantsFiction && /\bnon[\s-]?fiction\b/.test(raw)) return false;
+    const hay = stemTokens(raw);
     return qStems.some((q) => hay.some((h) => h === q || h.includes(q) || q.includes(h)));
   });
 
@@ -131,9 +152,13 @@ function relevanceGate<T extends FilterableProduct>(products: T[], queryTokens: 
 export function filterProducts<T extends FilterableProduct>(
   products: T[],
   budget: number | null,
-  queryTokens?: string[]
+  queryTokens?: string[],
+  categoryHint?: "book" | null
 ): T[] {
   let out = products.filter((p) => !isJunkProduct(p));
+  // In a book flow, drop non-book products (cakes, games, tours) that only
+  // matched on a shared genre word like "adventure".
+  if (categoryHint === "book") out = out.filter((p) => !isNonBook(p.name));
   if (budget != null) out = out.filter((p) => p.price <= budget);
   if (queryTokens?.length) out = relevanceGate(out, queryTokens);
   return out;
