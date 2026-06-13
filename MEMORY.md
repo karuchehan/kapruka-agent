@@ -692,3 +692,33 @@ The timeout theory was WRONG. maxDuration=60 is harmless hygiene but not the fix
 2. Investigate WHY auto-deploy stopped (git integration vs CLI-only history).
 
 ---
+
+## Session 015e — 2026-06-13 (REAL prod cause #2: module-init 500 + wrong project domain)
+
+### Two stacked problems found
+1. **Wrong domain.** `kapruka-agent.vercel.app` = OLD project (pre-Next, route 404, ~8.5d stale). The Next app actually deploys to **`kapruka-agent-pink.vercel.app`** (project "kapruka-agent-pink"). User was testing the old URL.
+2. **Module-init 500 on the real deployment.** On `kapruka-agent-pink`, `/api/chat` returned 500 on BOTH GET and POST (fast, generic HTML error page) = the route module throws at IMPORT time. Cause: top-level `readFileSync(join(process.cwd(),"directives","system_prompt.md"))`. File IS traced into the bundle (verified route.js.nft.json lists ../../../../../directives/system_prompt.md), but Vercel's process.cwd() ≠ project root → ENOENT → hard 500 → client's opaque "Sorry, something went wrong: Network error". Local `next start` masked it because cwd = project root there (GET → 405).
+
+### Fix (commit f4ff398, pushed)
+- `loadSystemPrompt()` tries candidates: cwd-relative, cwd/kaprukaAgent, and __dirname-relative (matches outputFileTracing layout). Never throws at module scope; POST returns precise JSON 500 (cwd + tried paths) on total failure instead of crashing → client sees the real reason, not "Network error".
+- Verified: tsc + prod build clean, GET /api/chat → 405 (module loads).
+
+### SECURITY
+User pasted the real ANTHROPIC_API_KEY into chat (sk-ant-api03-wftk…). Told them to ROTATE it (revoke + reissue at console.anthropic.com), update Vercel env + local .env/.env.local, never paste again.
+
+### USER ACTION
+1. Redeploy kapruka-agent-pink (auto from this push, or `vercel --prod`).
+2. Re-test on **https://kapruka-agent-pink.vercel.app** (NOT kapruka-agent.vercel.app).
+3. If still 500 → the new JSON error names cwd + tried paths → tells us the exact runtime path; adjust candidates.
+4. Repoint/clean up the kapruka-agent.vercel.app domain (old project) to avoid confusion — optionally attach it to the kapruka-agent-pink project.
+5. Rotate the leaked API key.
+
+### Lessons
+- Diagnose against the URL the build ACTUALLY serves — confirm the deployment URL before probing; a vanity domain can belong to a different/old project.
+- Never readFileSync at module scope with process.cwd() on Vercel — cwd is not guaranteed to be project root even when the file is traced. Use module-relative candidates and fail soft into the handler.
+
+### Next Steps
+1. User redeploys + tests on the -pink URL; verify 200 + follow-up.
+2. Domain cleanup + key rotation.
+
+---
