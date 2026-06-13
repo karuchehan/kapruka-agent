@@ -722,3 +722,29 @@ User pasted the real ANTHROPIC_API_KEY into chat (sk-ant-api03-wftk…). Told th
 2. Domain cleanup + key rotation.
 
 ---
+
+## Session 015f — 2026-06-13 (REAL prod cause #3: Anthropic ctor outside try → uncaught crash)
+
+### What We Did
+- Prod (`kapruka-agent-pink.vercel.app`) still showed "Sorry, something went wrong: Network error" after promoting f4ff398.
+- Traced the literal string: comes from `useChat.ts:78` `res.json().catch(() => ({ error: "Network error" }))` on a `!res.ok` response whose body is NOT JSON → i.e. an HTML platform 500, not our JSON. (The abort/timeout path gives "Connection error. Please try again." at `useChat.ts:133` — different string, so not a timeout.)
+- Root cause: `route.ts:415` `const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })` sat OUTSIDE the try block (try opened at 419). `new Anthropic({ apiKey: undefined })` throws synchronously at construction ("Could not resolve authentication method"). With ANTHROPIC_API_KEY unset in Production, function crashed before any catch → Vercel HTML 500 → opaque "Network error". f4ff398's loader was irrelevant — crash is 100+ lines past it.
+
+### Fix (commit 1bba789, pushed to main)
+- `route.ts`: explicit guard returns clean JSON `{error:"Server config error: ANTHROPIC_API_KEY is not set in this environment"}` (500) BEFORE constructing; moved `new Anthropic()` inside the try.
+- New `app/api/health/route.ts`: no-Anthropic diagnostic GET → `anthropicKeyPresent` (bool, never the value), `anthropicKeyLength`, `cwd`, `systemPromptReadable`, `systemPromptPath`, `vercelEnv`. Hit after deploy to confirm env without burning API calls.
+- Verified: `tsc --noEmit` clean. No CSS/layout touched → overflow checks N/A.
+
+### Gaps / Blockers
+- Vercel CLI not usable here: `VERCEL_TOKEN` env var set but INVALID, and not logged in. Could not read Prod logs/env or deploy myself. User doing env check + promote manually in dashboard.
+
+### Mistakes & Lessons
+- Any throwing call placed before/outside the handler try (SDK constructors that validate args at construction are the classic case) defeats the JSON-error contract → client sees a platform HTML 500 as "Network error". Keep ALL handler logic, incl. client construction, inside the try, or guard inputs first.
+- Distinguish client error strings when diagnosing: "...something went wrong: <X>" = non-ok response (`useChat:81`); "Connection error" = fetch threw/aborted (`useChat:133`). The string tells you whether it was a server response or a transport/timeout failure.
+
+### Next Steps
+1. User: confirm ANTHROPIC_API_KEY set for **Production** env (not just Preview/Dev) in dashboard.
+2. User: promote new deployment; hit `/api/health` → expect `anthropicKeyPresent:true`.
+3. Re-test chat on -pink URL → expect 200; if key was missing, guard now shows the precise reason instead of "Network error".
+
+---
