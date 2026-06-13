@@ -144,6 +144,67 @@ function buildSearchQuery(messages: ApiMessage[]): string {
   return prev ? extractKeywords(prev.content).slice(0, 5).join(" ") : "";
 }
 
+// Single generic category words MCP ranks badly (by keyword frequency, not
+// intent). When a search collapses to one of these, MCP returns junk. Enrich
+// from conversation context so MCP NEVER receives a bare 1-word query — the
+// same fix the verified book flow applies, generalised to every category.
+const GENERIC_CATEGORIES = new Set([
+  "books", "book", "clothing", "clothes", "shoes", "shoe", "electronics",
+  "electronic", "food", "foods", "gifts", "gift", "flowers", "flower",
+  "cosmetics", "cosmetic", "jewellery", "jewelry", "toys", "toy",
+  "perfume", "perfumes", "watch", "watches",
+]);
+
+const OCCASION_WORDS = [
+  "birthday", "anniversary", "wedding", "christmas", "valentine",
+  "graduation", "newborn",
+];
+
+// Common preference adjectives users say; used to qualify a bare category
+// ("fiction" books, "casual" shoes). "kids" included so a stated audience
+// survives even when no recipient age is set.
+const PREFERENCE_WORDS = [
+  "casual", "formal", "fiction", "romantic", "elegant", "vintage", "modern",
+  "traditional", "organic", "handmade", "luxury", "sporty", "kids",
+];
+
+// Turn a bare single category word into a ≥2-word, context-aware query.
+// Precedence: stated preference → recipient age/gender → occasion → "popular".
+function enrichGenericQuery(
+  baseQuery: string,
+  recipientProfile: { age?: number | null; gender?: string } | null | undefined,
+  convText: string,
+): string {
+  const tokens = baseQuery.trim().split(/\s+/);
+  if (tokens.length !== 1) return baseQuery;          // already ≥2 words
+  const cat = tokens[0].toLowerCase();
+  if (!GENERIC_CATEGORIES.has(cat)) return baseQuery; // not a bare category
+
+  const prefixes: string[] = [];
+
+  const pref = PREFERENCE_WORDS.find((p) => new RegExp(`\\b${p}\\b`).test(convText));
+  if (pref) prefixes.push(pref);
+
+  const age = recipientProfile?.age;
+  const gender = (recipientProfile?.gender || "").toLowerCase();
+  if (age != null && age <= 12) {
+    if (!prefixes.includes("kids")) prefixes.push("kids");
+  } else if (/\b(male|man|men|boy)\b/.test(gender)) {
+    prefixes.push("mens");
+  } else if (/\b(female|woman|women|girl)\b/.test(gender)) {
+    prefixes.push("womens");
+  }
+
+  if (prefixes.length === 0) {
+    const occ = OCCASION_WORDS.find((o) => new RegExp(`\\b${o}`).test(convText));
+    if (occ) prefixes.push(occ);
+  }
+
+  if (prefixes.length === 0) prefixes.push("popular"); // guarantee ≥2 words
+
+  return `${prefixes.slice(0, 2).join(" ")} ${cat}`.trim();
+}
+
 function detectIntent(messages: ApiMessage[]) {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return { type: "none" };
@@ -399,7 +460,9 @@ export async function POST(req: Request) {
         categoryHint === "book" && recipientProfile?.age != null && recipientProfile.age <= 12
           ? "kids "
           : "";
-      const searchQuery = categoryHint === "book" ? `${childPrefix}${baseQuery} books`.trim() : baseQuery;
+      const searchQuery = categoryHint === "book"
+        ? `${childPrefix}${baseQuery} books`.trim()
+        : enrichGenericQuery(baseQuery, recipientProfile, convText);
 
       const result = await callMCP("search_products", {
         q:             searchQuery,
@@ -422,7 +485,9 @@ export async function POST(req: Request) {
         const fallbackQ   = fallbackKws.slice(0, 3).join(" ");
         if (fallbackQ && fallbackQ !== baseQuery) {
           try {
-            const fallbackSearchQ = categoryHint === "book" ? `${childPrefix}${fallbackQ} books`.trim() : fallbackQ;
+            const fallbackSearchQ = categoryHint === "book"
+              ? `${childPrefix}${fallbackQ} books`.trim()
+              : enrichGenericQuery(fallbackQ, recipientProfile, convText);
             const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 8, in_stock_only: true, sort: "relevance" });
             const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint);
             if (c2.length > products.length) {
