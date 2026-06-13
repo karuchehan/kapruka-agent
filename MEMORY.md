@@ -773,4 +773,11 @@ maxDuration, robust loader (f4ff398), key guard + ctor-in-try (1bba789) ALL edit
 1. Consider deleting remaining legacy root files (index.html, app.js, style.css, dev-server.js) — shadowing risk for `/`; UI already served by App Router so they're dead weight.
 2. Remove the temporary `/api/health` diagnostic endpoint once satisfied (currently harmless; leaks no secrets).
 
+### Cleanup + full-flow verification (commit 41b52a3, pushed)
+- Deleted legacy root files (index.html, app.js, style.css, dev-server.js) — no code refs (checked package.json/next.config/vercel.json) — and the temp `app/api/health/route.ts`. Build clean; only `/api/chat` remains as a function.
+- New deploy confirmed live (`/api/health` → 404).
+- Full flow tested live: POST with userProfile (Chehan) + recipientProfile (brother, 23, history) + message → 200, personalized message naming recipient/occasion + real history-book products (Hard Nuts Of History LKR 460, Oxford Primary History LKR 2940).
+- Known minor nit: MCP returns duplicate product rows (each 2×); client `useChat` dedups via `shownProductIds` so UI is fine — tighten server-side later if desired.
+- NEXT PHASE: drop `kapruka_direction_prompt.md` and start building features.
+
 ---
