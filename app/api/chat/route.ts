@@ -412,11 +412,23 @@ export async function POST(req: Request) {
     console.error("MCP fetch error:", (err as Error).message);
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // Guard BEFORE constructing the client. `new Anthropic({ apiKey: undefined })`
+  // throws synchronously at construction ("Could not resolve authentication
+  // method"). When that ran outside the try below, a missing Production env var
+  // crashed the function → Vercel HTML 500 → client's res.json() fails → opaque
+  // "Network error". Return precise JSON instead.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return Response.json(
+      { error: "Server config error: ANTHROPIC_API_KEY is not set in this environment" },
+      { status: 500 }
+    );
+  }
+
   let message    = "";
   let checkoutUrl: string | null = null;
 
   try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, trackingData, priorProducts);
 
     const response = await client.messages.create(
