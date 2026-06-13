@@ -387,8 +387,22 @@ export async function POST(req: Request) {
 
   try {
     if (intent.type === "search" && (intent as { query?: string }).query) {
+      const baseQuery = (intent as { query: string }).query;
+      // Enrich the MCP query in a book flow. A bare genre word ("adventure")
+      // makes MCP rank adventure-themed CAKES/GAMES first. The phrasing
+      // "kids <genre> books" flips results to genuine children's books
+      // (The Journey, Dork Diaries, Madol Doova) — verified against the live
+      // MCP; word order and the plural matter ("adventure books for kids"
+      // regresses to piano courses). Keep the gate's queryTokens as the raw
+      // genre so relevance still matches on the genre, not on "book".
+      const childPrefix =
+        categoryHint === "book" && recipientProfile?.age != null && recipientProfile.age <= 12
+          ? "kids "
+          : "";
+      const searchQuery = categoryHint === "book" ? `${childPrefix}${baseQuery} books`.trim() : baseQuery;
+
       const result = await callMCP("search_products", {
-        q:             (intent as { query: string }).query,
+        q:             searchQuery,
         limit:         8,
         in_stock_only: true,
         sort:          "relevance",
@@ -396,7 +410,7 @@ export async function POST(req: Request) {
       // Filter junk (vendor listings, no-image, zero-price), over-budget, and
       // off-topic results (relevance gate) BEFORE slicing — cards rendered in UI
       // come from this array, not Claude.
-      const queryTokens = (intent as { query: string }).query.split(/\s+/);
+      const queryTokens = baseQuery.split(/\s+/);
       if (result.results?.length) {
         const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, categoryHint);
         products = candidates.slice(0, 4);
@@ -406,9 +420,10 @@ export async function POST(req: Request) {
         const lastUser = [...messages].reverse().find((m: ApiMessage) => m.role === "user");
         const fallbackKws = lastUser ? extractKeywords(lastUser.content) : [];
         const fallbackQ   = fallbackKws.slice(0, 3).join(" ");
-        if (fallbackQ && fallbackQ !== (intent as { query: string }).query) {
+        if (fallbackQ && fallbackQ !== baseQuery) {
           try {
-            const r2 = await callMCP("search_products", { q: fallbackQ, limit: 8, in_stock_only: true, sort: "relevance" });
+            const fallbackSearchQ = categoryHint === "book" ? `${childPrefix}${fallbackQ} books`.trim() : fallbackQ;
+            const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 8, in_stock_only: true, sort: "relevance" });
             const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint);
             if (c2.length > products.length) {
               products = c2.slice(0, 4);

@@ -133,7 +133,11 @@ function stemTokens(text: string): string[] {
 // but Gorky's says "Translations") — a <2 threshold re-admitted the fiction in
 // exactly the case the gate exists to catch. One on-topic card beats four with
 // three off-topic. (route.ts has its own <2 re-search fallback for thin results.)
-function relevanceGate<T extends FilterableProduct>(products: T[], queryTokens: string[]): T[] {
+function relevanceGate<T extends FilterableProduct>(
+  products: T[],
+  queryTokens: string[],
+  categoryHint?: "book" | null
+): T[] {
   const qStems = [...new Set(queryTokens.map(stem).filter((t) => t.length >= 3))];
   if (!qStems.length) return products;
 
@@ -156,6 +160,14 @@ function relevanceGate<T extends FilterableProduct>(products: T[], queryTokens: 
   // return nothing so the agent asks a follow-up rather than showing wrong
   // products (e.g. "electrical equipment" matched self-help books). Only fall
   // back to the unfiltered list when the query was purely generic.
+  // Book flow: `products` here is already the isBookish allowlist, ranked by MCP
+  // relevance to a context-enriched query (e.g. "children adventure book"). If
+  // no title textually carries the genre word, fall back to that book set
+  // (caller slices the top few) rather than returning empty — empty cards make
+  // the agent invent titles. Non-books were already removed, so the worst case
+  // is a loosely-relevant book, never a cake or a game.
+  if (categoryHint === "book") return products;
+
   const hasSpecific = qStems.some((q) => !GENERIC_FILTER_STEMS.has(q));
   return hasSpecific ? [] : products;
 }
@@ -175,6 +187,6 @@ export function filterProducts<T extends FilterableProduct>(
   // like "adventure" with the query.
   if (categoryHint === "book") out = out.filter((p) => isBookish(p) && !isNonBook(p.name));
   if (budget != null) out = out.filter((p) => p.price <= budget);
-  if (queryTokens?.length) out = relevanceGate(out, queryTokens);
+  if (queryTokens?.length) out = relevanceGate(out, queryTokens, categoryHint);
   return out;
 }
