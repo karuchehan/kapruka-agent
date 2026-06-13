@@ -748,3 +748,29 @@ User pasted the real ANTHROPIC_API_KEY into chat (sk-ant-api03-wftk…). Told th
 3. Re-test chat on -pink URL → expect 200; if key was missing, guard now shows the precise reason instead of "Network error".
 
 ---
+
+## Session 015g — 2026-06-13 (THE REAL ROOT CAUSE: legacy root api/chat.js shadowed the App Router) ✅ FIXED
+
+### What We Did
+- Hit prod directly. `/api/health` → 200, `anthropicKeyPresent:true`, `systemPromptReadable:true`, cwd=`/var/task`. So env + fs + App Router runtime ALL fine.
+- `/api/chat` GET **and** POST → 500 HTML. Decisive tells: `content-type: text/html`, `x-matched-path: /500`, body was the **Pages-Router** static error page (`pages/_error`, `nextExport:true`, buildId) — NOT an App Router handler error. Plus `age:` header = edge-served static. Meaning: request never reached `app/api/chat/route.ts`.
+- Local prod build (`next build && next start`): GET `/api/chat` → **405** (route loads fine locally). So the crash was Vercel-routing-specific, not code.
+- Found `api/chat.js` at repo ROOT (legacy, pre-Next). **Vercel zero-config treats any root `api/*.js` as a standalone serverless function** → `/api/chat` routed there, shadowing the App Router route. That legacy file does `fs.readFileSync(ROOT/directives/system_prompt.md)` at MODULE SCOPE, no try/catch; Next's `outputFileTracingIncludes` only bundles directives for the *Next* function, not a standalone one → ENOENT → module-init crash → static /500. `/api/health` worked only because no `api/health.js` existed to shadow it.
+
+### Why every prior "fix" failed (015c–015f)
+maxDuration, robust loader (f4ff398), key guard + ctor-in-try (1bba789) ALL edited `app/api/chat/route.ts` — a file production NEVER executed for `/api/chat`. We were fixing the wrong file for ~4 sessions.
+
+### Fix (commit 6816d63, pushed to main, auto-promoted)
+- `git rm api/chat.js` + removed the `api/` dir. `/api/chat` now resolves to the hardened App Router handler.
+- Verified LIVE on `kapruka-agent-pink.vercel.app`: GET `/api/chat` 500→**405**; POST `{"messages":[{"role":"user","content":"I want to buy some books"}]}` → **200** with real message ("Who are these books for…") + product cards. "Network error" gone.
+
+### Mistakes & Lessons
+- **Confirm WHICH file production runs before fixing it.** A root `api/` dir in a Next App Router repo silently shadows `app/api/**/route.ts` on Vercel. The Pages-Router static `/500` page (vs a plain App Router 500) was the tell that the request bypassed the App Router entirely.
+- Diagnose at the edge with `curl -i`: `x-matched-path`, `content-type: text/html`, and `age:` together prove "request not reaching my function" faster than reading code.
+- Legacy files flagged "do not edit" in CLAUDE.md can still be a live routing hazard — deleting (not editing) is the correct move when they shadow the real route.
+
+### Next Steps
+1. Consider deleting remaining legacy root files (index.html, app.js, style.css, dev-server.js) — shadowing risk for `/`; UI already served by App Router so they're dead weight.
+2. Remove the temporary `/api/health` diagnostic endpoint once satisfied (currently harmless; leaks no secrets).
+
+---
