@@ -4,6 +4,34 @@
 
 ---
 
+## Session 016 — 2026-06-13 (Autoresearch loop run + product-relevance filter fix)
+
+### What We Did
+- **Loop:** added two scenarios to `execution/test_scenarios.json` mirroring live failures — `scenario_024_fiction_only` (fiction must not return self-help) and `scenario_025_kids_adventure_context_shift` (9yo brother + "adventure" must return children's books, not games/cakes/tours). Ran baseline (`node execution/run_tests.js`) over all 25 scenarios: overall avg **4.47**; the two new scenarios both scored **4.83** (>4.0 gate). Per the gate, generated **NO challenger** (saved API). Pre-existing sub-4 failures: scenario_004 (asks two questions), scenario_007 (no clarifying question) — unrelated to this task.
+- **Key insight:** the loop injects `scenario.simulated_products` straight to the agent — it tests the PROMPT given a clean product set, NOT the live MCP/filter. Both new scenarios passing confirmed the prompt is fine; the live bug was the **filter/MCP layer**.
+- **Filter fix (commits 8d65046 → ec15d94 → 6d990c2):**
+  1. Added `categoryHint` to `filterProducts`; route derives a sticky `"book"` hint from the FULL transcript (so a one-word follow-up like "adventure" keeps the book constraint).
+  2. First tried a non-book **blocklist** (isNonBook) — too narrow; real names like "Switch Game Jojo's Bizarre Adventure", "Paw Patrol Pillow … Of Adventure Bay", "Ceylon-extreme-adventures-" slipped through (no closing "(...)"). Replaced with a book-signal **allowlist** (`isBookish`): genuine Kapruka books carry a "Books" breadcrumb in their summary.
+  3. `relevanceGate`: a "Non Fiction" title no longer satisfies a "fiction" query.
+  4. **Query enrichment** (the real fix): the route sent only the latest word ("adventure") to MCP, which ranks adventure-themed cakes/games/tours first. Verified directly against live MCP that phrasing `"kids <genre> books"` (plural, kids-first; word order matters — "adventure books for kids" regresses to piano courses) returns genuine kids books (The Journey, Dork Diaries, Madol Doova). Applied to primary + fallback search.
+  5. `relevanceGate` book-flow fallback: if no title textually carries the genre word, return the (book-only, MCP-ranked) set instead of empty — empty cards were making the agent INVENT titles/prices.
+
+### Verified Live (kapruka-agent-pink.vercel.app)
+- Kids adventure flow → cards: The Journey, Dork Diaries, Madol Doova; message coherent ("Madol Doova … classic Sri Lankan adventure story perfect for a 9-year-old"). Zero junk.
+- Adult fiction flow → real books shown + agent asks to narrow (does not mislabel).
+
+### Known Limitations / Next
+- **MCP relevance is weak** for bare genres: "fiction books" ranks piano courses top; can't be filtered into true fiction without a genre dictionary/better query. Cards are always real books + no junk, and the agent narrows honestly, but in-genre precision for adults is MCP-limited. Candidate next step: genre-specific query expansion or a small genre classifier.
+- **Agent invents products when cards are empty** — mitigated (gate fallback keeps cards populated) but the underlying prompt behaviour (never state a product not in AVAILABLE PRODUCTS) should be hardened via the LOOP (do not hand-edit system_prompt.md — directive rule).
+- MCP returns duplicate rows (Madol Doova ×2); client dedups; tighten server-side later.
+
+### Lessons
+- The autoresearch loop tests the PROMPT with injected products — it cannot catch MCP/filter-layer bugs. Product-relevance regressions need a separate live-MCP probe (wrote ad-hoc probes hitting kapruka_search_products directly, no Anthropic spend).
+- Blocklists for "junk" are whack-a-mole; an allowlist of the wanted class (book signal) is far more robust.
+- For weak keyword search, fixing the QUERY (context-rich phrasing) beats post-filtering — bare "adventure" is unrecoverable; "kids adventure books" is.
+
+---
+
 ## Session 001 — 2026-06-09
 
 ### What We Did
