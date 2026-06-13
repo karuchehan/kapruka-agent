@@ -3,10 +3,29 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { extractBudget, filterProducts } from "@/lib/productFilter";
 
-const BASE_SYSTEM_PROMPT = readFileSync(
-  join(process.cwd(), "directives", "system_prompt.md"),
-  "utf8"
-);
+// Load the system prompt from directives/system_prompt.md. On Vercel,
+// process.cwd() is not guaranteed to be the project root, so a single
+// cwd-relative read can throw ENOENT at module load → hard 500 → the client's
+// opaque "Network error". Try several candidates (the file IS traced into the
+// bundle via outputFileTracingIncludes), and NEVER throw at module scope —
+// defer any failure into the handler so the client gets a precise JSON error.
+function loadSystemPrompt(): { text: string; error: string } {
+  const candidates = [
+    join(process.cwd(), "directives", "system_prompt.md"),
+    join(process.cwd(), "kaprukaAgent", "directives", "system_prompt.md"),
+  ];
+  // Module-relative fallback — matches the outputFileTracing layout
+  // (.next/server/app/api/chat → ../../../../../directives). __dirname exists
+  // in the built CJS server module.
+  try { candidates.push(join(__dirname, "../../../../../directives/system_prompt.md")); } catch { /* no __dirname */ }
+
+  for (const p of candidates) {
+    try { return { text: readFileSync(p, "utf8"), error: "" }; } catch { /* try next */ }
+  }
+  return { text: "", error: `system_prompt.md not found. Tried: ${candidates.join(" | ")} (cwd=${process.cwd()})` };
+}
+
+const { text: BASE_SYSTEM_PROMPT, error: PROMPT_LOAD_ERROR } = loadSystemPrompt();
 
 // Raise the serverless function timeout. The handler chains MCP init+call
 // (+ a possible fallback re-search) and an Anthropic call; on the platform's
@@ -334,6 +353,11 @@ function truncateToSentences(text: string, n = 2): string {
 // ── ROUTE HANDLER ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  // Surface a config failure as JSON (not a module crash → opaque "Network error").
+  if (!BASE_SYSTEM_PROMPT) {
+    return Response.json({ error: `Server config error: ${PROMPT_LOAD_ERROR}` }, { status: 500 });
+  }
+
   const { messages, userProfile, recipientProfile, lastShownProducts } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
