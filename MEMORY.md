@@ -809,3 +809,29 @@ maxDuration, robust loader (f4ff398), key guard + ctor-in-try (1bba789) ALL edit
 - NEXT PHASE: drop `kapruka_direction_prompt.md` and start building features.
 
 ---
+
+## Session 016 — 2026-06-13 (Enrich bare single-word category queries before MCP)
+
+### What We Did
+- Problem: bare category words sent to MCP return junk because MCP ranks by keyword frequency, not intent. Book flow was already enriched (`categoryHint`); every OTHER category fell through bare.
+- Added `enrichGenericQuery(baseQuery, recipientProfile, convText)` in `app/api/chat/route.ts` (after `buildSearchQuery`). When an MCP search collapses to ONE bare generic category word (`GENERIC_CATEGORIES`: books/clothing/shoes/electronics/food/gifts/flowers/cosmetics/jewellery/toys/perfume/watch + plurals), prepend context. Precedence: stated preference (`PREFERENCE_WORDS`: fiction/casual/...) → recipient age≤12→"kids" / gender→mens|womens → occasion (`OCCASION_WORDS`: birthday/wedding/...) → fallback "popular". Always ≥2 words, capped at 2 prefix words.
+- Wired into both primary search (`searchQuery`) and the <2-result fallback (`fallbackSearchQ`); book path untouched.
+- Relevance gate still keys on raw `baseQuery` (queryTokens), so enrichment widens recall without letting drift through (shoes→shirts tail gets dropped).
+- Commit 73d0f79 pushed to main.
+
+### Live MCP verification (4 categories, /tmp/mcp_enrich_test.mjs)
+- "flowers" → **0 results**; "birthday flowers" → 6 bouquets.
+- "electronics" → **0 results**; "popular electronics" → 5 (laptop cooler first).
+- "toys" → **0 results**; "kids toys" → 4 genuine toys.
+- "shoes" → 4 ok; "mens casual shoes" → "Mens Casual Shoe" first (tail drifts to shirts, gate drops them).
+
+### Mistakes & Lessons
+- Bare single-word queries don't just rank badly — for flowers/electronics/toys MCP returned **literally zero**. Enrichment is recall-critical, not cosmetic.
+- Word order/plural matters to MCP (already noted for books: "adventure books for kids" regressed to piano courses). Kept prefix form `"<qualifier> <category>"`.
+- The pre-enrichment relevance gate is what makes loose enrichment safe — it filters on the user's real intent token, not the injected qualifier.
+
+### Next Steps
+1. Consider adding a category→default-qualifier map if "popular" proves weak for some categories (electronics result drift suggests it).
+2. Tighten MCP duplicate-row dedup server-side (still relying on client `shownProductIds`).
+
+---
