@@ -78,6 +78,19 @@ export function isNonBook(name: string): boolean {
   return NON_BOOK_MARKERS.test(name);
 }
 
+// Positive book signal. A blocklist of non-book junk is whack-a-mole — real
+// Kapruka noise like "Switch Game Jojo's Bizarre Adventure", "Paw Patrol
+// Pillow", and "Ceylon-extreme-adventures-" share a genre word but no closing
+// "(...)", so a name-only blocklist misses them. Instead, allowlist: genuine
+// Kapruka book products carry a "Books" breadcrumb in their summary/category
+// (e.g. "specialGifts - Kpc, Books, Children'sbook BOOKS ...") or an obvious
+// book token in the title. In a book flow, keep ONLY products with that signal.
+const BOOK_SIGNALS = /\b(?:books?|novels?|paperback|hardback|hardcover|hardbound|isbn|memoir|autobiograph|biograph|storybook|comics?|graphic\s+novel|childrens?\s*book|fiction)\b/i;
+
+export function isBookish(p: FilterableProduct): boolean {
+  return BOOK_SIGNALS.test(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
+}
+
 // A result is junk (vendor/shop listing, not a real product) when:
 // - it has no image (vendor listings on Kapruka MCP frequently lack one), or
 // - its price is zero/negative (placeholder listing), or
@@ -156,9 +169,11 @@ export function filterProducts<T extends FilterableProduct>(
   categoryHint?: "book" | null
 ): T[] {
   let out = products.filter((p) => !isJunkProduct(p));
-  // In a book flow, drop non-book products (cakes, games, tours) that only
-  // matched on a shared genre word like "adventure".
-  if (categoryHint === "book") out = out.filter((p) => !isNonBook(p.name));
+  // In a book flow, keep ONLY products that carry a book signal (allowlist) and
+  // additionally drop anything that trips the non-book blocklist. This removes
+  // cakes, games, pillows, and tour packages that merely shared a genre word
+  // like "adventure" with the query.
+  if (categoryHint === "book") out = out.filter((p) => isBookish(p) && !isNonBook(p.name));
   if (budget != null) out = out.filter((p) => p.price <= budget);
   if (queryTokens?.length) out = relevanceGate(out, queryTokens);
   return out;
