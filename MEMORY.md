@@ -4,6 +4,25 @@
 
 ---
 
+## Session 035 — 2026-06-14 (Loading screen redesign: correct "u" cup shape, no hand)
+
+### What We Did
+- **Removed the hand entirely** (SVG + all hand tweens) from `components/LoadingScreen.tsx`.
+- **Fixed the "u" shape:** the old tall-U-with-straight-sides was wrong. The Kapruka "u" is a wide deep CUP (∪). Rebuilt as a half-`TorusGeometry` (`arc=Math.PI`, `rotation.z=Math.PI` to flip ∩→∪, tips up). `R=1.0`, `TUBE=0.2`. Verified against the real logo (`ChatGPT__-cropped.svg`) via headless side-by-side.
+- **Simplified timeline (no hand):** (1) 0–1 cup pops in top-right + idle bob/sway; (2) 1–2.5 smooth curved move to centre (`power2.inOut`); (3) 2.5–3.2 settle bounce → shrink to `LETTER` + drop to baseline + string fades; (4) 3.1–3.9 "kapr"/"ka" slide in; (5) hold ~1.5s; (6) 5.4–6.1 overlay fades → `finish()`. Kept session skip, 8s safety, `lagSmoothing(0)`, full cleanup.
+- **Tuned to match the logo (4 screenshot iterations):** final `LETTER=0.66`, `BASE_Y=0.46` (tips≈letter-top, bottom≈baseline — cup spans nearly full letter height), `uGap` `clamp(42px,8.4vw,90px)`, `letterSpacing -0.04em`. Flattened lighting (ambient 1.35, key 0.8, point 0.6) so the foil reads closer to the logo's flat yellow.
+- tsc CLEAN; 4 layout checks pass. Final shot `.tmp/loading-cup-wordmark.png`.
+
+### Mistakes & Lessons
+- Two wrong extremes before landing it: a tall straight-sided U (Session 034) and then an over-shallow semicircle that sat too low. The real logo "u" is a DEEP cup — tips reach the letter-top, bottom at baseline (spans ~full letter height), wider than a single letter. Always render the actual reference asset side-by-side before tuning proportions, not from memory.
+- Remaining (accepted) deltas vs logo: Nunito 800 is lighter than the logo's custom chunky face; the 3D balloon keeps a subtle sheen vs the logo's flat fill. Fine for a 6s animated intro; flag if a pixel-exact static logo is ever needed (would use the SVG directly).
+
+### Next Steps
+- Confirm full 6.1s sequence + onboarding handoff in a real browser.
+- If pixel-exact wordmark ever required, swap the DOM text for the real wordmark SVG.
+
+---
+
 ## Session 034 — 2026-06-14 (Loading screen → coded GSAP + Three.js balloon-U animation)
 
 ### What We Did
