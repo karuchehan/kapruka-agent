@@ -4,6 +4,30 @@
 
 ---
 
+## Session 032 — 2026-06-14 (Three.js purple particle field replaces BackgroundCanvas)
+
+### What We Did
+- **Installed `three` (^0.184.0) + `@types/three`** (user-approved). Raw three.js, no R3F.
+- **Rewrote `components/BackgroundCanvas.tsx`** — replaced the 2D-canvas orange dot grid with a WebGL particle field rendered into the same `#bg-canvas`:
+  - 2500 points, purple palette (`#412973 / #6B4FA0 / #8B6FC8 / #A98FE0`) + ~6% gold `#FFCC00` sparkle; per-point vertex colors.
+  - Soft round glow via a runtime radial-gradient `CanvasTexture` sprite; `PointsMaterial` additive blending, `sizeAttenuation` (depth), `depthWrite:false`.
+  - Animation: gentle per-point vertical drift (sin wave w/ per-point phase), slow `rotation.y`, eased pointer parallax on the camera. `prefers-reduced-motion` → single static frame.
+  - Full cleanup on unmount: dispose geom/material/sprite/renderer, cancel rAF, remove listeners. DPR capped at 2.
+- **Visibility fix (globals.css):** `#onboarding-screen` and `#chat-screen` had **opaque** `background: var(--bg-primary)` over `#bg-canvas` (z0) — the canvas was effectively invisible (old one too). Set both to `background: transparent` so the field shows; `body` keeps the dark `--bg-primary` base. Bumped `#bg-canvas` opacity `0.35 → 0.5`.
+- **Verified render** via throwaway `app/bgtest/page.tsx` + `next dev` (port 3001) + headless Chrome with `--enable-unsafe-swiftshader --use-angle=swiftshader --virtual-time-budget=4000`. Confirmed soft purple points w/ depth + gold sparkles on near-black. Temp route deleted, dev server killed. Shot: `.tmp/threejs-particle-field.png`.
+- tsc CLEAN; 4 layout checks pass.
+
+### Mistakes & Lessons
+- The screens' opaque backgrounds meant `#bg-canvas` was never visible — any background-canvas effort is wasted unless the covering screen is transparent/semi. Check stacking + bg opacity before building a background layer.
+- Headless WebGL screenshot needs `--enable-unsafe-swiftshader --use-gl=angle --use-angle=swiftshader`; `--virtual-time-budget` advances rAF so the particle animation actually steps before capture.
+- `node -e "require('three/package.json')"` fails (ERR_PACKAGE_PATH_NOT_EXPORTED) — three's exports map blocks it; read the version from the project `package.json` instead.
+
+### Next Steps
+- Tune density/opacity/size live in-browser if it reads too faint or too busy behind chat text.
+- Consider gating the field off on low-end devices if first-load perf suffers (judges' machines).
+
+---
+
 ## Session 031 — 2026-06-14 (Loading screen: swap to letterU balloon + ChatGPT wordmark)
 
 ### What We Did
