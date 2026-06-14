@@ -148,7 +148,7 @@ export function LoadingScreen({ onDone }: Props) {
     <div ref={root} style={styles.overlay} aria-hidden="true">
       <div ref={smileGroup} style={styles.smileGroup}>
         <div ref={smileSway} style={styles.smileSway}>
-          <img src="/kapruka-smile.svg" alt="" style={styles.smileImg} />
+          <img src="/brand/logos/kapruka-smile.svg" alt="" style={styles.smileImg} />
           <div ref={string} style={styles.string} />
         </div>
       </div>
@@ -156,7 +156,7 @@ export function LoadingScreen({ onDone }: Props) {
       {/* Hand — inline SVG, dark skin tone, minimal, reaching upward. */}
       <HandSvg innerRef={hand} />
 
-      <img ref={logo} src="/kapruka-logo.svg" alt="Kapruka" style={styles.logo} />
+      <img ref={logo} src="/brand/logos/kapruka-logo.svg" alt="Kapruka" style={styles.logo} />
     </div>
   );
 }

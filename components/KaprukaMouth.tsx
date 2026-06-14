@@ -56,7 +56,7 @@ export function KaprukaMouth({ isSpeaking }: Props) {
   return (
     <img
       ref={el}
-      src="/letterU-cropped.svg"
+      src="/brand/logos/letterU-cropped.svg"
       alt=""
       aria-hidden="true"
       style={{

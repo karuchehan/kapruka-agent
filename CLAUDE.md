@@ -72,6 +72,7 @@ kapruka-agent/
 3. Components go in `/components/`, hooks in `/hooks/`, styles in `app/globals.css`
 4. Every decision should serve the judging rubric (see `scoring_strategy.md`)
 5. When in doubt, prioritize feel and visuals over clever backend logic
+6. **Brand assets** live under `public/brand/` — `logos/` (logo SVGs), `icons/` (UI icons), `animations/` (animation-specific assets). Any new asset the user uploads goes into the correct subfolder. Reference in code as `/brand/<subfolder>/<file>` (e.g. `/brand/logos/letterU-cropped.svg`). Never drop loose assets at the `public/` root.
 
 ## MANDATORY SELF-VERIFICATION RULE
 

@@ -4,6 +4,27 @@
 
 ---
 
+## Session 030 — 2026-06-14 (Asset inspection + public/brand/ folder reorg)
+
+### What We Did
+- **Inspected `ChatGPT. -cropped.svg` (296 KB upload):** RASTER, not vector — SVG wrapper around two base64 PNG `<image>` tags (image + luminance mask); only `<path>` is a clipPath rect. White forced via `feColorMatrix`. `viewBox="50.38 174.42 753.77 141.47"` (≈5.3:1 wide = full "kapruka" wordmark). Embedded PNG 948px tall. **U/smile cannot be isolated** — single flattened raster, no per-glyph vector layers. `letterU-cropped.svg` stays the mouth source.
+- **Reorg:** created `public/brand/{logos,icons,animations}/` (icons + animations hold `.gitkeep`). Moved all logo SVGs into `public/brand/logos/`:
+  - `git mv` of tracked: `letterU-cropped.svg`, `kapruka-logo.svg`, `kapruka-smile.svg`.
+  - copied uploads from `~/Documents`: `ChatGPT. -cropped.svg` → `ChatGPT__-cropped.svg` (normalized name — original had a space+dot), `kapruka1-cropped.svg`.
+- **Path updates:** `KaprukaMouth.tsx` `/letterU-cropped.svg` → `/brand/logos/letterU-cropped.svg`; `LoadingScreen.tsx` smile + logo → `/brand/logos/...`. Grep confirms zero stray root-level asset refs.
+- **CLAUDE.md rule added** (Operating Principle 6): brand assets live under `public/brand/<logos|icons|animations>/`, reference as `/brand/<subfolder>/<file>`, never loose at `public/` root; new uploads go to the correct subfolder.
+- tsc CLEAN; 4 layout checks pass. Did NOT touch animation logic (per instruction — only path strings changed).
+
+### Mistakes & Lessons
+- The "cropped" brand SVGs are all raster-PNG-in-SVG (white-forced by feColorMatrix), NOT clean vectors — can't programmatically isolate sub-shapes (e.g. the U). To get a true vector mouth would need an actual vector redraw, not an SVG sub-element extract.
+- `kapruka-logo.svg` ≡ `kapruka1-cropped.svg` and `kapruka-smile.svg` ≡ `letterU-cropped.svg` (identical bytes, different names) — duplicate assets now co-located in `brand/logos/`; candidate for dedupe later.
+
+### Next Steps
+- Decide canonical names + dedupe the duplicate logo/smile pairs in `brand/logos/`.
+- If a vector U mouth is wanted, redraw it as real paths (current asset can't yield one).
+
+---
+
 ## Session 029 — 2026-06-14 (Contrast fix on yellow accent + real letterU mouth asset)
 
 ### What We Did
