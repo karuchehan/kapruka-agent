@@ -4,6 +4,23 @@
 
 ---
 
+## Session 036 — 2026-06-14 (UI cleanup pass — prompts sent one at a time)
+
+### What We Did
+- **Prompt 1 — removed Three.js background** (commit `767890d`): deleted `components/BackgroundCanvas.tsx`, removed import + `<BackgroundCanvas/>` from `app/page.tsx`. The particle field was distracting / hurt readability. `--bg-primary` `#0f0d0c → #1a1025` (deep purple-dark); `#onboarding-screen` + `#chat-screen` restored `transparent → var(--bg-primary)` (they were transparent only to show the canvas); dropped the dead `#bg-canvas` CSS block. `three` dep kept (still used by LoadingScreen).
+- **Prompt 2 — wordmark font → Fredoka** (commit `f232926`): `"kapr"/"ka"` were Nunito 800; switched to **Fredoka weight 700** via `next/font/google` (`--font-wordmark`). Bumped size `clamp(42px,9.5vw,98px)`, `letter-spacing -0.03em`. Verified vs reference logo (headless screenshot): chunkier/rounder, closer to the Kapruka mark.
+
+### Mistakes & Lessons
+- **`Fredoka_One` is NOT in next/font/google** (Next 15.5.19): build error "Unknown font `Fredoka One`" + TS "no exported member 'Fredoka_One'". Google folded Fredoka One into the variable **`Fredoka`** family; use `Fredoka` with `weight: ["700"]` (its heaviest). Caught it via the dev-server build-error screenshot + `tsc`.
+
+### Next Steps (user's remaining UI issues for later prompts)
+- Gift message card appears on every agent message — should show once, only when explicitly requested.
+- Product cards too small / carousel narrow / images squished.
+- User bubble yellow feels off vs dark bg.
+- U mouth icon next to agent messages too small + low.
+
+---
+
 ## Session 035 — 2026-06-14 (Loading screen redesign: correct "u" cup shape, no hand)
 
 ### What We Did
