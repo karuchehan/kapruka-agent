@@ -6,14 +6,16 @@ import { SkeletonCards } from "./SkeletonCards";
 import { ProductCarousel } from "./ProductCarousel";
 import { DeliveryStatusCard } from "./DeliveryStatusCard";
 import { OccasionCountdown } from "./OccasionCountdown";
+import { GiftMessageCard } from "./GiftMessageCard";
 import type { ChatItem, Product } from "@/lib/types";
 
 interface Props {
   chatItems: ChatItem[];
   onAddToCart: (product: Product) => void;
+  onGiftSubmit: (text: string) => void;
 }
 
-export function MessageList({ chatItems, onAddToCart }: Props) {
+export function MessageList({ chatItems, onAddToCart, onGiftSubmit }: Props) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +60,10 @@ export function MessageList({ chatItems, onAddToCart }: Props) {
             return <DeliveryStatusCard key={item.id} delivery={item.delivery!} />;
           case "occasion":
             return <OccasionCountdown key={item.id} occasion={item.occasion!} />;
+          case "giftMessage":
+            return (
+              <GiftMessageCard key={item.id} giftMessage={item.giftMessage!} onSubmit={onGiftSubmit} />
+            );
           default:
             return null;
         }

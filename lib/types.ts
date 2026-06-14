@@ -40,6 +40,10 @@ export interface OccasionInfo {
   emoji?: string;      // e.g. "🎂"
 }
 
+export interface GiftMessageInfo {
+  prefill?: string;
+}
+
 export type ChatItemType =
   | "user"
   | "agent"
@@ -47,7 +51,8 @@ export type ChatItemType =
   | "skeleton"
   | "products"
   | "delivery"
-  | "occasion";
+  | "occasion"
+  | "giftMessage";
 
 export interface ChatItem {
   id: string;
@@ -57,4 +62,5 @@ export interface ChatItem {
   checkoutUrl?: string;
   delivery?: DeliveryInfo;
   occasion?: OccasionInfo;
+  giftMessage?: GiftMessageInfo;
 }

@@ -54,6 +54,10 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     }
   }
 
+  function handleGiftSubmit(text: string) {
+    sendMessage(`Please add this gift message to my order: "${text}"`, userProfile, recipientProfile);
+  }
+
   function handleCheckout() {
     if (pendingCheckoutUrl) {
       window.open(pendingCheckoutUrl, "_blank", "noopener");
@@ -71,7 +75,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
         cartCount={cartCount}
         onCartOpen={openCart}
       />
-      <MessageList chatItems={chatItems} onAddToCart={handleAddToCart} />
+      <MessageList chatItems={chatItems} onAddToCart={handleAddToCart} onGiftSubmit={handleGiftSubmit} />
       <InputArea onSend={handleSend} isSending={isSending} />
       <CartPanel
         isOpen={isCartOpen}

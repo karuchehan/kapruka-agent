@@ -958,3 +958,11 @@ API currently returns `{ message, products, checkoutUrl }` only. Each new compon
 - `MessageList.tsx`: `case "occasion"`; `useChat.ts`: maps `data.occasion?.targetDate` → chip.
 - `globals.css`: `.occasion-chip` (small brand-tinted pill, accent countdown number).
 - tsc clean.
+
+**Component 3 — GiftMessageCard ✅ (interactive)**
+- `components/GiftMessageCard.tsx`: greeting-card look (warm cream `#f5ecdf`, Playfair, dashed underline textarea), GSAP entrance `rotate:-4→-1` settle. Editable textarea + "Add gift message" → `onSubmit(text)`, then locks to "Added to your order ✓".
+- Wiring is interactive (not just display): `MessageList` gained `onGiftSubmit` prop; `ChatScreen.handleGiftSubmit` → `sendMessage('Please add this gift message to my order: "…"')`. So a saved message actually goes to the agent.
+- `lib/types.ts`: `GiftMessageInfo {prefill?}`; `+ "giftMessage"` type/field.
+- `useChat.ts`: maps truthy `data.giftMessage` (bool or object) → card.
+- `globals.css`: `.gift-card` + parts (cream theme, brand save button, success locked state).
+- tsc clean.

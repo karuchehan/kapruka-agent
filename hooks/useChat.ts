@@ -126,6 +126,11 @@ export function useChat() {
         if (data.occasion?.targetDate) {
           additions.push({ id: uid(), type: "occasion", occasion: data.occasion });
         }
+        // Agent invites a gift message → render an editable greeting card.
+        if (data.giftMessage) {
+          const gm = typeof data.giftMessage === "object" ? data.giftMessage : {};
+          additions.push({ id: uid(), type: "giftMessage", giftMessage: gm });
+        }
         return [...base, ...additions];
       });
 
