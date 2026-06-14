@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Header } from "./Header";
 import { MessageList } from "./MessageList";
 import { InputArea } from "./InputArea";
@@ -13,16 +13,28 @@ interface Props {
   userProfile: UserProfile;
   recipientProfile: RecipientProfile;
   obMessages: ApiMessage[];
+  initialQuery?: string;
 }
 
-export function ChatScreen({ userProfile, recipientProfile, obMessages }: Props) {
-  const { chatItems, isSending, sendMessage, initWithOnboarding } = useChat();
+export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQuery }: Props) {
+  const { chatItems, apiMessages, isSending, sendMessage, initWithOnboarding } = useChat();
   const { cart, cartCount, cartTotal, isCartOpen, pendingCheckoutUrl, setPendingCheckoutUrl, addToCart, removeFromCart, openCart, closeCart } = useCart();
   const { voiceEnabled, speak, toggleVoice } = useVoiceOutput();
+  const initialSent = useRef(false);
 
   useEffect(() => {
     initWithOnboarding(obMessages);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-send the onboarding shopping intent once history is seeded, so the agent
+  // actually responds (vs. sitting idle). Waits for apiMessages to populate to avoid
+  // a race where sendMessage's closure would miss the onboarding context.
+  useEffect(() => {
+    if (initialSent.current || !initialQuery) return;
+    if (apiMessages.length === 0) return;
+    initialSent.current = true;
+    sendMessage(initialQuery, userProfile, recipientProfile);
+  }, [apiMessages, initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Speak agent messages when they arrive
   useEffect(() => {

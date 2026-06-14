@@ -13,11 +13,13 @@ export default function Home() {
   const [phase, setPhase] = useState<"onboarding" | "chat">("onboarding");
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [obMessages, setObMessages] = useState<ApiMessage[]>([]);
+  const [initialQuery, setInitialQuery] = useState("");
   const obRef = useRef<HTMLDivElement>(null);
 
-  function handleOnboardingComplete(profile: UserProfile, messages: ApiMessage[]) {
+  function handleOnboardingComplete(profile: UserProfile, messages: ApiMessage[], query: string) {
     setUserProfile(profile);
     setObMessages(messages);
+    setInitialQuery(query);
 
     // Fade out onboarding, then switch
     if (obRef.current) {
@@ -45,6 +47,7 @@ export default function Home() {
           userProfile={userProfile}
           recipientProfile={DEFAULT_RECIPIENT}
           obMessages={obMessages}
+          initialQuery={initialQuery}
         />
       )}
     </>

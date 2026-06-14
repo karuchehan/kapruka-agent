@@ -4,7 +4,7 @@ import gsap from "gsap";
 import type { UserProfile, ApiMessage } from "@/lib/types";
 
 interface Props {
-  onComplete: (userProfile: UserProfile, obMessages: ApiMessage[]) => void;
+  onComplete: (userProfile: UserProfile, obMessages: ApiMessage[], initialQuery: string) => void;
 }
 
 const STEPS = [
@@ -116,7 +116,9 @@ export function OnboardingScreen({ onComplete }: Props) {
     }
   }
 
-  // Final intake answer (typed or via a quick-start chip) → seed history + finish.
+  // Final intake answer (typed or via a quick-start chip).
+  // Seed history ends at the closing agent question; the shopping intent is passed
+  // as initialQuery so ChatScreen auto-sends it (agent actually responds).
   function submitShopping(text: string) {
     const finalProfile = { ...profile };
     const obMessages: ApiMessage[] = [
@@ -127,9 +129,8 @@ export function OnboardingScreen({ onComplete }: Props) {
       { role: "assistant", content: STEPS[2]! },
       { role: "user", content: finalProfile.gender },
       { role: "assistant", content: STEPS[3]! },
-      { role: "user", content: text },
     ];
-    setTimeout(() => onComplete(finalProfile, obMessages), 700);
+    setTimeout(() => onComplete(finalProfile, obMessages, text), 700);
   }
 
   function handleChip(label: string) {

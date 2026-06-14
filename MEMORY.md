@@ -920,3 +920,19 @@ Audit found live UI drifted from the Kapruka design brief (wrong brand red `#e63
 - `CLAUDE 2.md` (untracked, mode 600) sits in repo root — likely stale duplicate of `CLAUDE.md`. Left untouched; consider removing.
 - Brief components still unbuilt: DeliveryStatusCard (#1), OccasionCountdown (#2), GiftMessageCard (#3), BundleHamperView (#4).
 - Visual QA at 375px not yet run live (`npm run dev` port 3001) — code-verified only.
+
+---
+
+## Session 019 — 2026-06-14 (Chip auto-send threading + delete stale CLAUDE 2.md)
+
+### What We Did
+- **Deleted `CLAUDE 2.md`** — stale duplicate of `CLAUDE.md`, config-drift risk.
+- **Threaded `initialQuery` so quick-start chips actually auto-send** (Session 018 left intent seeded as history only → agent idle). `useChat` needed NO signature change — it already exposes `sendMessage` + returns `apiMessages`.
+  - `OnboardingScreen.tsx`: `onComplete` gained 3rd arg `initialQuery`; `submitShopping` now ends seeded `obMessages` at the closing agent question (7 entries, dropped the 8th user turn) and passes the shopping text as `initialQuery`.
+  - `app/page.tsx`: new `initialQuery` state, threaded into `<ChatScreen>`.
+  - `components/ChatScreen.tsx`: new optional `initialQuery` prop; destructure `apiMessages` from `useChat`; auto-send `useEffect` guarded by `initialSent` ref that waits until `apiMessages.length > 0` (avoids race where `sendMessage`'s closure misses onboarding context), then fires `sendMessage(initialQuery, …)` once.
+- **Why:** brief #7 wants chip → first message sent → agent responds. Seeded-history approach broke that. Race fix needed because `initWithOnboarding` sets state async.
+
+### Verification
+- `npx tsc --noEmit` clean.
+- Files: `OnboardingScreen.tsx`, `app/page.tsx`, `ChatScreen.tsx`; deleted `CLAUDE 2.md`.
