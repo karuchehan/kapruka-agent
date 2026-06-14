@@ -16,10 +16,15 @@ export function useChat() {
   // The most recent carousel shown — sent to the API so the agent can answer
   // follow-ups ("what is that book about?") without re-searching.
   const lastShownProducts = useRef<Product[]>([]);
+  // GiftMessageCard is a one-shot: render it the FIRST time the agent emits the
+  // [GIFT_MESSAGE] marker, never again — even if the agent re-emits the marker
+  // after the user has already saved a message. Reset only on a new session.
+  const giftMessageShown = useRef(false);
 
   function initWithOnboarding(messages: ApiMessage[]) {
     shownProductIds.current = new Set(); // new session — clear dedupe history
     lastShownProducts.current = [];
+    giftMessageShown.current = false;
     setApiMessages(messages);
     // Show the final onboarding agent message as the chat screen's welcome bubble
     const lastAgent = [...messages].reverse().find((m) => m.role === "assistant");
@@ -110,9 +115,18 @@ export function useChat() {
         if (freshProducts.length) lastShownProducts.current = freshProducts;
       }
 
+      // One-shot gift card: only render when the marker fires AND it has never
+      // been shown this session. Decided OUTSIDE the updater (which runs twice
+      // under Strict Mode) so the second pass doesn't see an already-flipped
+      // flag and drop the card on its very first appearance.
+      const showGift = !!data.giftMessage && !giftMessageShown.current;
+      if (showGift) giftMessageShown.current = true;
+
       setChatItems((prev) => {
         const base = removePlaceholders(prev);
-        if (base.some((i) => i.id === responseId)) return base; // already applied
+        // Already applied? Guard on responseId, and also on the gift sentinel for
+        // the case where data.message is empty (responseId never gets added then).
+        if (base.some((i) => i.id === responseId || i.id === responseId + "-gift")) return base;
         const additions: ChatItem[] = [];
         if (data.message) additions.push({ id: responseId, type: "agent", text: data.message });
         if (freshProducts.length) {
@@ -126,10 +140,11 @@ export function useChat() {
         if (data.occasion?.targetDate) {
           additions.push({ id: uid(), type: "occasion", occasion: data.occasion });
         }
-        // Agent invites a gift message → render an editable greeting card.
-        if (data.giftMessage) {
+        // Agent invites a gift message → render an editable greeting card,
+        // but only the first time per session (see showGift above).
+        if (showGift) {
           const gm = typeof data.giftMessage === "object" ? data.giftMessage : {};
-          additions.push({ id: uid(), type: "giftMessage", giftMessage: gm });
+          additions.push({ id: responseId + "-gift", type: "giftMessage", giftMessage: gm });
         }
         // Agent suggests a bundle/hamper → render the grouped mini-card view.
         if (data.bundle?.items?.length) {
