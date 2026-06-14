@@ -1170,3 +1170,36 @@ Fixed the Session 024 caveat: a "Funeral Wreath - White Roses" surfacing in a bi
 ### Notes
 - Kapruka catalog DOES stock some kitchen "gadgets" (grills, choppers) — the earlier "we don't have gadgets" was the model improvising; not authoritative. Fix targets the floral-mismatch + category-leak, which were the real defects.
 - Gender gate is name/pronoun based; if the user never signals recipient gender, `dropFloral` stays false (no change to prior behaviour).
+
+---
+
+## Session 027 — 2026-06-14 (Loading screen: GSAP smile→hand→logo intro animation)
+
+### What We Did
+Built the branded intro animation that plays before onboarding.
+
+**Assets** (`public/`)
+- `kapruka-smile.svg` (the yellow "u"/smile, from `letterU-cropped.svg`) and `kapruka-logo.svg` (full wordmark, from `kapruka1-cropped.svg`). BOTH are raster PNGs wrapped in SVG (embedded base64 `<image>` + mask — no real vector paths), so they are animated as `<img>` via GSAP transform/opacity, not as paths.
+
+**`components/LoadingScreen.tsx`** (new) — GSAP-only (`useGSAP`, no CSS transitions, no extra plugins):
+1. Full-screen `#2D2E8F` overlay; yellow smile top-right, thin white string hanging from its bottom; idle sway (sine.inOut, ±2.2°/3px, 2s, infinite) on an inner element so it doesn't fight the arc tween.
+2. After 1.2s, inline-SVG hand (dark skin `#5B3A29`, open palm, authored by us) rises from below (power2.out).
+3. Smile arcs top-right→centre; arc faked by giving x (power2.inOut) and y (power2.in) DIFFERENT eases so the path curves; hand guides down alongside; sway killed + string fades.
+4. Smile bounce (scale 1→1.05→1); hand exits downward (power2.in).
+5. Full logo crossfades in as the standalone smile fades out — the logo PNG has the smile baked in, so this lands the logo's own "u" exactly where the animated smile was (verified: alignment clean).
+6. Hold 0.8s, logo fades out.
+7. `onDone()` → `setPhase("onboarding")`.
+
+**`app/page.tsx`** — added `"loading"` as the INITIAL phase (`useState<"loading"|"onboarding"|"chat">("loading")`); renders `<LoadingScreen onDone={() => setPhase("onboarding")} />` before onboarding. `BackgroundCanvas` still always mounted behind.
+
+**Skip on repeat:** `sessionStorage["kaprukaLoaded"]` set on completion; on a repeat visit same session the intro is skipped (onDone called immediately).
+
+### Verification (dev, Playwright 1280×860)
+- Frame-by-frame screenshots confirm all 7 steps (smile+string top-right → hand rise → arc to centre → logo wordmark with smile as the "u" → fade out → onboarding).
+- Clean poll test: completion flag set ~5.6s; overlay removed; onboarding renders; **reload same session → overlay `none` (skipped)**, flag persists.
+- Mandatory 4-check: tsc clean; no new `overflow:hidden`/`overflow-x:hidden` (globals.css untouched — overlay uses inline `overflow:"hidden"`, not a messages ancestor); `#messages-container` still `overflow-y:auto`.
+
+### Notes / deviations
+- **Step 5 is a crossfade, not a literal "logo around a placed smile."** No text-only logo asset exists (smile is baked into the full-logo PNG), so the standalone smile fades out as the full logo fades in; the logo's own smile takes over in place. Visually matches intent; alignment verified.
+- Hand is rendered as inline `<svg>` (ref typed `SVGSVGElement`), animated by GSAP like any element — raster vs vector is irrelevant for transform/opacity.
+- First-visit intro ≈5s; repeat visits skip. Layout styles are inline in the component (globals.css left untouched) to keep the 4-check clean.
