@@ -1390,3 +1390,24 @@ Built the branded intro animation that plays before onboarding.
 - **Step 5 is a crossfade, not a literal "logo around a placed smile."** No text-only logo asset exists (smile is baked into the full-logo PNG), so the standalone smile fades out as the full logo fades in; the logo's own smile takes over in place. Visually matches intent; alignment verified.
 - Hand is rendered as inline `<svg>` (ref typed `SVGSVGElement`), animated by GSAP like any element — raster vs vector is irrelevant for transform/opacity.
 - First-visit intro ≈5s; repeat visits skip. Layout styles are inline in the component (globals.css left untouched) to keep the 4-check clean.
+
+## Session 037 — 2026-06-14 (Chat flow bugs: gift card one-shot + dedupe hardening)
+
+### What We Did
+- `hooks/useChat.ts`: added `giftMessageShown` ref (reset in `initWithOnboarding`). GiftMessageCard now renders only the FIRST time the API returns `giftMessage` per session; re-emitted markers (e.g. after user saves a message / address collected) never render again.
+- Show/hide decision (`showGift`) computed OUTSIDE the `setChatItems` updater — Strict Mode invokes updaters twice; flipping the ref inside would make pass 2 see an already-true flag and drop the card on its first appearance. Same pattern as existing `shownProductIds` / `freshProducts`.
+- Gift ChatItem id is deterministic (`responseId + "-gift"`); early-return guard now checks `responseId || responseId + "-gift"` so the card can't double-add when `data.message` is empty (responseId alone never enters chatItems in that path).
+- Bug 3 (duplicate product carousels after checkout): already covered by existing `shownProductIds` Set — each carousel renders once at its turn, previously-shown product ids are filtered out of later responses. No change needed.
+
+### Gaps Identified
+- None new. Verified product dedupe path; confirmed robust.
+
+### Mistakes & Lessons
+- Latent double-add risk when `data.message` empty: the responseId guard depended on a message being present. Hardened the guard rather than relying on data shape.
+
+### Verification
+- `npx tsc --noEmit` → TS CLEAN.
+- 4-check layout pass: no `overflow-x: hidden`; `#messages-container` keeps `overflow-y: auto`; `overflow: hidden` hits are body/cards/line-clamps only. Change was hook-only (no CSS).
+
+### Next Steps
+- UI changes can now proceed on top of the stabilized chat flow.
