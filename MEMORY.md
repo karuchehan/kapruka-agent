@@ -867,3 +867,44 @@ maxDuration, robust loader (f4ff398), key guard + ctor-in-try (1bba789) ALL edit
 3. Verify the new guard actually forces product-keeping challengers on 008 + 015 once credits are back.
 
 ---
+
+## Session 018 — 2026-06-14 (Brand-alignment pass: palette + 5 components → design brief)
+
+### What We Did
+Audit found live UI drifted from the Kapruka design brief (wrong brand red `#e63329`, cold grey palette vs brief's warm red `#da532c` + warm browns). Executing a 6-step alignment pass. No Anthropic API calls — API-key rule not triggered.
+
+**Step 1 — `:root` tokens + spacing (`app/globals.css`)**
+- Replaced all brand tokens to brief exactly: `--accent` `#e63329`→`#da532c`; added `--accent-dark #b8431f`, `--accent-light #f26b3a`; `--accent-soft/glow` rebased to `rgba(218,83,44,…)`.
+- Warmed neutrals: bg `#0d0a0a`→`#0f0d0c`, surface/card `#141010`/`#1c1717`→`#1a1613`, input `#231c1c`→`#241f1b`; text `#f5f5f5`→`#f5f0ec`, `#8a8a8a`→`#a09080`, `#555`→`#6b5a50`; `--border` cold rgba→`#2e2520`; `--border-hover`→`rgba(218,83,44,0.3)`. Added `--success #4caf7d`, `--warning #f0a830`.
+- body line-height `1.55`→`1.65`; `.message-bubble` `14.5px`→`15px`.
+- Replaced hardcoded `#cc2e25` (add:hover)→`var(--accent-dark)`; success `#22c55e`/`rgba(34,197,94…)`→`var(--success)`/`rgba(76,175,125…)`. Added `:focus-visible` (2px accent outline) + `:active scale(0.97)` to add button.
+- Swept 4 stragglers of old red `rgba(230,51,41…)`→`rgba(218,83,44…)`: ob-bubble user border, input focus-within, mic-btn border (globals.css) + BackgroundCanvas particle fill.
+- **Why:** brief mandates one warm brand red used sparingly; token-driven so component colors cascade. Anti-generic rule forbids cold greys.
+
+**Step 2 — Warm shadows (`app/globals.css`)**
+- `.product-card:hover` shadow: generic `0 8px 28px rgba(0,0,0,0.35)`→warm brand-tinted `0 4px 24px rgba(218,83,44,0.12), 0 1px 4px rgba(0,0,0,0.4)` (brief exact); also moved hover border to `var(--border-hover)`.
+- Audited all 11 `box-shadow` uses: only the card hover was generic black; the rest already use `--accent-glow`. No generic `rgba(0,0,0,0.1)` shadows remain.
+- **Why:** brief bans generic black shadows; product cards must lift with a faint brand glow.
+
+**Step 3 — Header (`components/Header.tsx` + `app/globals.css`)**
+- Brand text "kapruka"→"Kapruka" (brief capitalization).
+- Added subtitle "Your personal shopping assistant" — new `.header-brand-text` column wrapper + `.header-subtitle` rule (Inter 11px, `--text-secondary`).
+- Warmed header bar bg cold `rgba(8,8,8,0.85)`→`rgba(15,13,12,0.85)`; also warmed input-area bar `rgba(8,8,8,0.9)`→`rgba(15,13,12,0.9)` for consistency.
+- **Why:** brief #5 — brand name + subtitle, warm (not cold) top bar.
+
+**Step 4 — ProductCard (`app/globals.css`)**
+- Image + placeholder + skeleton-img height `220px`→`171px` (45% of 380px card per brief).
+- Mobile (`@media ≤600px`): image+placeholder `140px`→`150px` (kept ~45% on 175px-wide card; placeholder now matches image).
+- Title `13px`→`14px`; price `15px`→`16px` + weight 600→700 (brief: 14px title, 16px bold price).
+- Added `.product-card:focus-within` (brand-tinted border) + `.product-card:active scale(0.99)`. (Add-button `:focus-visible` 2px accent outline + `:active scale(0.97)` were added in Step 1.)
+- **Why:** brief product-card spec — image area top 45%, focus rings on interactive elements, tactile active state, brand-tinted hover border.
+
+**Step 5 — TypingIndicator — no code change**
+- Verified `.typing-dots span` uses `background: var(--accent)`; GSAP scaleY bounce (stagger 0.15, yoyo) already matches brief #6. Color auto-corrected to `#da532c` via Step 1 token fix.
+
+**Step 6 — Onboarding tagline + quick-start chips (`components/OnboardingScreen.tsx` + `app/globals.css`)**
+- Brand "kapruka"→"Kapruka"; added tagline "What would you like to send today?" (`.onboarding-tagline`, Playfair 19px) under brand lockup.
+- Added 4 quick-start chips (🎂 Birthday gift, 💐 Flowers, 🎁 Hamper, 📦 Track order), rendered only at intake step 3 ("what are we shopping for"). New `.quickstart-chips` row + `.chip` (pill, hover/focus-visible/active states, brand-tinted).
+- GSAP entrance on chips: `{opacity:0,y:12}→{opacity:1,y:0}` stagger 0.06 (brief spec).
+- **Flow change:** step 3 no longer auto-advances to chat. New `submitShopping(text)` + `handleChip(label)` — a typed answer OR chip click appends the shopping intent as the closing user turn in `obMessages`, then calls `onComplete`. Chat opens seeded with that intent. (Did NOT thread a live first-send through ChatScreen/useChat — out of scope/risk; intent is seeded as history instead.)
+- **Why:** brief #7 — welcome tagline + quick-start chips that capture first shopping intent, additive to the existing name/age/gender intake (not a rebuild).

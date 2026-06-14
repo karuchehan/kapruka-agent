@@ -14,6 +14,13 @@ const STEPS = [
   null as string | null,
 ];
 
+const QUICKSTART = [
+  { emoji: "🎂", label: "Birthday gift" },
+  { emoji: "💐", label: "Flowers" },
+  { emoji: "🎁", label: "Hamper" },
+  { emoji: "📦", label: "Track order" },
+];
+
 interface Bubble {
   id: number;
   role: "agent" | "user";
@@ -29,6 +36,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   const [profile, setProfile] = useState<UserProfile>({ name: "", age: null, gender: "" });
   const msgsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
 
   function addBubble(role: "agent" | "user", text: string) {
     setBubbles((prev) => [...prev, { id: ++bubbleId, role, text }]);
@@ -55,6 +63,17 @@ export function OnboardingScreen({ onComplete }: Props) {
       gsap.fromTo(last, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.38, ease: "power2.out" });
     }
   }, [bubbles]);
+
+  // GSAP staggered entrance on quick-start chips when they mount (step 3)
+  useEffect(() => {
+    if (step !== 3 || !chipsRef.current) return;
+    const chips = chipsRef.current.children;
+    gsap.fromTo(
+      chips,
+      { opacity: 0, y: 12 },
+      { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", stagger: 0.06, delay: 0.6 }
+    );
+  }, [step]);
 
   function handleSubmit() {
     const val = inputValue.trim();
@@ -86,27 +105,38 @@ export function OnboardingScreen({ onComplete }: Props) {
       if (lower.includes("male") || lower.includes("man") || lower.includes("boy") || lower === "m") gender = "male";
       else if (lower.includes("female") || lower.includes("woman") || lower.includes("girl") || lower === "f") gender = "female";
 
-      const finalProfile = { ...profile, gender };
+      setProfile((p) => ({ ...p, gender }));
       const msg = `Perfect! So what are we shopping for today, ${profile.name}?`;
       STEPS[3] = msg;
       setStep(3);
+      setTimeout(() => addBubble("agent", msg), 500);
 
-      setTimeout(() => {
-        addBubble("agent", msg);
-
-        const obMessages: ApiMessage[] = [
-          { role: "assistant", content: STEPS[0]! },
-          { role: "user", content: finalProfile.name },
-          { role: "assistant", content: STEPS[1]! },
-          { role: "user", content: String(finalProfile.age ?? val) },
-          { role: "assistant", content: STEPS[2]! },
-          { role: "user", content: gender },
-          { role: "assistant", content: msg },
-        ];
-
-        setTimeout(() => onComplete(finalProfile, obMessages), 1000);
-      }, 500);
+    } else if (step === 3) {
+      submitShopping(val);
     }
+  }
+
+  // Final intake answer (typed or via a quick-start chip) → seed history + finish.
+  function submitShopping(text: string) {
+    const finalProfile = { ...profile };
+    const obMessages: ApiMessage[] = [
+      { role: "assistant", content: STEPS[0]! },
+      { role: "user", content: finalProfile.name },
+      { role: "assistant", content: STEPS[1]! },
+      { role: "user", content: String(finalProfile.age ?? "") },
+      { role: "assistant", content: STEPS[2]! },
+      { role: "user", content: finalProfile.gender },
+      { role: "assistant", content: STEPS[3]! },
+      { role: "user", content: text },
+    ];
+    setTimeout(() => onComplete(finalProfile, obMessages), 700);
+  }
+
+  function handleChip(label: string) {
+    if (step !== 3) return;
+    addBubble("user", label);
+    setInputValue("");
+    submitShopping(label);
   }
 
   return (
@@ -114,13 +144,29 @@ export function OnboardingScreen({ onComplete }: Props) {
       <div className="onboarding-inner">
         <div className="brand-lockup">
           <div className="brand-dot" />
-          <span className="brand-name">kapruka</span>
+          <span className="brand-name">Kapruka</span>
         </div>
+        <p className="onboarding-tagline">What would you like to send today?</p>
         <div id="onboarding-messages" ref={msgsRef} role="log" aria-live="polite">
           {bubbles.map((b) => (
             <div key={b.id} className={`ob-bubble ${b.role}`}>{b.text}</div>
           ))}
         </div>
+        {step === 3 && (
+          <div className="quickstart-chips" ref={chipsRef}>
+            {QUICKSTART.map((c) => (
+              <button
+                key={c.label}
+                type="button"
+                className="chip"
+                onClick={() => handleChip(c.label)}
+              >
+                <span className="chip-emoji">{c.emoji}</span>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="onboarding-input-row">
           <input
             ref={inputRef}

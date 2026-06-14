@@ -12,7 +12,10 @@ export function Header({ voiceEnabled, onVoiceToggle, cartCount, onCartOpen }: P
     <header id="chat-header">
       <div className="header-brand">
         <div className="brand-dot small" />
-        <span className="brand-name small">kapruka</span>
+        <div className="header-brand-text">
+          <span className="brand-name small">Kapruka</span>
+          <span className="header-subtitle">Your personal shopping assistant</span>
+        </div>
       </div>
       <div className="header-actions">
         <button id="voice-toggle" aria-label="Toggle voice" onClick={onVoiceToggle}>

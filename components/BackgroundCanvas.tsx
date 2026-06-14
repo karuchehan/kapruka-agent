@@ -37,7 +37,7 @@ export function BackgroundCanvas() {
         const r = 1.5 + wave * 0.8;
         ctx!.beginPath();
         ctx!.arc(d.x, d.y, r, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(230,51,41,${alpha})`;
+        ctx!.fillStyle = `rgba(218,83,44,${alpha})`;
         ctx!.fill();
       }
       rafId = requestAnimationFrame(draw);
