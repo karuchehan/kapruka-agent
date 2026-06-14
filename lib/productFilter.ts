@@ -113,6 +113,18 @@ function categoryMatch(p: FilterableProduct, cat: string): boolean {
   return re.test(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
 }
 
+// Sympathy / get-well markers. These products (funeral wreaths, condolence
+// arrangements, get-well bouquets) pass the positive "flower" category gate but
+// are a tonal mismatch in a celebratory flow (a funeral wreath surfacing for a
+// birthday). Dropped only when the caller sets excludeSympathy (celebratory
+// occasion AND the user did not actually ask for sympathy/get-well items).
+const SYMPATHY_MARKERS =
+  /\b(funeral|wreaths?|sympath\w*|condolences?|bereave\w*|mourning|memorial|in\s+loving\s+memory|rest\s+in\s+peace|r\.?i\.?p\.?|casket|coffin|get\s*well|hospital|recovery)\b/i;
+
+export function isSympathy(p: FilterableProduct): boolean {
+  return SYMPATHY_MARKERS.test(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
+}
+
 // A result is junk (vendor/shop listing, not a real product) when:
 // - it has no image (vendor listings on Kapruka MCP frequently lack one), or
 // - its price is zero/negative (placeholder listing), or
@@ -205,9 +217,13 @@ export function filterProducts<T extends FilterableProduct>(
   products: T[],
   budget: number | null,
   queryTokens?: string[],
-  categoryHint?: string | null
+  categoryHint?: string | null,
+  excludeSympathy?: boolean
 ): T[] {
   let out = products.filter((p) => !isJunkProduct(p));
+  // Occasion-based negative filter: drop funeral/sympathy/get-well items in a
+  // celebratory flow (caller decides). Runs before category/budget/relevance.
+  if (excludeSympathy) out = out.filter((p) => !isSympathy(p));
   // In a book flow, keep ONLY products that carry a book signal (allowlist) and
   // additionally drop anything that trips the non-book blocklist. This removes
   // cakes, games, pillows, and tour packages that merely shared a genre word

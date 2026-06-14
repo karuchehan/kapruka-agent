@@ -1107,3 +1107,31 @@ Deploy currency confirmed live (multi-category bundle + occasion marker + gift-b
 - Vague chip ("Birthday gift") alone → agent asks a clarifying question (correct MODE B), no carousel that turn — expected, not a bug. ProductCard verified with a concrete follow-up query.
 - Product relevance still occasionally off (a "Funeral Wreath" surfaced in a birthday flower flow) — known search-relevance caveat (Session 023), not a component defect.
 - Screenshots in `/tmp/kapruka-shots/prod-*.png` (disposable).
+
+---
+
+## Session 025 — 2026-06-14 (Occasion-based negative filter: drop sympathy/funeral items in celebratory flows)
+
+### What We Did
+Fixed the Session 024 caveat: a "Funeral Wreath - White Roses" surfacing in a birthday flower flow (tonal mismatch a judge would notice).
+
+**`lib/productFilter.ts`**
+- Added `SYMPATHY_MARKERS` regex (funeral/wreath/sympathy/condolence/bereave/mourning/memorial/in loving memory/rest in peace/rip/casket/coffin/get well/hospital/recovery) + exported `isSympathy(p)` — tests `name + category + summary`.
+- Added optional `excludeSympathy?: boolean` param to `filterProducts`. When true, drops sympathy items **before** category/budget/relevance gates.
+
+**`app/api/chat/route.ts`**
+- Computed once: `sympathyCtx` (funeral/sympathy/condolence/bereave/mourning/memorial/get well/hospital in convText), `celebratory` (birthday/anniversary/wedding/valentine/graduation/newborn/congrat/celebrat/baby shower), `excludeSympathy = celebratory && !sympathyCtx`.
+- Threaded `excludeSympathy` into all 3 `filterProducts` call sites (single-category, thin-results fallback) + added param to `searchCategory()` and forwarded.
+- Rationale for the `&& !sympathyCtx` guard: genuine condolence/get-well orders still work — only strip when the flow is clearly celebratory AND the user did not actually ask for sympathy items.
+
+### Verification
+- `npx tsc --noEmit` clean.
+- **Live (dev, real API):** "white roses for birthday" → 4 clean bouquets, no sympathy. Multiple sympathy/funeral probes returned NO wreath — Kapruka catalog no longer surfaces the original "Funeral Wreath - White Roses Rs 27,740" (out of stock, `in_stock_only:true` filters it). Could not reproduce the original miss against live data this session.
+- **Deterministic unit proof** (`/tmp/sympathy-test.mts`, tsx, 7/7 passed) against the exact original miss string:
+  - `isSympathy("Funeral Wreath - White Roses")` === true; `isSympathy("Get Well Soon Bouquet")` === true; plain bouquet === false.
+  - `excludeSympathy=true` (birthday flow) drops the wreath + get-well, keeps the plain bouquet.
+  - `excludeSympathy=false` (sympathy flow) KEEPS the wreath — no false strip (regression guard).
+
+### Notes
+- Live reproduction blocked by catalog flux (wreath out of stock), so proof is the deterministic test, not a live screenshot. Logic is a pure regex filter; risk is low.
+- `wreath` is a marker → any wreath dropped in celebratory flows; Christmas wreaths NOT caught because "christmas" isn't a `celebratory` trigger (flag stays false). Acceptable.

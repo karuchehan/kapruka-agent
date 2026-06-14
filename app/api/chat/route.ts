@@ -249,10 +249,11 @@ async function searchCategory(
   convText: string,
   budget: number | null,
   take: number,
+  excludeSympathy: boolean,
 ): Promise<Product[]> {
   const q = categoryQuery(cat, convText);
   const r = await callMCP("search_products", { q, limit: 8, in_stock_only: true, sort: "relevance" });
-  const c = filterProducts<Product>((r.results || []).map(normaliseProduct), budget, [cat], cat);
+  const c = filterProducts<Product>((r.results || []).map(normaliseProduct), budget, [cat], cat, excludeSympathy);
   return c.slice(0, take);
 }
 
@@ -581,6 +582,13 @@ export async function POST(req: Request) {
   const lastUserMsg = [...(messages as ApiMessage[])].reverse().find((m) => m.role === "user");
   const msgCats = lastUserMsg ? detectCategories(lastUserMsg.content) : [];
 
+  // Occasion-based negative filter: strip funeral/sympathy/get-well items when
+  // the flow is celebratory — UNLESS the user actually asked for sympathy/get-well
+  // (then keep them so genuine condolence/recovery orders still work).
+  const sympathyCtx = /\b(funeral|sympath\w*|condolence|bereave\w*|mourning|memorial|get\s*well|hospital)\b/.test(convText);
+  const celebratory = /\b(birthday|anniversary|wedding|valentine|graduation|newborn|congrat\w*|celebrat\w*|baby\s+shower)\b/.test(convText);
+  const excludeSympathy = celebratory && !sympathyCtx;
+
   let products: Product[] = [];
   let trackingData = null;
   let delivery: DeliveryInfo | null = null;
@@ -591,7 +599,7 @@ export async function POST(req: Request) {
       // and gate each by that category, so there is ZERO cross-category bleed
       // (no phone in the cakes). Dedupe across categories by product id.
       const per = await Promise.all(
-        msgCats.slice(0, 3).map((c) => searchCategory(c, convText, budget, 2).catch(() => []))
+        msgCats.slice(0, 3).map((c) => searchCategory(c, convText, budget, 2, excludeSympathy).catch(() => []))
       );
       const seen = new Set<string>();
       products = per.flat().filter((p) => {
@@ -630,7 +638,7 @@ export async function POST(req: Request) {
       // come from this array, not Claude.
       const queryTokens = baseQuery.split(/\s+/);
       if (result.results?.length) {
-        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, categoryHint);
+        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, categoryHint, excludeSympathy);
         products = candidates.slice(0, 4);
       }
 
@@ -647,7 +655,7 @@ export async function POST(req: Request) {
                   ? categoryQuery(categoryHint, convText)
                   : enrichGenericQuery(fallbackQ, recipientProfile, convText);
             const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 8, in_stock_only: true, sort: "relevance" });
-            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint);
+            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint, excludeSympathy);
             if (c2.length > products.length) {
               products = c2.slice(0, 4);
             }
