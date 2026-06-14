@@ -1436,3 +1436,37 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Optional: delete the 4 orphaned components + their dead CSS.
 - Manual visual QA on desktop + mobile (judges open URL directly).
+
+## Session 039 — 2026-06-14 (Checkout auto-redirect + mobile bottom-sheet)
+
+### What We Did
+**Part A — checkout redirect.** Root cause: `[CHECKOUT_URL]` infra existed but agent was never told to emit it + no order URL produced server-side, so `pendingCheckoutUrl` stayed null → no redirect. Fix uses a new boolean marker + client cart URLs (decision: open real `Product.url` kapruka.com pages, auto-open + chat confirmation).
+- `route.ts`: `ORDER_RE = /\[ORDER_CONFIRMED:\s*true\]/i`; parse → `orderConfirmed`, strip from message, add to `Response.json`.
+- `directives/system_prompt.md`: added `[ORDER_CONFIRMED: true]` to the marker list + example; instructs agent to emit ONLY on explicit final go-ahead, never a URL.
+- `lib/types.ts`: added `"checkout"` to `ChatItemType` (reuses `products` + `checkoutUrl`).
+- `hooks/useChat.ts`: `sendMessage` gained `cartProducts: Product[] = []` 4th arg. On `data.orderConfirmed` builds `{type:"checkout", products, checkoutUrl}` from cart (fallback `lastShownProducts`), primary URL = `checkoutItems.find(p=>p.url)`. Decided OUTSIDE updater (StrictMode), guard `responseId+"-checkout"`.
+- `components/ChatScreen.tsx`: passes `cartProducts` (useMemo of cart) to all sendMessage calls; ref-Set-guarded effect auto-opens checkout URL once per item via `window.open(...,"_blank","noopener")`; `handleCheckout` opens cart's first `product.url`.
+- New `components/CheckoutCard.tsx` + MessageList `case "checkout"`: "Opening your checkout…" + per-item "View on Kapruka" links (popup-blocker fallback).
+
+**Part B — mobile bottom-sheet (≤720px).**
+- New `hooks/useMediaQuery.ts` (SSR-safe: false on server/first render, syncs in useEffect via matchMedia).
+- New `components/ProductSheet.tsx`: wraps the SAME `ProductStage`. 2 states PEEK(72px)/OPEN(85vh); handle-only pointer drag (`touch-action:none`), velocity(0.5px/ms)+50%-distance snap; inner `.product-grid` keeps native scroll (no hijack); GSAP animate + scrim; auto-opens when `products.length` increases (first-mount + `prevLen` ref guarded); toggles `document.documentElement.classList` `sheet-open`. Geometry recomputed on pointerdown + resize.
+- `ChatScreen`: `isMobile = useMediaQuery("(max-width:720px)")` → `isMobile ? ProductSheet : ProductStage`. Desktop split untouched.
+- `app/layout.tsx`: `export const viewport` (device-width, initialScale 1, maximumScale 1, viewportFit cover).
+- `globals.css`: `.product-sheet/-scrim/-handle/-body/-grabber/-label/-chevron` + `.checkout-card*`; reworked `@media (max-width:720px)`: `.chat-panel{flex:1 1 100%}` full-screen, grid `minmax(150px)`, `.cart-dock` bottom raised `calc(72px+16px+safe-area)`, `:root.sheet-open .cart-dock{opacity:0;pointer-events:none}`.
+- z-index map (mobile): chat 10 · scrim 70 · sheet 75 · cart-dock 80.
+
+### Gaps Identified
+- ORDER_CONFIRMED reliability depends on the model emitting the marker on a genuine final go-ahead — not yet tested with a live API call (needs user approval per API-key rule).
+- One-time desktop→mobile remount re-staggers the grid (acceptable). Body pull-to-dismiss (scrollTop===0 gate) deferred — v1 dismisses via handle drag / scrim tap.
+
+### Mistakes & Lessons
+- Wrote `transition: 0.25s var(--transition)` — invalid (var already carries a cubic-bezier with no duration of its own in shorthand position). Fixed to `0.25s ease`.
+
+### Verification
+- `npx tsc --noEmit` CLEAN. `npx next build` CLEAN (5 static pages).
+- 4-check: `#messages-container` keeps `overflow-y:auto`; new `overflow:hidden` only on `.product-sheet`/`.product-sheet-body` (not messages ancestors, annotated); `overflow-x:hidden` only on `.product-stage` (sibling of `.chat-panel`).
+
+### Next Steps
+- Live test (needs API approval): confirm agent emits `[ORDER_CONFIRMED]` on final yes, tab opens, no double-open.
+- Real-device touch QA of the sheet (iOS Safari/Android Chrome): drag/flick/scrim, grid momentum scroll, auto-open on new batch, dock clearance/hide.
