@@ -654,6 +654,29 @@ html, body {
 .delivery-status.ok .delivery-eta { color: var(--text-primary); font-weight: 500; }
 .delivery-status.no .delivery-eta { color: var(--text-secondary); }
 
+/* ── OCCASION COUNTDOWN CHIP ── */
+.occasion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(218, 83, 44, 0.25);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.occasion-emoji { font-size: 14px; line-height: 1; }
+
+.occasion-label { font-weight: 500; }
+
+.occasion-countdown {
+  font-weight: 700;
+  color: var(--accent);
+}
+
 /* ── INPUT AREA ── */
 #input-area {
   padding: 12px 20px 16px;

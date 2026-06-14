@@ -122,6 +122,10 @@ export function useChat() {
         if (data.delivery?.city) {
           additions.push({ id: uid(), type: "delivery", delivery: data.delivery });
         }
+        // Detected occasion/deadline → render a live countdown chip.
+        if (data.occasion?.targetDate) {
+          additions.push({ id: uid(), type: "occasion", occasion: data.occasion });
+        }
         return [...base, ...additions];
       });
 

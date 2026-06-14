@@ -34,13 +34,20 @@ export interface DeliveryInfo {
   etaLabel: string; // e.g. "Friday, June 20"
 }
 
+export interface OccasionInfo {
+  label: string;       // e.g. "Her birthday"
+  targetDate: string;  // ISO date string
+  emoji?: string;      // e.g. "🎂"
+}
+
 export type ChatItemType =
   | "user"
   | "agent"
   | "typing"
   | "skeleton"
   | "products"
-  | "delivery";
+  | "delivery"
+  | "occasion";
 
 export interface ChatItem {
   id: string;
@@ -49,4 +56,5 @@ export interface ChatItem {
   products?: Product[];
   checkoutUrl?: string;
   delivery?: DeliveryInfo;
+  occasion?: OccasionInfo;
 }

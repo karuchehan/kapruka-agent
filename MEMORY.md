@@ -951,3 +951,10 @@ API currently returns `{ message, products, checkoutUrl }` only. Each new compon
 - `useChat.ts`: maps `data.delivery?.city` → delivery chatItem in the additions block.
 - `globals.css`: `.delivery-card` + parts (brand pin, tick in accent-soft/success, cross in brand).
 - tsc clean.
+
+**Component 2 — OccasionCountdown ✅**
+- `components/OccasionCountdown.tsx`: live countdown chip "🎂 Her birthday in 3 days"; recomputes via `setInterval` (60s); falls to hours/mins; "Today!" at/after target. GSAP entrance.
+- `lib/types.ts`: `OccasionInfo {label, targetDate (ISO), emoji?}`; `+ "occasion"` type/field.
+- `MessageList.tsx`: `case "occasion"`; `useChat.ts`: maps `data.occasion?.targetDate` → chip.
+- `globals.css`: `.occasion-chip` (small brand-tinted pill, accent countdown number).
+- tsc clean.
