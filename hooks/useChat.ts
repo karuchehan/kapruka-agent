@@ -131,6 +131,10 @@ export function useChat() {
           const gm = typeof data.giftMessage === "object" ? data.giftMessage : {};
           additions.push({ id: uid(), type: "giftMessage", giftMessage: gm });
         }
+        // Agent suggests a bundle/hamper → render the grouped mini-card view.
+        if (data.bundle?.items?.length) {
+          additions.push({ id: uid(), type: "bundle", bundle: data.bundle });
+        }
         return [...base, ...additions];
       });
 

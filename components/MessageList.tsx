@@ -7,6 +7,7 @@ import { ProductCarousel } from "./ProductCarousel";
 import { DeliveryStatusCard } from "./DeliveryStatusCard";
 import { OccasionCountdown } from "./OccasionCountdown";
 import { GiftMessageCard } from "./GiftMessageCard";
+import { BundleHamperView } from "./BundleHamperView";
 import type { ChatItem, Product } from "@/lib/types";
 
 interface Props {
@@ -63,6 +64,10 @@ export function MessageList({ chatItems, onAddToCart, onGiftSubmit }: Props) {
           case "giftMessage":
             return (
               <GiftMessageCard key={item.id} giftMessage={item.giftMessage!} onSubmit={onGiftSubmit} />
+            );
+          case "bundle":
+            return (
+              <BundleHamperView key={item.id} bundle={item.bundle!} onAddToCart={onAddToCart} />
             );
           default:
             return null;

@@ -966,3 +966,19 @@ API currently returns `{ message, products, checkoutUrl }` only. Each new compon
 - `useChat.ts`: maps truthy `data.giftMessage` (bool or object) → card.
 - `globals.css`: `.gift-card` + parts (cream theme, brand save button, success locked state).
 - tsc clean.
+
+**Component 4 — BundleHamperView ✅**
+- `components/BundleHamperView.tsx`: horizontal scroll row of small mini-cards (img+name+price) + a brand-tinted total panel at the end with "Add bundle" (loops `onAddToCart` over all items). GSAP staggered entrance.
+- `lib/types.ts`: `BundleInfo {title, items: Product[], total}`; `+ "bundle"` type/field.
+- `MessageList.tsx`: `case "bundle"` (reuses existing `onAddToCart` prop); `useChat.ts`: maps `data.bundle?.items?.length` → bundle.
+- `globals.css`: `.bundle-hamper` / `.bundle-row` / `.bundle-mini-card` / `.bundle-total` — distinct from product cards (smaller, grouped).
+- tsc clean.
+
+### Verification (Session 020)
+- `npx tsc --noEmit` clean after each component.
+- Final 4-check passed: no `overflow-x: hidden`; `#messages-container` keeps `overflow-y: auto`. New `overflow: hidden` hits are non-ancestors only (`.bundle-mini-card`, `.bundle-mini-name` line-clamp, `.cart-item-name` ellipsis).
+- All 4 committed + pushed to `main`: DeliveryStatusCard `b83317f`, OccasionCountdown `a104c86`, GiftMessageCard `5626a28`, BundleHamperView (this commit).
+
+### Gaps / Next Steps
+- **All 4 cards are render-ready but dormant** until the API emits the matching field (`data.delivery`, `data.occasion`, `data.giftMessage`, `data.bundle`). `app/api/chat/route.ts` returns only `{ message, products, checkoutUrl }`. Activation = backend work: route already detects `delivery`/`track` intents and has `check_delivery` in `TOOL_MAP` (unused) — wiring `check_delivery` → `data.delivery` is the smallest next step. Others need agent markers (like the existing `[CHECKOUT_URL]` pattern) parsed server-side. These touch the Anthropic path → require API-key confirmation before testing.
+- No live visual QA yet (`npm run dev`) — code + tsc verified only.

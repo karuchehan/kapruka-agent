@@ -44,6 +44,12 @@ export interface GiftMessageInfo {
   prefill?: string;
 }
 
+export interface BundleInfo {
+  title: string;
+  items: Product[];
+  total: number;
+}
+
 export type ChatItemType =
   | "user"
   | "agent"
@@ -52,7 +58,8 @@ export type ChatItemType =
   | "products"
   | "delivery"
   | "occasion"
-  | "giftMessage";
+  | "giftMessage"
+  | "bundle";
 
 export interface ChatItem {
   id: string;
@@ -63,4 +70,5 @@ export interface ChatItem {
   delivery?: DeliveryInfo;
   occasion?: OccasionInfo;
   giftMessage?: GiftMessageInfo;
+  bundle?: BundleInfo;
 }
