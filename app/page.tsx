@@ -1,7 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
 import gsap from "gsap";
-import { BackgroundCanvas } from "@/components/BackgroundCanvas";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { OnboardingScreen } from "@/components/OnboardingScreen";
 import { ChatScreen } from "@/components/ChatScreen";
@@ -37,7 +36,6 @@ export default function Home() {
 
   return (
     <>
-      <BackgroundCanvas />
       {phase === "loading" && <LoadingScreen onDone={() => setPhase("onboarding")} />}
       {phase === "onboarding" && (
         <div ref={obRef}>
