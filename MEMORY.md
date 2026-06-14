@@ -908,3 +908,15 @@ Audit found live UI drifted from the Kapruka design brief (wrong brand red `#e63
 - GSAP entrance on chips: `{opacity:0,y:12}→{opacity:1,y:0}` stagger 0.06 (brief spec).
 - **Flow change:** step 3 no longer auto-advances to chat. New `submitShopping(text)` + `handleChip(label)` — a typed answer OR chip click appends the shopping intent as the closing user turn in `obMessages`, then calls `onComplete`. Chat opens seeded with that intent. (Did NOT thread a live first-send through ChatScreen/useChat — out of scope/risk; intent is seeded as history instead.)
 - **Why:** brief #7 — welcome tagline + quick-start chips that capture first shopping intent, additive to the existing name/age/gender intake (not a rebuild).
+
+### Verification
+- `npx tsc --noEmit` → clean (exit 0).
+- Mandatory 4-check passed: no `overflow-x: hidden` anywhere; `#messages-container` keeps `overflow-y: auto` (min-height:0 intact). The 4 `overflow: hidden` hits are non-ancestors: html/body shell, `.product-card-name` line-clamp, `.skeleton-card`, `.cart-item-name` ellipsis.
+- Files: `app/globals.css`, `components/Header.tsx`, `components/OnboardingScreen.tsx`, `components/BackgroundCanvas.tsx`, `MEMORY.md`. (TypingIndicator unchanged.)
+- Committed `7438764` on `main`, pushed to origin (karuchehan/kapruka-agent). No Anthropic API calls this session.
+
+### Gaps / Next Steps
+- Quick-start chip intent is seeded as chat history only — chat opens without auto-sending it (agent idle until user sends). To make chips truly "send first message" per brief, thread an `initialQuery` through `ChatScreen` → `useChat` and auto-dispatch on mount. Deferred (touches chat send path).
+- `CLAUDE 2.md` (untracked, mode 600) sits in repo root — likely stale duplicate of `CLAUDE.md`. Left untouched; consider removing.
+- Brief components still unbuilt: DeliveryStatusCard (#1), OccasionCountdown (#2), GiftMessageCard (#3), BundleHamperView (#4).
+- Visual QA at 375px not yet run live (`npm run dev` port 3001) — code-verified only.
