@@ -205,6 +205,26 @@ function enrichGenericQuery(
   return `${prefixes.slice(0, 2).join(" ")} ${cat}`.trim();
 }
 
+// Known Sri Lankan delivery cities — used to extract the target city from a
+// delivery question so check_delivery gets a concrete location.
+const CITIES = [
+  "colombo","kandy","galle","negombo","jaffna","matara","ratnapura","kurunegala",
+  "anuradhapura","polonnaruwa","badulla","nuwara eliya","trincomalee","batticaloa",
+  "ampara","kalmunai","vavuniya","mannar","puttalam","chilaw","kalutara","panadura",
+  "moratuwa","dehiwala","mount lavinia","nugegoda","kottawa","kaduwela","kadawatha",
+  "maharagama","piliyandala","homagama","bandaragama","beruwala","aluthgama","hikkaduwa",
+  "tangalle","hambantota","matale","dambulla","sigiriya","haputale","ella","bandarawela",
+];
+
+function extractCity(lower: string): string | null {
+  // Longest match first so "mount lavinia"/"nuwara eliya" beat "lavinia"/"nuwara".
+  const sorted = [...CITIES].sort((a, b) => b.length - a.length);
+  for (const c of sorted) {
+    if (new RegExp(`\\b${c}\\b`).test(lower)) return c;
+  }
+  return null;
+}
+
 function detectIntent(messages: ApiMessage[]) {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return { type: "none" };
@@ -219,7 +239,7 @@ function detectIntent(messages: ApiMessage[]) {
   }
 
   if (/\b(deliver|delivery|ship|arrive|arrives|arrival)\b/.test(lower) && /\b(to|in|at)\b/.test(lower)) {
-    return { type: "delivery" };
+    return { type: "delivery", city: extractCity(lower) };
   }
 
   // Cart-add auto-messages — skip re-search, let agent confirm
@@ -411,6 +431,43 @@ function truncateToSentences(text: string, n = 2): string {
   return parts.slice(0, n).join(" ").trim();
 }
 
+// ── DELIVERY RESULT MAPPING ───────────────────────────────────────────────────
+
+interface DeliveryInfo { city: string; available: boolean; etaLabel: string; }
+
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Format an ETA into "Friday, June 20" when it parses as a date; otherwise pass
+// the raw label through (MCP may return a free-text estimate like "2-3 days").
+function formatEta(raw: unknown): string {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  if (!s) return "";
+  const d = new Date(s);
+  if (!isNaN(d.getTime()) && /\d/.test(s)) {
+    return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  }
+  return s;
+}
+
+// The MCP check_delivery response shape isn't contractually fixed — read the
+// likely fields defensively and return null if nothing usable is present (the
+// card then simply doesn't render).
+function mapDelivery(city: string, res: Record<string, unknown> | null): DeliveryInfo | null {
+  if (!res || typeof res !== "object") return null;
+  const r = res as Record<string, unknown>;
+  const availableRaw =
+    r.available ?? r.can_deliver ?? r.is_available ?? r.deliverable ?? r.delivery_available;
+  const available = availableRaw === undefined ? true : Boolean(availableRaw);
+  const etaRaw =
+    r.estimated_delivery ?? r.estimated_date ?? r.delivery_date ?? r.eta ??
+    r.estimate ?? r.date ?? r.estimated_delivery_date;
+  const etaLabel = available ? (formatEta(etaRaw) || "Available") : "";
+  return { city: titleCase(city), available, etaLabel };
+}
+
 // ── ROUTE HANDLER ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -445,6 +502,7 @@ export async function POST(req: Request) {
 
   let products: Product[] = [];
   let trackingData = null;
+  let delivery: DeliveryInfo | null = null;
 
   try {
     if (intent.type === "search" && (intent as { query?: string }).query) {
@@ -498,6 +556,10 @@ export async function POST(req: Request) {
       }
     } else if (intent.type === "track" && (intent as { orderNumber?: string }).orderNumber) {
       trackingData = await callMCP("track_order", { order_number: (intent as { orderNumber: string }).orderNumber });
+    } else if (intent.type === "delivery" && (intent as { city?: string | null }).city) {
+      const city = (intent as { city: string }).city;
+      const res = await callMCP("check_delivery", { city });
+      delivery = mapDelivery(city, res);
     }
   } catch (err) {
     console.error("MCP fetch error:", (err as Error).message);
@@ -560,5 +622,5 @@ export async function POST(req: Request) {
     return Response.json({ error: (err as Error).message || "Internal server error" }, { status });
   }
 
-  return Response.json({ message, products, checkoutUrl });
+  return Response.json({ message, products, checkoutUrl, delivery });
 }

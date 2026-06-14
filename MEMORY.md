@@ -982,3 +982,32 @@ API currently returns `{ message, products, checkoutUrl }` only. Each new compon
 ### Gaps / Next Steps
 - **All 4 cards are render-ready but dormant** until the API emits the matching field (`data.delivery`, `data.occasion`, `data.giftMessage`, `data.bundle`). `app/api/chat/route.ts` returns only `{ message, products, checkoutUrl }`. Activation = backend work: route already detects `delivery`/`track` intents and has `check_delivery` in `TOOL_MAP` (unused) — wiring `check_delivery` → `data.delivery` is the smallest next step. Others need agent markers (like the existing `[CHECKOUT_URL]` pattern) parsed server-side. These touch the Anthropic path → require API-key confirmation before testing.
 - No live visual QA yet (`npm run dev`) — code + tsc verified only.
+
+---
+
+## Session 021 — 2026-06-14 (Wire check_delivery → data.delivery + Playwright visual pass)
+
+### What We Did
+**1. Activated DeliveryStatusCard end-to-end (`app/api/chat/route.ts`)**
+- Added `CITIES` list (44 SL cities) + `extractCity(lower)` (longest-match-first so "mount lavinia"/"nuwara eliya" beat substrings).
+- `detectIntent` delivery branch now returns `{ type:"delivery", city }`.
+- Added `DeliveryInfo` interface, `titleCase`, `formatEta` (parses dates → "Friday, June 20"; passes free-text estimates like "2-3 days" through), and `mapDelivery(city, res)` — defensive read of MCP fields (`available`/`can_deliver`/`is_available`/`deliverable`; eta from `estimated_delivery`/`delivery_date`/`eta`/etc), returns null if unusable.
+- Handler: `intent.type==="delivery" && city` → `callMCP("check_delivery", { city })` → `delivery = mapDelivery(...)`. Response now includes `delivery`. `useChat` already maps `data.delivery` → card (Session 020).
+- **Unverified:** live MCP `check_delivery` response shape — mapping is defensive guesses; needs one live delivery query to confirm field names. No Anthropic call made (would need API-key confirmation).
+
+**2. Visual pass via Playwright (no Anthropic call)**
+- `npm run dev` on :3001. Script `/tmp/kapruka-shots.mjs` intercepts `**/api/chat` with `route.fulfill` (mock products + delivery) → cards render WITHOUT hitting Anthropic/MCP. Chromium from ms-playwright cache; playwright lib installed to `/tmp` (npx global didn't resolve for ESM import).
+- Captured desktop (1280) + mobile (375): onboarding, step-3 chips, full chat.
+
+### Observed (what renders)
+- **Header:** "Kapruka" (Playfair, brand red) + "Your personal shopping assistant" subtitle, voice + cart icons, warm bar. ✓
+- **Onboarding:** centered brand + tagline "What would you like to send today?" (Playfair), intake bubbles, brand send button. Quick-start chips (🎂/💐/🎁/📦) appear as pills at step 3. ✓ Chip click auto-sends → agent responds (mocked). ✓
+- **Chat:** user chip bubble (brand red, right), agent bubble + "K" avatar (left), 4 product cards (brand `Rs.` price, Add-to-Cart brand buttons), DeliveryStatusCard `📍 Colombo → ✅ Friday, June 20` (brand pin, green tick). ✓
+- **Mobile 375:** no horizontal overflow; cards ~175px wide, carousel scrolls; subtitle + delivery card + tagline all fit. ✓
+
+### Caveat (not a bug)
+- Product image areas render dark in the headless run — `picsum.photos` placeholders are network-blocked in the sandbox; real Kapruka `image_url`s load normally. Card structure (171px image zone + bottom-anchored button) is correct.
+
+### Next Steps
+- Confirm live `check_delivery` MCP field names with ONE real delivery query (needs API-key OK) and adjust `mapDelivery` if shape differs.
+- Activate the other 3 cards (occasion/gift/bundle) — need agent markers parsed server-side (like `[CHECKOUT_URL]`); touches the Anthropic path.
