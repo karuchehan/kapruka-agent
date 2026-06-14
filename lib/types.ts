@@ -28,7 +28,19 @@ export interface CartItem {
   quantity: number;
 }
 
-export type ChatItemType = "user" | "agent" | "typing" | "skeleton" | "products";
+export interface DeliveryInfo {
+  city: string;
+  available: boolean;
+  etaLabel: string; // e.g. "Friday, June 20"
+}
+
+export type ChatItemType =
+  | "user"
+  | "agent"
+  | "typing"
+  | "skeleton"
+  | "products"
+  | "delivery";
 
 export interface ChatItem {
   id: string;
@@ -36,4 +48,5 @@ export interface ChatItem {
   text?: string;
   products?: Product[];
   checkoutUrl?: string;
+  delivery?: DeliveryInfo;
 }

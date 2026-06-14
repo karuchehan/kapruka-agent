@@ -118,6 +118,10 @@ export function useChat() {
         if (freshProducts.length) {
           additions.push({ id: uid(), type: "products", products: freshProducts, checkoutUrl: data.checkoutUrl });
         }
+        // Structured delivery result from the API → render a DeliveryStatusCard.
+        if (data.delivery?.city) {
+          additions.push({ id: uid(), type: "delivery", delivery: data.delivery });
+        }
         return [...base, ...additions];
       });
 

@@ -936,3 +936,18 @@ Audit found live UI drifted from the Kapruka design brief (wrong brand red `#e63
 ### Verification
 - `npx tsc --noEmit` clean.
 - Files: `OnboardingScreen.tsx`, `app/page.tsx`, `ChatScreen.tsx`; deleted `CLAUDE 2.md`.
+
+---
+
+## Session 020 — 2026-06-14 (Build 4 brief components: Delivery / Countdown / Gift / Bundle)
+
+### Wiring approach (applies to all 4)
+API currently returns `{ message, products, checkoutUrl }` only. Each new component is a **data-driven `ChatItem`**: component + `ChatItemType` + `MessageList` render case + `useChat` mapping from an OPTIONAL `data.*` response field. When the field is absent (all current live responses), nothing renders → zero regression. Render path is real the moment the API emits the field. No LLM/route/paid-API changes (API-key rule) — backend emission is the documented activation hook.
+
+**Component 1 — DeliveryStatusCard ✅**
+- `components/DeliveryStatusCard.tsx`: slim card `📍 City → ✅ etaLabel` (pin + tick/cross SVGs, brand accent on pin, success-green tick), GSAP `y:12→0` entrance.
+- `lib/types.ts`: `DeliveryInfo {city, available, etaLabel}`; `ChatItemType` += `"delivery"`; `ChatItem.delivery?`.
+- `MessageList.tsx`: import + `case "delivery"`.
+- `useChat.ts`: maps `data.delivery?.city` → delivery chatItem in the additions block.
+- `globals.css`: `.delivery-card` + parts (brand pin, tick in accent-soft/success, cross in brand).
+- tsc clean.

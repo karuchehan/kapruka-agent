@@ -4,6 +4,7 @@ import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { SkeletonCards } from "./SkeletonCards";
 import { ProductCarousel } from "./ProductCarousel";
+import { DeliveryStatusCard } from "./DeliveryStatusCard";
 import type { ChatItem, Product } from "@/lib/types";
 
 interface Props {
@@ -52,6 +53,8 @@ export function MessageList({ chatItems, onAddToCart }: Props) {
                 onAddToCart={onAddToCart}
               />
             );
+          case "delivery":
+            return <DeliveryStatusCard key={item.id} delivery={item.delivery!} />;
           default:
             return null;
         }
