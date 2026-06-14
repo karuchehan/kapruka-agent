@@ -4,6 +4,26 @@
 
 ---
 
+## Session 031 — 2026-06-14 (Loading screen: swap to letterU balloon + ChatGPT wordmark)
+
+### What We Did
+- **Loading screen asset swap** (`components/LoadingScreen.tsx`) — new wordmark is raster so no per-letter compositing; kept the existing GSAP sequence, swapped the two `<img>` assets:
+  - floating balloon: `kapruka-smile.svg` → `/brand/logos/letterU-cropped.svg`
+  - final wordmark: `kapruka-logo.svg` → `/brand/logos/ChatGPT__-cropped.svg`
+  - wordmark `styles.logo`: `width 300/maxWidth 70vw` → `width: 70vw, maxWidth: 1000, height: auto` (fills ~70% viewport, ~5.3:1 aspect).
+- Sequence unchanged + matches spec: purple bg → U balloon top-right w/ swaying string → hand pulls U to center + bounce → wordmark crossfades in centered as floating U fades out (wordmark has the U baked in) → hold 0.8s → wordmark fades out → onboarding.
+- **BG confirmed** `const BG = "#412973"` (line 11) — correct.
+- **Visual check** (headless Chrome static harness, no API): wordmark "kapruka" renders white with the **yellow U baked in at center** position — aligns with the pulled-to-center floating U at crossfade. 70vw on purple. Shot: `.tmp/loading-end-frame.png`.
+- tsc CLEAN; 4 layout checks pass.
+
+### Mistakes & Lessons
+- Wordmark's baked-in U is at the 'u' position (≈center of "kapruka") and is yellow — so the centered crossfade reads as one continuous mark with the floating yellow U. No pixel-perfect alignment needed; spec accepts simultaneous crossfade.
+
+### Next Steps
+- **Three.js background** (user's next task, pending this confirmation): replace `BackgroundCanvas` with a purple-toned particle field.
+
+---
+
 ## Session 030 — 2026-06-14 (Asset inspection + public/brand/ folder reorg)
 
 ### What We Did

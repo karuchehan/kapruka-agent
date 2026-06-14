@@ -53,12 +53,16 @@ const styles: Record<string, CSSProperties> = {
     width: 110,
     willChange: "transform",
   },
+  // Full "kapruka" wordmark (raster PNG-in-SVG). The U is baked in at its
+  // correct position, so it crossfades over the floating letterU. Fills ~70% of
+  // the viewport width; height follows the wordmark's ~5.3:1 aspect.
   logo: {
     position: "absolute",
     top: "50%",
     left: "50%",
-    width: 300,
-    maxWidth: "70vw",
+    width: "70vw",
+    maxWidth: 1000,
+    height: "auto",
     willChange: "transform, opacity",
   },
 };
@@ -133,9 +137,9 @@ export function LoadingScreen({ onDone }: Props) {
       .to(sw, { scale: 1, duration: 0.15, ease: "power1.in" });
     tl.to(hd, { y: H * 0.85, duration: 0.5, ease: "power2.in" }, "<");
 
-    // (5) Full logo fades in around the smile. The logo PNG has the smile baked
-    // in, so we crossfade: the standalone smile fades out as the logo fades in,
-    // and the logo's own smile takes over in place — looks like one mark.
+    // (5) Full wordmark fades in centered (~70vw). The wordmark PNG has the U
+    // baked in, so we crossfade: the standalone letterU fades out as the wordmark
+    // fades in, and the wordmark's own U takes over — looks like one mark.
     tl.to(lg, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, ">-0.05")
       .to(sg, { opacity: 0, duration: 0.5, ease: "power2.out" }, "<");
 
@@ -148,7 +152,7 @@ export function LoadingScreen({ onDone }: Props) {
     <div ref={root} style={styles.overlay} aria-hidden="true">
       <div ref={smileGroup} style={styles.smileGroup}>
         <div ref={smileSway} style={styles.smileSway}>
-          <img src="/brand/logos/kapruka-smile.svg" alt="" style={styles.smileImg} />
+          <img src="/brand/logos/letterU-cropped.svg" alt="" style={styles.smileImg} />
           <div ref={string} style={styles.string} />
         </div>
       </div>
@@ -156,7 +160,7 @@ export function LoadingScreen({ onDone }: Props) {
       {/* Hand — inline SVG, dark skin tone, minimal, reaching upward. */}
       <HandSvg innerRef={hand} />
 
-      <img ref={logo} src="/brand/logos/kapruka-logo.svg" alt="Kapruka" style={styles.logo} />
+      <img ref={logo} src="/brand/logos/ChatGPT__-cropped.svg" alt="Kapruka" style={styles.logo} />
     </div>
   );
 }
