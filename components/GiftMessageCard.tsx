@@ -44,7 +44,7 @@ export function GiftMessageCard({ giftMessage, onSubmit }: Props) {
         aria-label="Gift message"
       />
       <button
-        className="gift-card-save"
+        className={`gift-card-save${saved ? " saved" : ""}`}
         onClick={handleSave}
         disabled={saved || !text.trim()}
       >

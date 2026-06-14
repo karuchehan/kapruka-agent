@@ -36,6 +36,12 @@ export const maxDuration = 60;
 
 const CHECKOUT_RE = /\[CHECKOUT_URL\](https?:\/\/[^\s]+)\[\/CHECKOUT_URL\]/;
 
+// Hidden UI markers the agent appends to drive visual cards. Parsed + stripped
+// before the message is shown — same pattern as [CHECKOUT_URL].
+const OCCASION_RE = /\[OCCASION_DATE:\s*(\d{4}-\d{2}-\d{2})\]/i;
+const GIFT_RE     = /\[GIFT_MESSAGE:\s*true\]/i;
+const BUNDLE_RE   = /\[BUNDLE:\s*true\]/i;
+
 // ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
 
 const MCP_URL  = "https://mcp.kapruka.com/mcp";
@@ -350,6 +356,13 @@ function buildSystemPrompt(
 ) {
   const dynamicParts: string[] = [];
 
+  // Current date so the agent can resolve relative dates ("Friday", "tomorrow")
+  // into the absolute YYYY-MM-DD required by the [OCCASION_DATE] marker.
+  const now = new Date();
+  dynamicParts.push(
+    `CURRENT DATE: ${now.toISOString().slice(0, 10)} (${now.toLocaleDateString("en-US", { weekday: "long" })}) — use this to resolve relative dates.`
+  );
+
   if (userProfile?.name) {
     let p = `USER PROFILE\nName: ${userProfile.name}`;
     if (userProfile.age)    p += ` | Age: ${userProfile.age}`;
@@ -434,6 +447,27 @@ function truncateToSentences(text: string, n = 2): string {
 // ── DELIVERY RESULT MAPPING ───────────────────────────────────────────────────
 
 interface DeliveryInfo { city: string; available: boolean; etaLabel: string; }
+interface OccasionInfo { label: string; targetDate: string; emoji: string; }
+interface BundleInfo { title: string; items: Product[]; total: number; }
+
+// Map a resolved occasion date + conversation text → label/emoji for the chip.
+function buildOccasion(iso: string, convText: string): OccasionInfo {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { label: "Your occasion", targetDate: "", emoji: "🎁" };
+  const map: [RegExp, string, string][] = [
+    [/birthday/, "Birthday", "🎂"],
+    [/anniversary/, "Anniversary", "💞"],
+    [/wedding/, "Wedding", "💍"],
+    [/valentine/, "Valentine's", "❤️"],
+    [/christmas/, "Christmas", "🎄"],
+    [/mother'?s day/, "Mother's Day", "💐"],
+    [/father'?s day/, "Father's Day", "🎁"],
+  ];
+  for (const [re, label, emoji] of map) {
+    if (re.test(convText)) return { label, targetDate: d.toISOString(), emoji };
+  }
+  return { label: "Your occasion", targetDate: d.toISOString(), emoji: "🎁" };
+}
 
 function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -579,6 +613,9 @@ export async function POST(req: Request) {
 
   let message    = "";
   let checkoutUrl: string | null = null;
+  let occasion: OccasionInfo | null = null;
+  let giftMessage = false;
+  let bundle: BundleInfo | null = null;
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -609,10 +646,26 @@ export async function POST(req: Request) {
     const cm = rawText.match(CHECKOUT_RE);
     if (cm) checkoutUrl = cm[1];
 
+    // Hidden UI markers → structured fields (parsed from raw, stripped from message).
+    const om = rawText.match(OCCASION_RE);
+    if (om) {
+      const occ = buildOccasion(om[1], convText);
+      if (occ.targetDate) occasion = occ;
+    }
+    if (GIFT_RE.test(rawText)) giftMessage = true;
+    if (BUNDLE_RE.test(rawText) && products.length >= 2) {
+      const total = products.reduce((s, p) => s + Number(p.price || 0), 0);
+      bundle = { title: "A bundle made for the occasion", items: products, total };
+      products = []; // render as a grouped bundle instead of a plain carousel
+    }
+
     message = truncateToSentences(
       rawText
         .replace(/\[PRODUCTS\][\s\S]*?\[\/PRODUCTS\]/g, "")
         .replace(CHECKOUT_RE, "")
+        .replace(OCCASION_RE, "")
+        .replace(GIFT_RE, "")
+        .replace(BUNDLE_RE, "")
         .trim(),
       3
     );
@@ -622,5 +675,5 @@ export async function POST(req: Request) {
     return Response.json({ error: (err as Error).message || "Internal server error" }, { status });
   }
 
-  return Response.json({ message, products, checkoutUrl, delivery });
+  return Response.json({ message, products, checkoutUrl, delivery, occasion, giftMessage, bundle });
 }

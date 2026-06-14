@@ -734,7 +734,10 @@ html, body {
 .gift-card-save:hover:not(:disabled) { background: var(--accent-dark); }
 .gift-card-save:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .gift-card-save:active:not(:disabled) { transform: scale(0.97); }
-.gift-card-save:disabled { background: #4caf7d; cursor: default; opacity: 0.95; }
+/* Empty/disabled (not yet saved) → muted neutral, NOT success green. */
+.gift-card-save:disabled:not(.saved) { background: #c9b79c; cursor: default; opacity: 0.8; }
+/* Saved → success green confirmation. */
+.gift-card-save.saved { background: #4caf7d; cursor: default; }
 
 /* ── BUNDLE / HAMPER VIEW ── */
 .bundle-hamper {

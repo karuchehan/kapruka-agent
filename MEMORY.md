@@ -1011,3 +1011,37 @@ API currently returns `{ message, products, checkoutUrl }` only. Each new compon
 ### Next Steps
 - Confirm live `check_delivery` MCP field names with ONE real delivery query (needs API-key OK) and adjust `mapDelivery` if shape differs.
 - Activate the other 3 cards (occasion/gift/bundle) — need agent markers parsed server-side (like `[CHECKOUT_URL]`); touches the Anthropic path.
+
+---
+
+## Session 022 — 2026-06-14 (Agent markers → Occasion / Gift / Bundle cards, live-tested)
+
+### What We Did (user authorized live API calls for the tests)
+**1. System prompt (`directives/system_prompt.md`)** — added "HIDDEN UI MARKERS" section: emit at message END, stripped before display, don't count to 2-sentence limit:
+- `[OCCASION_DATE: YYYY-MM-DD]` — user mentions a deadline/occasion date; resolve relative dates from CURRENT DATE.
+- `[GIFT_MESSAGE: true]` — user asks to write/add a gift message.
+- `[BUNDLE: true]` — agent proposes a multi-item combo while products are shown.
+
+**2. `app/api/chat/route.ts`**
+- Added `OCCASION_RE` / `GIFT_RE` / `BUNDLE_RE` (same convention as `CHECKOUT_RE`).
+- Inject `CURRENT DATE: <ISO> (<weekday>)` into the system prompt dynamicParts so the agent can resolve "Friday"/"tomorrow" → ISO.
+- Added `OccasionInfo`/`BundleInfo` interfaces + `buildOccasion(iso, convText)` (label+emoji from occasion keyword: birthday→🎂, anniversary→💞, etc.).
+- Handler parses markers from `rawText`, strips them from the displayed message, builds `occasion`, `giftMessage`, `bundle`. For bundle: packages current `products` into `bundle.items` with summed `total` and clears `products` (renders as grouped bundle, not a plain carousel).
+- Response now returns `{ message, products, checkoutUrl, delivery, occasion, giftMessage, bundle }`. `useChat` already maps all (Session 020).
+
+**3. Bug fix (`GiftMessageCard.tsx` + `globals.css`)** — save button rendered success-GREEN while empty/disabled (looked already-saved). Split states: `:disabled:not(.saved)` → muted neutral `#c9b79c`; `.saved` → green. Added `saved` class on save.
+
+### Live test results (real API)
+- **Occasion** — "flowers for girlfriend's birthday this Friday" → `occasion {label:"Birthday", targetDate:"2026-06-19T…", emoji:"🎂"}`. ✓ (Friday resolved correctly. Note: that query returned 0 products — unrelated MCP search-relevance issue.)
+- **Gift** — "can you add a gift message to it?" → `giftMessage:true`, clean message "…write whatever you'd like and I'll attach it". ✓
+- **Bundle** — "put together a bundle with cake/flowers/chocolates" → `bundle {items:4, total:23090}` real Kapruka products w/ images; `products` cleared. ✓ (1 stray phone item = MCP relevance noise, not wiring.)
+
+### Visual pass (Playwright, mocked with the REAL captured payloads — deterministic, no extra spend)
+- Occasion chip "🎂 Birthday in 4 days" (brand pill, accent countdown) above input, with product cards. Desktop + 375px ✓.
+- Gift card: cream greeting card, Playfair, dashed textarea, -1° tilt, muted button when empty (post-fix). Desktop + 375px ✓.
+- Bundle: "A bundle made for the occasion" title, mini-cards with real cake images, "BUNDLE TOTAL Rs. 23,090" + Add bundle. Desktop + 375px ✓.
+- tsc clean; 4-check passes (no `overflow-x: hidden`; `#messages-container` keeps `overflow-y: auto`).
+
+### Known follow-ups (not blocking)
+- MCP product search returns 0 or off-topic items for some multi-word/occasion queries (phone in a cake bundle; 0 flowers result) — search-relevance tuning, separate from card wiring.
+- All 4 cards now activate from real agent output; delivery still needs live MCP `check_delivery` shape confirmation (Session 021).
