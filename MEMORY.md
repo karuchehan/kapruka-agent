@@ -1135,3 +1135,38 @@ Fixed the Session 024 caveat: a "Funeral Wreath - White Roses" surfacing in a bi
 ### Notes
 - Live reproduction blocked by catalog flux (wreath out of stock), so proof is the deterministic test, not a live screenshot. Logic is a pure regex filter; risk is low.
 - `wreath` is a marker → any wreath dropped in celebratory flows; Christmas wreaths NOT caught because "christmas" isn't a `celebratory` trigger (flag stays false). Acceptable.
+
+---
+
+## Session 026 — 2026-06-14 (Critical: gender/preference context ignored in search — male+food returned pink bouquets)
+
+### Bug
+"Brother's birthday, he's into gadgets and food" → agent showed 4 pink flower bouquets. Gender + preference context never reached product search.
+
+### Root causes
+1. **`categoryHint` read the WHOLE transcript (incl. assistant text).** The assistant's clarifying menu ("...fashion and gadgets, food and sweets, or something like flowers and a cake?") contains "flowers" + "cake". `detectCategories(convText)` matched `flower` (first in detect order) from the assistant's OWN words → `categoryHint="flower"` → `categoryQuery` built "birthday flowers" → pink bouquets. The user's "gadgets and food" maps to no category and was effectively ignored.
+2. **No gender gate on results.** Nothing dropped feminine bouquets for a male recipient.
+
+### Fixes
+**`app/api/chat/route.ts`**
+- `categoryHint` now derives from **user messages only** (`userText`), not `convText` — assistant menu text can no longer leak a category.
+- Added recipient-gender detection from user text + recipient profile: `recipientMale` (brother/him/his/he/male/man/boy/father/son/husband/uncle/nephew/grandfather/guy), `recipientFemale` (sister/her/she/female/woman/girl/mother/daughter/wife/aunt/niece/grandmother).
+- `explicitFlowerRequest` = categoryHint flower OR msgCats flower OR user text has flower/bouquet/rose/floral/bloom.
+- `dropFloral = recipientMale && !recipientFemale && !explicitFlowerRequest`. Threaded into all 3 `filterProducts` call sites + `searchCategory` (guarded `cat !== "flower"` so an explicit per-category flower search is never self-stripped).
+
+**`lib/productFilter.ts`**
+- Added exported `isFloral(p)` (reuses `CATEGORY_SIGNALS.flower`) + optional `dropFloral?` param on `filterProducts` → drops bouquets when set (runs after sympathy, before category/budget).
+
+**`directives/system_prompt.md`** (user explicitly authorized req 1)
+- Added STOCK CONSTRAINT block: reliably-stocked gift categories listed; NEVER offer gadgets/gaming/electronics/fitness gear; silently map an un-stockable interest (e.g. "gadgets") to nearest in-stock category.
+- Rewrote the demographic bias table (was "Male 18–30: gadgets, gaming, fitness gear" etc.) to in-stock categories only.
+
+### Live test (dev, real API)
+- **"brother's birthday, into gadgets and food"** → 4 results, **0 floral** (food chopper, serving board, grill, coconut spoon); agent led with the food-appropriate serving board. Was 4 pink bouquets. ✓
+- Regression: **"sister loves flowers"** → 4 bouquets (floral allowed for female). ✓
+- Regression: **"flowers for my brother"** (explicit) → 4 bouquets (explicitFlowerRequest guard keeps them). ✓
+- tsc clean; sympathy unit test still 7/7 (new optional param, no break).
+
+### Notes
+- Kapruka catalog DOES stock some kitchen "gadgets" (grills, choppers) — the earlier "we don't have gadgets" was the model improvising; not authoritative. Fix targets the floral-mismatch + category-leak, which were the real defects.
+- Gender gate is name/pronoun based; if the user never signals recipient gender, `dropFloral` stays false (no change to prior behaviour).

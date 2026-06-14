@@ -125,6 +125,15 @@ export function isSympathy(p: FilterableProduct): boolean {
   return SYMPATHY_MARKERS.test(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
 }
 
+// True when a product is a flower bouquet / floral arrangement. Used by the
+// male-recipient gender gate: a "brother's birthday, into food/gadgets" flow
+// should never surface pink rose bouquets as the primary results. Dropped only
+// when the caller sets dropFloral (male recipient AND the user did not actually
+// ask for flowers).
+export function isFloral(p: FilterableProduct): boolean {
+  return CATEGORY_SIGNALS.flower.test(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
+}
+
 // A result is junk (vendor/shop listing, not a real product) when:
 // - it has no image (vendor listings on Kapruka MCP frequently lack one), or
 // - its price is zero/negative (placeholder listing), or
@@ -218,12 +227,16 @@ export function filterProducts<T extends FilterableProduct>(
   budget: number | null,
   queryTokens?: string[],
   categoryHint?: string | null,
-  excludeSympathy?: boolean
+  excludeSympathy?: boolean,
+  dropFloral?: boolean
 ): T[] {
   let out = products.filter((p) => !isJunkProduct(p));
   // Occasion-based negative filter: drop funeral/sympathy/get-well items in a
   // celebratory flow (caller decides). Runs before category/budget/relevance.
   if (excludeSympathy) out = out.filter((p) => !isSympathy(p));
+  // Gender gate: drop floral bouquets in a male-recipient flow that did not
+  // ask for flowers (a brother's birthday should not return pink bouquets).
+  if (dropFloral) out = out.filter((p) => !isFloral(p));
   // In a book flow, keep ONLY products that carry a book signal (allowlist) and
   // additionally drop anything that trips the non-book blocklist. This removes
   // cakes, games, pillows, and tour packages that merely shared a genre word
