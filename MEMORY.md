@@ -4,6 +4,28 @@
 
 ---
 
+## Session 034 — 2026-06-14 (Loading screen → coded GSAP + Three.js balloon-U animation)
+
+### What We Did
+- **Replaced the video LoadingScreen with a fully coded GSAP + Three.js intro** (`components/LoadingScreen.tsx`). No video files used.
+  - **Three.js (canvas z10):** inflated foil letter-U built as a fat `TubeGeometry` swept along a U-shaped `CatmullRomCurve3` + two sphere caps on the open tips. `MeshStandardMaterial` yellow `#FFCC00`, metalness 0.35 / roughness 0.22 / slight emissive for the foil sheen; Ambient + Directional key + Point hot-spot light. Thin white cylinder string on a pivot group hanging from the U's bottom centre.
+  - **GSAP timeline (single `tl`)** drives all 5 steps: (1) 0–1.5 balloon pops in top-right (`back.out`) + idle bob/sway (infinite, killed at pull); (2) 1.5–2.6 inline hand SVG rises from below to centre; (3) 2.5–4 idle killed, balloon pulled in an arc to centre (x `power2.inOut` slow + y `power2.in` late = arc), hand guides then exits down, settle bounce (scale 1→1.06→1); (4) 4.3–5.5 "kapr" slides from left + "ka" from right (DOM spans z11, Nunito 800) while the U shrinks `BIG 0.85 → LETTER 0.40` + string fades, forming **kapruka** with the U as the middle letter; (5) 5.6–6.5 whole logo scales up 1.12 + overlay fades → `tl.onComplete` = `finish()`.
+  - **Font:** added `Nunito` (weight 800) via `next/font/google` in `app/layout.tsx` as `--font-rounded`.
+  - Reused the old hand SVG + `sessionStorage["kaprukaLoaded"]` skip + `finish()` pattern. Added an 8s safety `setTimeout(finish)` backstop. Full cleanup: clear timeout, cancel rAF, restore `lagSmoothing`, `ctx.revert()`, dispose geometries/materials/renderer.
+- tsc CLEAN; 4 layout checks pass. Verified live (dev + headless WebGL screenshots): balloon foil-U top-right, hand rise, and assembled **kapruka** wordmark. Shots `.tmp/loading-gsap-{balloon,wordmark}.png`.
+
+### Mistakes & Lessons
+- **GSAP + headless `--virtual-time-budget` don't mix by default:** GSAP's `ticker.lagSmoothing` clamps the huge virtual-time frame deltas, so the timeline froze ~1s in and every screenshot looked stuck (balloon never left top-right; "hand missing" was a FALSE alarm — timeline hadn't reached 1.5s). Fix that also helps prod: `gsap.ticker.lagSmoothing(0)` during the intro (restored on cleanup). After that, virtual-time frames advanced correctly.
+- GSAP overwrites an element's whole CSS `transform`, so `transform: translateX(-50%)` for centering is lost once you tween `y`. Center via GSAP `xPercent/yPercent` instead (matches the proven old hand setup: `top/left:50%` + `xPercent:-50, yPercent:-50`).
+- Headless Chrome attaches to an already-running Chrome unless given `--user-data-dir` (a fresh profile) — otherwise "Opening in existing browser session" and no screenshot.
+- The unused intro mp4 (`public/brand/animations/Generate_a_second_cinematic.mp4`) is left in place (asset, not referenced).
+
+### Next Steps
+- Confirm the full 6.5s sequence + handoff to onboarding in a real browser (timing feels right under virtual-time but real-rAF is the truth).
+- Optional: prune the unused intro mp4 + the now-unused logo SVGs.
+
+---
+
 ## Session 033 — 2026-06-14 (Loading screen → full-screen cinematic video)
 
 ### What We Did
