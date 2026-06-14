@@ -835,3 +835,35 @@ maxDuration, robust loader (f4ff398), key guard + ctor-in-try (1bba789) ALL edit
 2. Tighten MCP duplicate-row dedup server-side (still relying on client `shownProductIds`).
 
 ---
+
+## Session 017 — 2026-06-14 (Autoresearch 5 iterations + product-regression guard)
+
+### What We Did
+- Ran `execution/orchestrator.js` for 5 autoresearch iterations (baseline → generate challenger → compare → promote only if no regression). API approved by user for this run only.
+- Results: baseline HELD all 5. No challenger promoted.
+  - Iter 1 (run #5): baseline 4.45 / challenger 4.41 — blocked, product_quality −0.12.
+  - Iter 2 (run #7): baseline 4.56 / challenger 4.53 — blocked, personalization −0.20.
+  - Iter 3 (run #9): baseline 4.55 / challenger 4.49 — blocked, product_quality −0.12, completeness −0.24.
+  - Iter 4 (run #11): baseline 4.45 / challenger 4.37 — blocked, product_quality −0.12, completeness −0.36.
+  - Iter 5 (run #12): **invalid** — Anthropic credit balance hit zero mid-baseline (`400 invalid_request_error: "Your credit balance is too low"`), challenger all-skipped → NaN.
+- Cleaned the NaN run #12 row + detail block + weakest-dims line out of `execution/resources.md` (3 edits, verified zero NaN/undefined remain).
+- Wrote `execution/challenger_notes.md` — per-scenario hard constraints for the challenger generator (008 = low-budget Father's Day must show products not just questions; 015 = Sinhala input must surface product cards, not only a Sinhala clarifying question; global rule = never reduce product-suggestion behaviour). JSON can't hold comments, hence a separate notes file.
+- Rewrote `execution/generate_challenger.js`: reads `challenger_notes.md` and injects it as HARD CONSTRAINTS; added a per-scenario regression guard (`PROTECTED_DIMENSIONS = [product_quality, completeness]`) that scores baseline + challenger and regenerates (feeding the regression back into the prompt) if the challenger drops on ANY scenario's protected dim. Gated by `CHALLENGER_VALIDATE` (default on) and `CHALLENGER_MAX_REGEN` (default 3). Guard scoring needs API, so it does NOT run with `CHALLENGER_VALIDATE=0`.
+- `npx tsc --noEmit` clean (exit 0).
+
+### Gaps Identified
+- Every rejected challenger followed the SAME pattern: it gained `language_match` but regressed `product_quality`/`completeness`. The generator over-indexes on language rules and stops recommending products — exactly what the new guard + notes target.
+- Persistent weak dims across all iterations: `product_quality` (~3.9) and `personalization` (~4.0). Recurring real failures: scenario_008 (no products for Father's Day) and scenario_015 (Sinhala — clarifying Q with zero products).
+- Judge is non-deterministic: baseline read 4.45 / 4.56 / 4.55 / 4.45 / 4.54 across runs of the SAME prompt. Per-iteration "failing count" bounced 3→2→1→4→1 on variance, not real change.
+
+### Mistakes & Lessons
+- Did not check Anthropic credit balance before a long multi-iteration run; ran out on iteration 5. Each `orchestrator.js` iteration is ~150 API calls (25 scenarios × 2 calls × 3 test runs + 1 gen) and took 14–24 min. Lesson: estimate total call volume and confirm credits before starting long loops.
+- `orchestrator.js` runs the baseline test suite THREE times per iteration (step-1 baseline, then baseline + challenger inside compare). The step-1 run is redundant with compare's baseline run — wasted ~50 calls/iter. Candidate optimization for next session.
+- The new regeneration guard in `generate_challenger.js` adds MORE baseline/challenger test runs at generation time. Combined with the redundant orchestrator runs, an iteration could balloon. Before re-enabling end-to-end, refactor so baseline is scored ONCE per iteration and reused by both the guard and the comparison.
+
+### Next Steps
+1. Top up Anthropic credits, then re-run ONE clean iteration to replace the aborted run #12.
+2. Refactor orchestrator + generate_challenger so the baseline suite is scored once per iteration and shared (avoid the now-tripled/quadrupled test runs).
+3. Verify the new guard actually forces product-keeping challengers on 008 + 015 once credits are back.
+
+---

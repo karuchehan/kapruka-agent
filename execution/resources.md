@@ -103,6 +103,107 @@ The loop cannot break this pattern on its own because it doesn't know *which* ru
 
 ## What Does Not Work (Tried And Discarded)
 <!-- populated automatically -->
+### Iteration 11 — 2026-06-13 — Winner: **BASELINE**
+
+**Scores:** baseline 4.45 → challenger 4.37
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.84 | 4.88 → |
+| personalization | 3.88 | 3.88 → |
+| product_quality | 3.96 | 3.84 ▼ -0.12 |
+| tone | 4.84 | 4.84 → |
+| language_match | 4.88 | 4.84 → |
+| completeness | 4.28 | 3.92 ▼ -0.36 |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_004**: The response bundles two distinct questions into one sentence ('for who' and 'what occasion'), violating the key quality criterion of asking exactly one clarifying question at a time. *(dims: product_quality: No products were suggested or referenced, which is expected given vagueness, but score reflects N/A context — however the question asked two things at once (who + occasion) violating the 'exactly one clarifying question' rule, personalization: Used name but asked two questions in one breath — 'for yourself or someone special, AND what's the occasion?' is two questions bundled together, completeness: Asking two questions at once may overwhelm and doesn't follow the single-question rule, reducing forward momentum)*
+
+**What challenger targeted:**
+  (not recorded)
+
+**Outcome:** **Blocked by regression:** product_quality: 3.96 → 3.84 (-0.12); completeness: 4.28 → 3.92 (-0.36)
+
+---
+
+### Iteration 9 — 2026-06-13 — Winner: **BASELINE**
+
+**Scores:** baseline 4.55 → challenger 4.49
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 5 | 4.92 ▼ -0.08 |
+| personalization | 3.96 | 3.92 → |
+| product_quality | 4.24 | 4.12 ▼ -0.12 |
+| tone | 4.88 | 4.84 → |
+| language_match | 4.72 | 4.88 ▲ +0.16 |
+| completeness | 4.52 | 4.28 ▼ -0.24 |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_015**: Sinhala script input — full Sinhala response required *(dims: product_quality: No products were suggested at all — the response is purely a clarifying question with zero product exploration, language_match: Mixing in English phrases like 'occasion' and 'surprise gift' and 'just' may feel slightly unnatural for a fully Sinhala-script response, though it mirrors common Sri Lankan speech)*
+
+**What challenger targeted:**
+  (not recorded)
+
+**Outcome:** **Blocked by regression:** product_quality: 4.24 → 4.12 (-0.12); completeness: 4.52 → 4.28 (-0.24)
+
+---
+
+### Iteration 7 — 2026-06-13 — Winner: **BASELINE**
+
+**Scores:** baseline 4.56 → challenger 4.53
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.92 | 4.96 → |
+| personalization | 4.16 | 3.96 ▼ -0.20 |
+| product_quality | 4 | 4.12 ▲ +0.12 |
+| tone | 4.96 | 4.88 ▼ -0.08 |
+| language_match | 4.96 | 4.88 ▼ -0.08 |
+| completeness | 4.36 | 4.36 → |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_015**: Sinhala script input — full Sinhala response required *(dims: product_quality: No products were suggested yet — the response only asked a clarifying question without offering any initial ideas or examples to help the user visualize options)*
+  - **scenario_021_autobiography_relevance**: The agent mentions 'A Game of Thrones' in the autobiography recommendation context — even with 'aside', this introduces a fiction title inappropriately and fails the core task of filtering out non-autobiographies. *(dims: product_quality: 'A Game of Thrones' is a fiction novel, not an autobiography — mentioning it in the context of autobiographies is a critical error even though it was partially distanced with 'aside', relevance: The awkward phrasing 'A Game of Thrones aside' still introduces a fiction title into an autobiography recommendation, confusing the response, personalization: The agent uses 'he likes autobiographies' from the user's message but Roshan is the one asking — unclear pronoun handling, and age/gender context not leveraged, completeness: The response doesn't clarify why A Game of Thrones was mentioned or properly exclude it, leaving the user potentially confused)*
+
+**What challenger targeted:**
+  (not recorded)
+
+**Outcome:** **Blocked by regression:** personalization: 4.16 → 3.96 (-0.20)
+
+---
+
+### Iteration 5 — 2026-06-13 — Winner: **BASELINE**
+
+**Scores:** baseline 4.4 → challenger 4.41
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.76 | 4.84 ▲ +0.08 |
+| personalization | 3.96 | 3.92 → |
+| product_quality | 4 | 3.88 ▼ -0.12 |
+| tone | 4.8 | 4.88 ▲ +0.08 |
+| language_match | 4.76 | 4.88 ▲ +0.12 |
+| completeness | 4.12 | 4.08 → |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_007**: The response skips any clarifying question and immediately offers generic options, missing the crucial discovery step needed to give truly useful recommendations for a couple's anniversary. *(dims: completeness: Jumps straight to options without asking a single clarifying question (budget, parents' interests, age) — misses the discovery step entirely, product_quality: Photo frame is a single-person-leaning gift; no couple experience, dinner, or home item suggested; options feel generic rather than anniversary-specific, personalization: Uses name but ignores that Kasun is 23 — could acknowledge the relatable struggle of gift-hunting for parents at that age)*
+
+**What challenger targeted:**
+  (not recorded)
+
+**Outcome:** **Blocked by regression:** product_quality: 4 → 3.88 (-0.12)
+
+---
+
 ### Iteration 2 — 2026-06-10 — Winner: **BASELINE**
 
 **Scores:** baseline 4.07 → challenger 4.3
@@ -173,13 +274,20 @@ The loop cannot break this pattern on its own because it doesn't know *which* ru
 
 | Run | Date | Baseline | Challenger | Winner | Key Changes |
 |---|---|---|---|---|---|
+| 11 | 2026-06-13 | 4.45 | 4.37 | BASELINE | product_quality: 3.96 → 3.84 (-0.12) |
+| 9 | 2026-06-13 | 4.55 | 4.49 | BASELINE | language_match: 4.72 → 4.88 (+0.16) |
+| 7 | 2026-06-13 | 4.56 | 4.53 | BASELINE | product_quality: 4 → 4.12 (+0.12) |
+| 5 | 2026-06-13 | 4.4 | 4.41 | BASELINE | language_match: 4.76 → 4.88 (+0.12) |
 | 4 | 2026-06-10 | 4.19 | 4.5 | CHALLENGER | relevance: 4.75 → 5 (+0.25); personalization: 3.7 → 3.95 (+0.25) |
 | 3 | 2026-06-10 | 4.12 | 4.29 | CHALLENGER | relevance: 4.55 → 4.8 (+0.25); tone: 4.7 → 4.9 (+0.20) |
 | 2 | 2026-06-10 | 4.07 | 4.3 | BASELINE | relevance: 4.45 → 4.85 (+0.40); personalization: 3.6 → 3.75 (+0.15) |
 | 1 | 2026-06-10 | 4.02 | 4.14 | BASELINE | challenger regressed product_quality (-0.20) despite improving personalization (+0.35), completeness (+0.40) |
 
 ## Weakest Dimensions Over Time
-<!-- populated automatically -->
+<!-- populated automatically -->- **Run 11**: personalization, product_quality, completeness
+- **Run 9**: personalization, product_quality, completeness
+- **Run 7**: product_quality, personalization, completeness
+- **Run 5**: personalization, product_quality, completeness
 - **Run 4**: product_quality, personalization, completeness
 - **Run 3**: product_quality, completeness, personalization
 - **Run 2**: product_quality, personalization, completeness
