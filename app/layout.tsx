@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display, Nunito, Fredoka } from "next/font/google";
 import "./globals.css";
 
@@ -33,6 +33,15 @@ const fredoka = Fredoka({
 export const metadata: Metadata = {
   title: "Kapruka — Your Shopping Assistant",
   description: "AI-powered shopping assistant for Kapruka Sri Lanka",
+};
+
+// maximumScale:1 prevents zoom jank during the mobile sheet drag; viewportFit
+// cover enables env(safe-area-inset-bottom) for the handle / cart dock.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

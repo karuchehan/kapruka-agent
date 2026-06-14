@@ -41,6 +41,10 @@ const CHECKOUT_RE = /\[CHECKOUT_URL\](https?:\/\/[^\s]+)\[\/CHECKOUT_URL\]/;
 const OCCASION_RE = /\[OCCASION_DATE:\s*(\d{4}-\d{2}-\d{2})\]/i;
 const GIFT_RE     = /\[GIFT_MESSAGE:\s*true\]/i;
 const BUNDLE_RE   = /\[BUNDLE:\s*true\]/i;
+// Emitted by the agent when the user has confirmed they want to place/complete
+// the order. Boolean signal only — the actual checkout URL is built client-side
+// from the cart (the items the user added), never from the model.
+const ORDER_RE    = /\[ORDER_CONFIRMED:\s*true\]/i;
 
 // ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
 
@@ -712,6 +716,7 @@ export async function POST(req: Request) {
   let occasion: OccasionInfo | null = null;
   let giftMessage = false;
   let bundle: BundleInfo | null = null;
+  let orderConfirmed = false;
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -749,6 +754,7 @@ export async function POST(req: Request) {
       if (occ.targetDate) occasion = occ;
     }
     if (GIFT_RE.test(rawText)) giftMessage = true;
+    if (ORDER_RE.test(rawText)) orderConfirmed = true;
     if (BUNDLE_RE.test(rawText) && products.length >= 2) {
       const total = products.reduce((s, p) => s + Number(p.price || 0), 0);
       bundle = { title: "A bundle made for the occasion", items: products, total };
@@ -762,6 +768,7 @@ export async function POST(req: Request) {
         .replace(OCCASION_RE, "")
         .replace(GIFT_RE, "")
         .replace(BUNDLE_RE, "")
+        .replace(ORDER_RE, "")
         .trim(),
       3
     );
@@ -771,5 +778,5 @@ export async function POST(req: Request) {
     return Response.json({ error: (err as Error).message || "Internal server error" }, { status });
   }
 
-  return Response.json({ message, products, checkoutUrl, delivery, occasion, giftMessage, bundle });
+  return Response.json({ message, products, checkoutUrl, delivery, occasion, giftMessage, bundle, orderConfirmed });
 }

@@ -6,6 +6,7 @@ import { DeliveryStatusCard } from "./DeliveryStatusCard";
 import { OccasionCountdown } from "./OccasionCountdown";
 import { GiftMessageCard } from "./GiftMessageCard";
 import { BundleHamperView } from "./BundleHamperView";
+import { CheckoutCard } from "./CheckoutCard";
 import type { ChatItem, Product } from "@/lib/types";
 
 interface Props {
@@ -63,6 +64,8 @@ export function MessageList({ chatItems, speakingId, onAddToCart, onGiftSubmit }
             return (
               <BundleHamperView key={item.id} bundle={item.bundle!} onAddToCart={onAddToCart} />
             );
+          case "checkout":
+            return <CheckoutCard key={item.id} products={item.products ?? []} checkoutUrl={item.checkoutUrl} />;
           default:
             return null;
         }

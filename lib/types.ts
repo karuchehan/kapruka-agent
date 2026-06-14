@@ -59,7 +59,8 @@ export type ChatItemType =
   | "delivery"
   | "occasion"
   | "giftMessage"
-  | "bundle";
+  | "bundle"
+  | "checkout";
 
 export interface ChatItem {
   id: string;

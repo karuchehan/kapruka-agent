@@ -36,7 +36,8 @@ export function useChat() {
   async function sendMessage(
     text: string,
     userProfile: UserProfile,
-    recipientProfile: RecipientProfile
+    recipientProfile: RecipientProfile,
+    cartProducts: Product[] = []
   ) {
     if (!text.trim() || isSendingRef.current) return;
     isSendingRef.current = true;
@@ -122,11 +123,24 @@ export function useChat() {
       const showGift = !!data.giftMessage && !giftMessageShown.current;
       if (showGift) giftMessageShown.current = true;
 
+      // Order confirmed → build a checkout card from the CART (the items the user
+      // actually added). Fall back to the last carousel if the cart is empty.
+      // URL comes from the product page, never from the model. Decided outside the
+      // updater (StrictMode double-invoke safe), same as showGift / freshProducts.
+      const showCheckout = !!data.orderConfirmed;
+      let checkoutItems: Product[] = [];
+      let checkoutPrimaryUrl = "";
+      if (showCheckout) {
+        checkoutItems = cartProducts.length ? cartProducts : lastShownProducts.current;
+        checkoutPrimaryUrl = checkoutItems.find((p) => p.url)?.url || "";
+      }
+
       setChatItems((prev) => {
         const base = removePlaceholders(prev);
-        // Already applied? Guard on responseId, and also on the gift sentinel for
-        // the case where data.message is empty (responseId never gets added then).
-        if (base.some((i) => i.id === responseId || i.id === responseId + "-gift")) return base;
+        // Already applied? Guard on responseId, and also on the gift/checkout
+        // sentinels for the case where data.message is empty (responseId never
+        // gets added then).
+        if (base.some((i) => i.id === responseId || i.id === responseId + "-gift" || i.id === responseId + "-checkout")) return base;
         const additions: ChatItem[] = [];
         if (data.message) additions.push({ id: responseId, type: "agent", text: data.message });
         if (freshProducts.length) {
@@ -149,6 +163,10 @@ export function useChat() {
         // Agent suggests a bundle/hamper → render the grouped mini-card view.
         if (data.bundle?.items?.length) {
           additions.push({ id: uid(), type: "bundle", bundle: data.bundle });
+        }
+        // Order confirmed → checkout card (auto-open handled in ChatScreen).
+        if (showCheckout) {
+          additions.push({ id: responseId + "-checkout", type: "checkout", products: checkoutItems, checkoutUrl: checkoutPrimaryUrl });
         }
         return [...base, ...additions];
       });

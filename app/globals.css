@@ -539,6 +539,92 @@ html, body {
 .cart-dock-divider { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.2); }
 .cart-dock-total { font-size: 13.5px; font-weight: 700; color: var(--accent); }
 
+/* ── MOBILE PRODUCT SHEET (only mounted ≤720px via ChatScreen) ── */
+.product-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(10, 6, 18, 0.55);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.product-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 85vh;
+  z-index: 75;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px 22px 0 0;
+  background: rgba(26, 16, 37, 0.92);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;            /* rounded-corner clip — not a messages ancestor */
+  will-change: transform;
+}
+
+.product-sheet-handle {
+  flex: 0 0 auto;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  padding-bottom: env(safe-area-inset-bottom);
+  position: relative;
+  touch-action: none;          /* claim the vertical drag gesture */
+  cursor: grab;
+  color: #ffffff;
+}
+.product-sheet-handle:active { cursor: grabbing; }
+
+.product-sheet-grabber {
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.product-sheet-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.product-sheet-chevron {
+  margin-left: auto;
+  margin-top: 6px;
+  display: flex;
+  color: var(--accent);
+  transition: transform var(--transition);
+}
+.product-sheet-chevron svg { width: 18px; height: 18px; }
+.product-sheet-chevron.open { transform: rotate(180deg); }
+
+.product-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;            /* inner .product-stage scrolls — not a messages ancestor */
+  touch-action: pan-y;
+}
+
+/* The reused ProductStage fills the sheet body and scrolls within it. */
+.product-sheet .product-stage {
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px 16px 24px;
+}
+
 /* ── HEADER ── */
 #chat-header {
   height: var(--header-h);
@@ -1172,6 +1258,91 @@ html, body {
 .bundle-add-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .bundle-add-all:active { transform: scale(0.97); }
 
+/* ── CHECKOUT CARD ── */
+.checkout-card {
+  align-self: flex-start;
+  width: min(92%, 460px);
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 204, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #ffffff;
+}
+
+.checkout-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.checkout-card-spark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #2a1a4a;
+  flex-shrink: 0;
+}
+.checkout-card-spark svg { width: 14px; height: 14px; }
+
+.checkout-card-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.checkout-card-sub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+
+.checkout-card-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkout-card-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  text-decoration: none;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.checkout-card-link:hover {
+  border-color: rgba(255, 204, 0, 0.45);
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.checkout-card-link-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkout-card-link-go {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
 /* ── INPUT AREA ── */
 #input-area {
   padding: 12px 20px 16px;
@@ -1468,23 +1639,33 @@ html, body {
 
 /* ── MOBILE — stack the split vertically ── */
 @media (max-width: 720px) {
+  /* Chat goes full-screen; products live in the bottom sheet (ProductSheet). */
   #chat-screen { flex-direction: column; }
 
   .chat-panel {
-    flex: 0 0 48%;
+    flex: 1 1 100%;
     max-width: 100%;
     border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 60px rgba(0, 0, 0, 0.35);
   }
 
-  .product-stage { flex: 1 1 52%; padding: 20px 16px 120px; }
+  /* Product grid (rendered inside the sheet) tightens for narrow screens. */
   .product-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 
   #messages-container { padding: 16px 14px; }
   .message-bubble { max-width: 88%; font-size: 14px; }
 
   .cart-dock-panel { width: 92vw; }
+
+  /* Dock clears the 72px peek handle; hidden while the sheet is open. */
+  .cart-dock {
+    bottom: calc(72px + 16px + env(safe-area-inset-bottom));
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  :root.sheet-open .cart-dock {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(16px);
+  }
 
   .onboarding-inner { gap: 24px; }
   .brand-name { font-size: 22px; }
