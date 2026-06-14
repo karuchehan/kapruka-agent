@@ -1045,3 +1045,34 @@ API currently returns `{ message, products, checkoutUrl }` only. Each new compon
 ### Known follow-ups (not blocking)
 - MCP product search returns 0 or off-topic items for some multi-word/occasion queries (phone in a cake bundle; 0 flowers result) — search-relevance tuning, separate from card wiring.
 - All 4 cards now activate from real agent output; delivery still needs live MCP `check_delivery` shape confirmation (Session 021).
+
+---
+
+## Session 023 — 2026-06-14 (Fix MCP query construction: flowers 0-results + bundle cross-category bleed)
+
+### Root causes
+1. **Flowers returned 0** — `enrichGenericQuery` turned a single occasion category ("flowers") into a gendered query ("womens flowers") for a female recipient → MCP returns nothing.
+2. **Cross-category bleed** (phone in a cake bundle) — bundles did ONE MCP search ("cake flowers chocolates") and `categoryHint` only supported `"book"`, so no per-category gate.
+
+### Fixes
+**`lib/productFilter.ts`**
+- Widened `categoryHint` type `"book"|null` → `string|null` across `filterProducts` + `relevanceGate`.
+- Added `CATEGORY_SIGNALS` (flower/cake/chocolate/hamper regexes) + `categoryMatch()` + `isKnownCategory()`.
+- `filterProducts`: for a known non-book category, allowlist to products whose name/category/summary carries the category's item word (bouquet/cake/chocolate/hamper) → no off-category results.
+- `relevanceGate`: for a known non-book category, fall back to the already-category-allowlisted set on zero genre-match (instead of empty).
+
+**`app/api/chat/route.ts`**
+- Added `CATEGORY_TERMS` + `CATEGORY_DETECT` + `detectCategories()` + `categoryQuery()` (category-explicit query, occasion-prefixed, NO gender prefix) + `searchCategory()` (one category-gated MCP search).
+- `categoryHint` now generalized via `detectCategories(convText)[0]` (was book-only regex).
+- New **multi-category branch**: when the current message names ≥2 categories, search each independently + gate each by its own category + dedupe by id → zero cross-category bleed. (≤3 categories, 2 items each.)
+- Single-category path now uses `categoryQuery()` for any known non-book category (no gendering); book path unchanged. Same for the thin-results fallback.
+
+### Live test results (real API)
+- **"flowers for a birthday"** → 4 real bouquets (Pink Rose Whisper Bouquet Rs.5,450, etc.), all on-topic. Was 0. ✓ (Agent emitted [BUNDLE:true] so they packaged into the bundle card — all flowers, no bleed.)
+- **"cake + flowers + chocolate, ~Rs 8000 each"** → multi-category branch: 2 bouquets + 3 cakes, NO phone/electronics. ✓ Cross-category bleed eliminated.
+- **"...under Rs 5000"** → 2 in-budget items; agent honestly declined a full 3-item bundle as over-budget (no marker) — products shown as carousel.
+
+### Notes
+- "chocolate" search returns chocolate *cakes* (e.g. "Aurum Jubilee Happy Birthday Chocolate Cake") because Kapruka names them so and "chocolate" matches both gates — on-topic, not a defect. Pure chocolate boxes would need a tighter term; left as-is.
+- Budget filter remains per-item (`price <= budget`); a 3-item bundle total can still exceed a stated total budget. The agent flags this verbally (seen in the under-5000 test). Total-budget enforcement not added.
+- tsc clean. No CSS changed (route + filter only).

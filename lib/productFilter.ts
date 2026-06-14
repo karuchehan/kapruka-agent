@@ -91,6 +91,28 @@ export function isBookish(p: FilterableProduct): boolean {
   return BOOK_SIGNALS.test(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
 }
 
+// Per-category positive signals for the non-book gift categories. Used as an
+// allowlist so a category search only surfaces in-category products — a flowers
+// search never returns a cake, a cake search never returns a phone. The strong
+// item word ("bouquet"/"cake"/"chocolate") is almost always in the Kapruka
+// product name, so the allowlist is reliable without being over-tight.
+const CATEGORY_SIGNALS: Record<string, RegExp> = {
+  flower:    /\b(flowers?|bouquet|roses?|floral|blooms?|orchids?|lilies|lily|carnations?|arrangement|anthurium|gerbera)\b/i,
+  cake:      /\b(cakes?|gateau|gateaux|cupcakes?|cheesecake)\b/i,
+  chocolate: /\b(chocolates?|choco|truffles?|pralines?|ferrero|toblerone|lindt)\b/i,
+  hamper:    /\b(hampers?|gift\s*baskets?|gift\s*box(?:es)?)\b/i,
+};
+
+export function isKnownCategory(cat: string | null | undefined): boolean {
+  return !!cat && (cat === "book" || cat in CATEGORY_SIGNALS);
+}
+
+function categoryMatch(p: FilterableProduct, cat: string): boolean {
+  const re = CATEGORY_SIGNALS[cat];
+  if (!re) return true;
+  return re.test(`${p.name} ${p.category ?? ""} ${p.summary ?? ""}`);
+}
+
 // A result is junk (vendor/shop listing, not a real product) when:
 // - it has no image (vendor listings on Kapruka MCP frequently lack one), or
 // - its price is zero/negative (placeholder listing), or
@@ -136,7 +158,7 @@ function stemTokens(text: string): string[] {
 function relevanceGate<T extends FilterableProduct>(
   products: T[],
   queryTokens: string[],
-  categoryHint?: "book" | null
+  categoryHint?: string | null
 ): T[] {
   const qStems = [...new Set(queryTokens.map(stem).filter((t) => t.length >= 3))];
   if (!qStems.length) return products;
@@ -167,6 +189,11 @@ function relevanceGate<T extends FilterableProduct>(
   // the agent invent titles. Non-books were already removed, so the worst case
   // is a loosely-relevant book, never a cake or a game.
   if (categoryHint === "book") return products;
+  // Non-book known category: `products` is already the per-category allowlist,
+  // ranked by MCP relevance. If no title textually carries the query genre word,
+  // fall back to that in-category set (caller slices the top few) rather than
+  // empty — every survivor is already on-topic for the category.
+  if (categoryHint && CATEGORY_SIGNALS[categoryHint]) return products;
 
   const hasSpecific = qStems.some((q) => !GENERIC_FILTER_STEMS.has(q));
   return hasSpecific ? [] : products;
@@ -178,14 +205,21 @@ export function filterProducts<T extends FilterableProduct>(
   products: T[],
   budget: number | null,
   queryTokens?: string[],
-  categoryHint?: "book" | null
+  categoryHint?: string | null
 ): T[] {
   let out = products.filter((p) => !isJunkProduct(p));
   // In a book flow, keep ONLY products that carry a book signal (allowlist) and
   // additionally drop anything that trips the non-book blocklist. This removes
   // cakes, games, pillows, and tour packages that merely shared a genre word
   // like "adventure" with the query.
-  if (categoryHint === "book") out = out.filter((p) => isBookish(p) && !isNonBook(p.name));
+  if (categoryHint === "book") {
+    out = out.filter((p) => isBookish(p) && !isNonBook(p.name));
+  } else if (categoryHint && CATEGORY_SIGNALS[categoryHint]) {
+    // Non-book category: allowlist to products that carry the category's item
+    // word — prevents cross-category bleed (no cake in a flowers search, no
+    // phone in a cake search).
+    out = out.filter((p) => categoryMatch(p, categoryHint));
+  }
   if (budget != null) out = out.filter((p) => p.price <= budget);
   if (queryTokens?.length) out = relevanceGate(out, queryTokens, categoryHint);
   return out;

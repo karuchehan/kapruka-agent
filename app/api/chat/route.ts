@@ -211,6 +211,51 @@ function enrichGenericQuery(
   return `${prefixes.slice(0, 2).join(" ")} ${cat}`.trim();
 }
 
+// Gift categories: MCP query term + detection regex. Used to (a) build a
+// category-explicit query that is NOT gender-enriched — gendering an occasion
+// category ("flowers" → "womens flowers") returns 0 results — and (b) gate
+// results per category so a bundle never mixes a phone into the cakes.
+const CATEGORY_TERMS: Record<string, string> = {
+  flower: "flowers", cake: "cake", chocolate: "chocolates", hamper: "gift hamper", book: "books",
+};
+const CATEGORY_DETECT: Record<string, RegExp> = {
+  flower:    /\b(flowers?|bouquet|roses?|floral|blooms?|orchids?|lilies|lily|carnations?|anthurium|gerbera)\b/,
+  cake:      /\b(cakes?|gateau|gateaux|cupcakes?|cheesecake)\b/,
+  chocolate: /\b(chocolates?|choco|truffles?|pralines?|ferrero|toblerone|lindt)\b/,
+  hamper:    /\b(hampers?|gift\s*baskets?)\b/,
+  book:      /\b(books?|novels?|read(?:s|ing)?|author|fiction|non[\s-]?fiction|autobiograph|memoir|biograph|paperback|hardcover|storybook)\b/,
+};
+
+function detectCategories(text: string): string[] {
+  const l = text.toLowerCase();
+  const out: string[] = [];
+  for (const [cat, re] of Object.entries(CATEGORY_DETECT)) {
+    if (re.test(l)) out.push(cat);
+  }
+  return out;
+}
+
+// A category-explicit MCP query, optionally prefixed by the occasion. No gender
+// prefix — that breaks occasion categories (flowers/cake/chocolate).
+function categoryQuery(cat: string, convText: string): string {
+  const term = CATEGORY_TERMS[cat] || cat;
+  const occ = OCCASION_WORDS.find((o) => new RegExp(`\\b${o}`).test(convText));
+  return occ ? `${occ} ${term}` : term;
+}
+
+// Search one category and return on-topic, in-budget products (category-gated).
+async function searchCategory(
+  cat: string,
+  convText: string,
+  budget: number | null,
+  take: number,
+): Promise<Product[]> {
+  const q = categoryQuery(cat, convText);
+  const r = await callMCP("search_products", { q, limit: 8, in_stock_only: true, sort: "relevance" });
+  const c = filterProducts<Product>((r.results || []).map(normaliseProduct), budget, [cat], cat);
+  return c.slice(0, take);
+}
+
 // Known Sri Lankan delivery cities — used to extract the target city from a
 // delivery question so check_delivery gets a concrete location.
 const CITIES = [
@@ -524,22 +569,37 @@ export async function POST(req: Request) {
   const budget = extractBudget(messages);
 
   // Sticky category context across the WHOLE conversation. The per-turn search
-  // query leads with the current message ("adventure"), losing the "book"
-  // constraint — so MCP returns cakes/games/tours that share the genre word.
-  // Detect a book flow from the full transcript and pass it to the filter so
-  // non-book results are dropped even when the latest message omits "book".
+  // query leads with the current message, which can lose the category constraint
+  // — so MCP returns off-category results that share a genre word. Detect the
+  // category from the full transcript and pass it to the filter so off-category
+  // results are dropped even when the latest message omits the category word.
   const convText = (messages as ApiMessage[]).map((m) => m.content).join(" ").toLowerCase();
-  const categoryHint: "book" | null =
-    /\b(books?|novels?|read(?:s|ing)?|author|fiction|non[\s-]?fiction|autobiograph|memoir|biograph|paperback|hardcover|storybook)\b/.test(convText)
-      ? "book"
-      : null;
+  const categoryHint: string | null = detectCategories(convText)[0] ?? null;
+
+  // Categories named in the CURRENT message — drives multi-category (bundle)
+  // search so each item is fetched + gated by its own category.
+  const lastUserMsg = [...(messages as ApiMessage[])].reverse().find((m) => m.role === "user");
+  const msgCats = lastUserMsg ? detectCategories(lastUserMsg.content) : [];
 
   let products: Product[] = [];
   let trackingData = null;
   let delivery: DeliveryInfo | null = null;
 
   try {
-    if (intent.type === "search" && (intent as { query?: string }).query) {
+    if (intent.type === "search" && msgCats.length >= 2) {
+      // Multi-category (bundle-style) request: search each category on its own
+      // and gate each by that category, so there is ZERO cross-category bleed
+      // (no phone in the cakes). Dedupe across categories by product id.
+      const per = await Promise.all(
+        msgCats.slice(0, 3).map((c) => searchCategory(c, convText, budget, 2).catch(() => []))
+      );
+      const seen = new Set<string>();
+      products = per.flat().filter((p) => {
+        if (!p.id || seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    } else if (intent.type === "search" && (intent as { query?: string }).query) {
       const baseQuery = (intent as { query: string }).query;
       // Enrich the MCP query in a book flow. A bare genre word ("adventure")
       // makes MCP rank adventure-themed CAKES/GAMES first. The phrasing
@@ -552,9 +612,12 @@ export async function POST(req: Request) {
         categoryHint === "book" && recipientProfile?.age != null && recipientProfile.age <= 12
           ? "kids "
           : "";
-      const searchQuery = categoryHint === "book"
-        ? `${childPrefix}${baseQuery} books`.trim()
-        : enrichGenericQuery(baseQuery, recipientProfile, convText);
+      const searchQuery =
+        categoryHint === "book"
+          ? `${childPrefix}${baseQuery} books`.trim()
+          : categoryHint && categoryHint in CATEGORY_TERMS
+            ? categoryQuery(categoryHint, convText) // explicit category, no gender prefix
+            : enrichGenericQuery(baseQuery, recipientProfile, convText);
 
       const result = await callMCP("search_products", {
         q:             searchQuery,
@@ -577,9 +640,12 @@ export async function POST(req: Request) {
         const fallbackQ   = fallbackKws.slice(0, 3).join(" ");
         if (fallbackQ && fallbackQ !== baseQuery) {
           try {
-            const fallbackSearchQ = categoryHint === "book"
-              ? `${childPrefix}${fallbackQ} books`.trim()
-              : enrichGenericQuery(fallbackQ, recipientProfile, convText);
+            const fallbackSearchQ =
+              categoryHint === "book"
+                ? `${childPrefix}${fallbackQ} books`.trim()
+                : categoryHint && categoryHint in CATEGORY_TERMS
+                  ? categoryQuery(categoryHint, convText)
+                  : enrichGenericQuery(fallbackQ, recipientProfile, convText);
             const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 8, in_stock_only: true, sort: "relevance" });
             const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint);
             if (c2.length > products.length) {
