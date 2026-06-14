@@ -4,6 +4,25 @@
 
 ---
 
+## Session 033 — 2026-06-14 (Loading screen → full-screen cinematic video)
+
+### What We Did
+- **Source was HEVC:** upload `~/Documents/kapruka.mov` probed as `hevc` 958x720 7.17s — Chrome/Firefox won't autoplay HEVC. Transcoded with ffmpeg → `public/brand/animations/Generate_a_second_cinematic.mp4` (H.264 high, yuv420p, crf 20, `+faststart`, `-an` audio stripped). 1.0 MB.
+- **Rewrote `components/LoadingScreen.tsx`:** dropped ALL the GSAP smile/hand/logo/string composite. Now a full-screen `<video>` overlay (z 9999, `background:#412973` fallback, `objectFit:cover`): `autoPlay muted playsInline preload=auto`, no controls. `onEnded` → `finish()` → set sessionStorage flag + `onDone()`. Kept the sessionStorage skip (repeat visit returns `null` + advances immediately). Added `onError` + a 9.5s safety timeout so a blocked/failed autoplay still advances. `v.play().catch(finish)` handles autoplay rejection.
+- **Verified live:** `next dev` + headless Chrome (`--autoplay-policy=no-user-gesture-required --virtual-time-budget=3000`) — captured a mid-play frame: yellow U foil balloon on a string over purple, full-bleed cover. Shot `.tmp/loading-video-frame.png`.
+- tsc CLEAN; 4 layout checks pass.
+- The old logo SVGs (`kapruka-smile/-logo`, `ChatGPT__-cropped`, `kapruka1-cropped`) are now unused by LoadingScreen (only `letterU-cropped.svg` still used, by KaprukaMouth). Left in place — not asked to delete.
+
+### Mistakes & Lessons
+- `.mov` from macOS exports is often HEVC — always `ffprobe` codec before wiring a web `<video>`; transcode to H.264 mp4 (`+faststart`) for cross-browser muted autoplay.
+- Deleting an app route (`app/bgtest`) leaves stale `.next/types/app/<route>/page.ts` that fail `tsc` with `TS2307 Cannot find module .../page.js`. Fix: `rm -rf .next` then re-run tsc.
+
+### Next Steps
+- Confirm the cinematic's end frame hands off cleanly to onboarding (no purple flash) on a real browser; tune the 9.5s safety if the asset length changes.
+- Optional: prune the now-unused logo SVGs from `brand/logos/`.
+
+---
+
 ## Session 032 — 2026-06-14 (Three.js purple particle field replaces BackgroundCanvas)
 
 ### What We Did
