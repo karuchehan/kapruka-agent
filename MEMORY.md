@@ -1411,3 +1411,28 @@ Built the branded intro animation that plays before onboarding.
 
 ### Next Steps
 - UI changes can now proceed on top of the stabilized chat flow.
+
+## Session 038 — 2026-06-14 (Visual rebuild: split-stage layout)
+
+### What We Did
+- Rebuilt `#chat-screen` into a horizontal split (was a single vertical column).
+- `.chat-panel` (left 35%): glassmorphism over #412973 purple, `backdrop-filter: blur(28px) saturate(140%)`, white text. Wraps Header + MessageList + InputArea. Restyled header/message bubbles/typing dots/input-area from dark cards → translucent-on-glass.
+- New `components/ProductStage.tsx` (right 65%): empty state until products arrive, then `grid-template-columns: repeat(auto-fill, minmax(232px,1fr))` of big square tiles, frosted price tags (`.stage-price-tag`, blur), #FFCC00 accent. GSAP animates only FRESH tiles (tracks `prevCount` ref) so the grid doesn't re-stagger every turn. Loading skeletons render here.
+- Products removed from chat column: `ChatScreen` flattens all `products`-turns into one deduped accumulating array (`stageProducts` useMemo) for the stage. `MessageList` now returns null for `products`/`skeleton` item types.
+- New `components/CartDock.tsx` replaces slide-in CartPanel: pill fixed bottom-center (count + total), hover/focus expands glass panel w/ line items + checkout (GSAP height/opacity). `Header` cart button removed — dock owns cart. `ChatScreen` no longer uses `isCartOpen`/`openCart`/`closeCart`.
+- Background: solid #1a1025, no particles/animation (already the case; confirmed).
+- Responsive: `@media (max-width:1024px)` chat→42%; `@media (max-width:720px)` stacks split vertically (chat top 48%, stage below).
+
+### Gaps Identified
+- Orphaned components left in repo (no longer imported): `CartPanel.tsx`, `ProductCarousel.tsx`, `ProductCard.tsx`, `SkeletonCards.tsx`. Their old CSS (`.product-card*`, `.products-carousel`, `#cart-panel*`) also still in globals.css — dead but harmless. Clean up in a later pass if desired.
+
+### Mistakes & Lessons
+- Old mobile `@media` block referenced removed `#cart-panel` + carousel `.product-card` sizing — rewrote it for the split layout.
+
+### Verification
+- `npx tsc --noEmit` → TS CLEAN. `npx next build` → compiled + type-checked + 5 static pages, clean.
+- 4-check: `#messages-container` keeps `overflow-y: auto`. The new `overflow-x: hidden` is on `.product-stage` — a SIBLING of `.chat-panel`, NOT a messages ancestor. `.chat-panel`/`#chat-screen` set no overflow. Other `overflow: hidden` hits are cards/dock/pill only.
+
+### Next Steps
+- Optional: delete the 4 orphaned components + their dead CSS.
+- Manual visual QA on desktop + mobile (judges open URL directly).
