@@ -4,6 +4,25 @@
 
 ---
 
+## Session 029 — 2026-06-14 (Contrast fix on yellow accent + real letterU mouth asset)
+
+### What We Did
+- **Contrast (white-on-yellow → unreadable):** every surface with `background: var(--accent)` (now `#FFCC00`) had `color: #fff`. Switched all to `color: #412973` (dark purple). Fixed rules: `#onboarding-send`, `#cart-count`, `.agent-avatar`, user `.message-bubble`, `.product-card-add` (+ `:hover`), `.gift-card-save`, `.bundle-add-all`, `#send-btn`, `#checkout-btn`. `grep "color: #fff"` over `globals.css` now returns **zero**.
+- **Derived accent tokens were still old orange** — updated for palette coherence so CTA hovers/glows stay yellow-family, not flash orange: `--accent-dark #b8431f→#E6B800`, `--accent-light #f26b3a→#FFD84D`, `--accent-soft/-glow/-border-hover` rgba `(218,83,44)→(255,204,0)`.
+- **Real mouth asset:** copied user-provided `/Users/chehankarunaratne/Documents/letterU-cropped.svg` → `public/letterU-cropped.svg` (replaces the hand-coded placeholder U, 94 KB vector, renders yellow "U" smile). `KaprukaMouth.tsx` already references `<img src="/letterU-cropped.svg">` so no component change — same flutter animation, real glyph.
+- **Visual check:** built a static harness (`/tmp/mouth-harness.html`) linking the real `globals.css` + svg + agent/user bubble DOM, screenshotted via headless Google Chrome (`--screenshot`, no API call). Confirmed yellow U mouth left of agent bubbles + dark-purple text on yellow user bubble. Shot saved `.tmp/mouth-contrast-shot.png`.
+- tsc CLEAN; all 4 layout checks pass (`#messages-container overflow-y: auto`, no `overflow:hidden`/`overflow-x:hidden` on scroll ancestors).
+
+### Mistakes & Lessons
+- No `playwright`/`puppeteer` in the project, and the live chat needs an Anthropic API call (gated) to show an agent message. Workaround for visual verification without burning API: static HTML harness using the **real** `app/globals.css` + asset, rendered with the system Google Chrome `--headless --screenshot`. CSS is the source of truth, so colors/layout are accurate (animation/JS state not captured).
+- Changing only `--accent` left derived tokens (`-dark`, `-light`, glows) on the old hue — always sweep the whole token family when rebranding a color, not just the base.
+
+### Next Steps
+- Verify the mouth flutter live in-browser with voice enabled (animation not visible in a static shot).
+- Chat bg stays dark `#0f0d0c`; purple `#412973` is loading-screen only — confirm that's the intended split (per Session 027/028).
+
+---
+
 ## Session 028 — 2026-06-14 (Brand color fix + animated talking Kapruka mouth)
 
 ### What We Did
