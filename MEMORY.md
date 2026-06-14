@@ -1076,3 +1076,34 @@ API currently returns `{ message, products, checkoutUrl }` only. Each new compon
 - "chocolate" search returns chocolate *cakes* (e.g. "Aurum Jubilee Happy Birthday Chocolate Cake") because Kapruka names them so and "chocolate" matches both gates — on-topic, not a defect. Pure chocolate boxes would need a tighter term; left as-is.
 - Budget filter remains per-item (`price <= budget`); a 3-item bundle total can still exceed a stated total budget. The agent flags this verbally (seen in the under-5000 test). Total-budget enforcement not added.
 - tsc clean. No CSS changed (route + filter only).
+
+---
+
+## Session 024 — 2026-06-14 (Submission checklist: full production e2e verification)
+
+**Live URL:** https://kapruka-agent-pink.vercel.app (also resolves at kapruka-agent.vercel.app) — both 200.
+**Submission verification date:** 2026-06-14 (deadline 30 June 2026).
+
+### Config check
+- `vercel.json`: `{ "framework": "nextjs" }` — clean.
+- `next.config.ts`: `outputFileTracingIncludes` for `/api/chat` → `./directives/**` (so system_prompt.md ships in the serverless bundle). Correct, no issues.
+- `npx tsc --noEmit` → clean.
+
+### Production e2e (Playwright vs LIVE URL, real API — desktop 1280 + mobile 375)
+Full flow: onboarding → chip → search → add to cart → delivery → occasion → bundle → gift. All 7 brief components rendered on production (desktop AND 375px):
+- **Header** ✓ ("Kapruka" + subtitle, warm bar)
+- **OnboardingScreen** (welcome tagline + quick-start chips) ✓
+- **TypingIndicator** ✓ (caught mid-load)
+- **DeliveryStatusCard** ✓ — live `check_delivery` returned "📍 Colombo → ✅ Available" (Session 021 defensive MCP mapping confirmed against real MCP; no date field → "Available" fallback)
+- **OccasionCountdown** ✓ — "🎂 Birthday in 4 days" from `[OCCASION_DATE]` (Friday resolved)
+- **BundleHamperView** ✓ — 5 on-topic items (bouquets + cakes), real images, "BUNDLE TOTAL Rs. 34,710" + Add bundle
+- **GiftMessageCard** ✓ — cream card, muted button when empty (Session 022 fix confirmed deployed)
+- **ProductCard** (bonus, pre-existing) ✓ — concrete query "birthday cakes under Rs 6000" → 3 product cards w/ images; **add-to-cart → cart badge "1"**, agent confirmed.
+
+Deploy currency confirmed live (multi-category bundle + occasion marker + gift-button fix all present → production is on the latest pushed code).
+
+### Notes
+- Vercel CLI "Not authorized" locally → couldn't list deployments by API; confirmed deploy currency behaviorally via the newest features rendering.
+- Vague chip ("Birthday gift") alone → agent asks a clarifying question (correct MODE B), no carousel that turn — expected, not a bug. ProductCard verified with a concrete follow-up query.
+- Product relevance still occasionally off (a "Funeral Wreath" surfaced in a birthday flower flow) — known search-relevance caveat (Session 023), not a component defect.
+- Screenshots in `/tmp/kapruka-shots/prod-*.png` (disposable).
