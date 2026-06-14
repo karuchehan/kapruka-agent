@@ -19,7 +19,7 @@ interface Props {
 export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQuery }: Props) {
   const { chatItems, apiMessages, isSending, sendMessage, initWithOnboarding } = useChat();
   const { cart, cartCount, cartTotal, isCartOpen, pendingCheckoutUrl, setPendingCheckoutUrl, addToCart, removeFromCart, openCart, closeCart } = useCart();
-  const { voiceEnabled, speak, toggleVoice } = useVoiceOutput();
+  const { voiceEnabled, speak, toggleVoice, speakingId } = useVoiceOutput();
   const initialSent = useRef(false);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // Speak agent messages when they arrive
   useEffect(() => {
     const last = chatItems[chatItems.length - 1];
-    if (last?.type === "agent" && last.text) speak(last.text);
+    if (last?.type === "agent" && last.text) speak(last.text, last.id);
     if (last?.type === "products" && last.checkoutUrl) setPendingCheckoutUrl(last.checkoutUrl);
   }, [chatItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -75,7 +75,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
         cartCount={cartCount}
         onCartOpen={openCart}
       />
-      <MessageList chatItems={chatItems} onAddToCart={handleAddToCart} onGiftSubmit={handleGiftSubmit} />
+      <MessageList chatItems={chatItems} speakingId={speakingId} onAddToCart={handleAddToCart} onGiftSubmit={handleGiftSubmit} />
       <InputArea onSend={handleSend} isSending={isSending} />
       <CartPanel
         isOpen={isCartOpen}

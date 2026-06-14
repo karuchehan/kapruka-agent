@@ -12,11 +12,12 @@ import type { ChatItem, Product } from "@/lib/types";
 
 interface Props {
   chatItems: ChatItem[];
+  speakingId?: string | null;
   onAddToCart: (product: Product) => void;
   onGiftSubmit: (text: string) => void;
 }
 
-export function MessageList({ chatItems, onAddToCart, onGiftSubmit }: Props) {
+export function MessageList({ chatItems, speakingId, onAddToCart, onGiftSubmit }: Props) {
   const anchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,7 @@ export function MessageList({ chatItems, onAddToCart, onGiftSubmit }: Props) {
           case "user":
             return <MessageBubble key={item.id} role="user" text={item.text!} />;
           case "agent":
-            return <MessageBubble key={item.id} role="agent" text={item.text!} />;
+            return <MessageBubble key={item.id} role="agent" text={item.text!} isSpeaking={item.id === speakingId} />;
           case "typing":
             return <TypingIndicator key={item.id} />;
           case "skeleton":

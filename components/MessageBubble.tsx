@@ -1,10 +1,12 @@
 "use client";
 import { useRef, useEffect } from "react";
 import gsap from "gsap";
+import { KaprukaMouth } from "./KaprukaMouth";
 
 interface Props {
   role: "user" | "agent";
   text: string;
+  isSpeaking?: boolean;
 }
 
 function sanitize(text: string) {
@@ -16,7 +18,7 @@ function sanitize(text: string) {
     .replace(/\*(.+?)\*/g, "<em>$1</em>");
 }
 
-export function MessageBubble({ role, text }: Props) {
+export function MessageBubble({ role, text, isSpeaking = false }: Props) {
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,9 +31,7 @@ export function MessageBubble({ role, text }: Props) {
 
   return (
     <div ref={rowRef} className={`message-row ${role}`}>
-      {role === "agent" && (
-        <div className="agent-avatar">K</div>
-      )}
+      {role === "agent" && <KaprukaMouth isSpeaking={isSpeaking} />}
       <div
         className="message-bubble"
         dangerouslySetInnerHTML={{ __html: sanitize(text) }}

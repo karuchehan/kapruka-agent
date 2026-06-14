@@ -4,6 +4,32 @@
 
 ---
 
+## Session 028 — 2026-06-14 (Brand color fix + animated talking Kapruka mouth)
+
+### What We Did
+- **Brand colors:** corrected palette to bg `#412973` (deep purple), accent `#FFCC00`, text `#FFFFFF`, green `#5CB85C`.
+  - `components/LoadingScreen.tsx`: `BG = "#2D2E8F"` → `#412973`.
+  - `app/globals.css`: `--accent: #da532c` → `#FFCC00`.
+  - Whole-repo grep (excl `node_modules`, `.next`, legacy `index.html/app.js/style.css`) confirms **no remaining** `#2D2E8F` or `#da532c`.
+- **KaprukaMouth (`components/KaprukaMouth.tsx`):** new component, renders `public/letterU-cropped.svg` (28px). `isSpeaking` prop drives GSAP: flutter = scaleY 1↔1.4, scaleX 1↔0.85, random duration 0.08–0.15s/cycle (recursive `flutter()` w/ `gsap.utils.random`, yoyo, `repeat:1`, re-arms on `onComplete` while a `speakingRef` flag is true). Stop → `gsap.to({scaleY:1,scaleX:1,duration:0.2})`. Replaces the old static `"K"` avatar on agent messages.
+- **Speaking state thread:** `useVoiceOutput` now tracks `speakingId` via `utterance.onstart/onend/onerror`; `speak(text, id)`. ChatScreen passes `last.id` to speak and threads `speakingId` → MessageList → MessageBubble (`isSpeaking={item.id === speakingId}`). Only the message actually being spoken animates.
+- Created `public/letterU-cropped.svg` — the named asset **did not exist** (public/ only had `kapruka-logo.svg` + `kapruka-smile.svg`); authored a clean stroked "U" mouth in `#FFCC00`.
+
+### Gaps Identified
+- **Contrast risk:** `--accent` is now yellow `#FFCC00`, but user message bubbles and several buttons (`#onboarding-send`, user `.message-bubble`) still set `color: #fff` → white-on-yellow is near-unreadable. Needs dark text (`#412973` or `#000`) on accent surfaces. NOT changed this session (out of stated scope — only the two named hexes). Flagged to user.
+- `letterU-cropped.svg` is a hand-authored placeholder U, not an official cropped brand glyph. Swap for the real cropped asset if/when provided.
+
+### Mistakes & Lessons
+- Named asset (`letterU-cropped.svg`) was assumed to exist but didn't — always `ls public/` before wiring an `<img src>`.
+- Randomized per-cycle GSAP duration can't be done with a single `repeat:-1` tween (duration is fixed for the tween's life); use a recursive one-cycle tween that re-arms on `onComplete`. `repeatRefresh` refreshes property values, not `duration`.
+
+### Next Steps
+- Resolve white-on-yellow contrast on accent surfaces (user decision pending).
+- Verify mouth animation live in browser with voice enabled.
+- Replace placeholder U svg with official asset if available.
+
+---
+
 ## Session 016 — 2026-06-13 (Autoresearch loop run + product-relevance filter fix)
 
 ### What We Did

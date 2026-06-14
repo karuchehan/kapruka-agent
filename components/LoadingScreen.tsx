@@ -8,7 +8,7 @@ interface Props {
   onDone: () => void;
 }
 
-const BG = "#2D2E8F";
+const BG = "#412973";
 const SKIN = "#5B3A29"; // dark skin tone for the hand
 const SESSION_FLAG = "kaprukaLoaded";
 
