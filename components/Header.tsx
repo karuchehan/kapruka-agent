@@ -3,11 +3,9 @@
 interface Props {
   voiceEnabled: boolean;
   onVoiceToggle: () => void;
-  cartCount: number;
-  onCartOpen: () => void;
 }
 
-export function Header({ voiceEnabled, onVoiceToggle, cartCount, onCartOpen }: Props) {
+export function Header({ voiceEnabled, onVoiceToggle }: Props) {
   return (
     <header id="chat-header">
       <div className="header-brand">
@@ -33,14 +31,6 @@ export function Header({ voiceEnabled, onVoiceToggle, cartCount, onCartOpen }: P
             </svg>
           )}
           <span id="voice-pulse" />
-        </button>
-        <button id="cart-icon-btn" aria-label="Open cart" onClick={onCartOpen}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="9" cy="21" r="1" />
-            <circle cx="20" cy="21" r="1" />
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-          </svg>
-          {cartCount > 0 && <span id="cart-count">{cartCount}</span>}
         </button>
       </div>
     </header>

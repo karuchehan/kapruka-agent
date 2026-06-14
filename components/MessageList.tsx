@@ -2,8 +2,6 @@
 import { useRef, useEffect } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
-import { SkeletonCards } from "./SkeletonCards";
-import { ProductCarousel } from "./ProductCarousel";
 import { DeliveryStatusCard } from "./DeliveryStatusCard";
 import { OccasionCountdown } from "./OccasionCountdown";
 import { GiftMessageCard } from "./GiftMessageCard";
@@ -48,16 +46,11 @@ export function MessageList({ chatItems, speakingId, onAddToCart, onGiftSubmit }
             return <MessageBubble key={item.id} role="agent" text={item.text!} isSpeaking={item.id === speakingId} />;
           case "typing":
             return <TypingIndicator key={item.id} />;
+          // "skeleton" + "products" render on the right-hand ProductStage now,
+          // not in the chat column — skip them here.
           case "skeleton":
-            return <SkeletonCards key={item.id} />;
           case "products":
-            return (
-              <ProductCarousel
-                key={item.id}
-                products={item.products!}
-                onAddToCart={onAddToCart}
-              />
-            );
+            return null;
           case "delivery":
             return <DeliveryStatusCard key={item.id} delivery={item.delivery!} />;
           case "occasion":

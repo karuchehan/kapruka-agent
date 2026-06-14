@@ -1,13 +1,14 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Header } from "./Header";
 import { MessageList } from "./MessageList";
 import { InputArea } from "./InputArea";
-import { CartPanel } from "./CartPanel";
+import { ProductStage } from "./ProductStage";
+import { CartDock } from "./CartDock";
 import { useChat } from "@/hooks/useChat";
 import { useCart } from "@/hooks/useCart";
 import { useVoiceOutput } from "@/hooks/useVoiceOutput";
-import type { UserProfile, RecipientProfile, ApiMessage } from "@/lib/types";
+import type { UserProfile, RecipientProfile, ApiMessage, Product } from "@/lib/types";
 
 interface Props {
   userProfile: UserProfile;
@@ -18,7 +19,7 @@ interface Props {
 
 export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQuery }: Props) {
   const { chatItems, apiMessages, isSending, sendMessage, initWithOnboarding } = useChat();
-  const { cart, cartCount, cartTotal, isCartOpen, pendingCheckoutUrl, setPendingCheckoutUrl, addToCart, removeFromCart, openCart, closeCart } = useCart();
+  const { cart, cartCount, cartTotal, pendingCheckoutUrl, setPendingCheckoutUrl, addToCart, removeFromCart } = useCart();
   const { voiceEnabled, speak, toggleVoice, speakingId } = useVoiceOutput();
   const initialSent = useRef(false);
 
@@ -43,11 +44,29 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     if (last?.type === "products" && last.checkoutUrl) setPendingCheckoutUrl(last.checkoutUrl);
   }, [chatItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Products live on the right stage, not in the chat column. Flatten every
+  // products-turn into one accumulating grid, deduped by id (upstream already
+  // dedupes, this is belt-and-suspenders) so the stage grows as picks arrive.
+  const stageProducts = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Product[] = [];
+    for (const it of chatItems) {
+      if (it.type !== "products" || !it.products) continue;
+      for (const p of it.products) {
+        const key = p.id || p.name;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(p);
+      }
+    }
+    return out;
+  }, [chatItems]);
+
   function handleSend(text: string) {
     sendMessage(text, userProfile, recipientProfile);
   }
 
-  function handleAddToCart(product: import("@/lib/types").Product) {
+  function handleAddToCart(product: Product) {
     addToCart(product);
     if (!isSending) {
       sendMessage(`I'd like to add the ${product.name} to my cart.`, userProfile, recipientProfile);
@@ -63,26 +82,24 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
       window.open(pendingCheckoutUrl, "_blank", "noopener");
     } else {
       handleSend("I'm ready to checkout. Please create the order.");
-      closeCart();
     }
   }
 
   return (
     <div id="chat-screen">
-      <Header
-        voiceEnabled={voiceEnabled}
-        onVoiceToggle={toggleVoice}
-        cartCount={cartCount}
-        onCartOpen={openCart}
-      />
-      <MessageList chatItems={chatItems} speakingId={speakingId} onAddToCart={handleAddToCart} onGiftSubmit={handleGiftSubmit} />
-      <InputArea onSend={handleSend} isSending={isSending} />
-      <CartPanel
-        isOpen={isCartOpen}
+      <div className="chat-panel">
+        <Header voiceEnabled={voiceEnabled} onVoiceToggle={toggleVoice} />
+        <MessageList chatItems={chatItems} speakingId={speakingId} onAddToCart={handleAddToCart} onGiftSubmit={handleGiftSubmit} />
+        <InputArea onSend={handleSend} isSending={isSending} />
+      </div>
+
+      <ProductStage products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} />
+
+      <CartDock
         cart={cart}
+        cartCount={cartCount}
         cartTotal={cartTotal}
         pendingCheckoutUrl={pendingCheckoutUrl}
-        onClose={closeCart}
         onRemove={removeFromCart}
         onCheckout={handleCheckout}
       />
