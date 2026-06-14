@@ -46,11 +46,11 @@ const styles: Record<string, CSSProperties> = {
     pointerEvents: "none",
   },
   word: {
-    fontFamily: "var(--font-rounded), system-ui, sans-serif",
-    fontWeight: 800,
-    fontSize: "clamp(40px, 9vw, 92px)",
+    fontFamily: "var(--font-wordmark), var(--font-rounded), system-ui, sans-serif",
+    fontWeight: 700, // Fredoka — heaviest weight available
+    fontSize: "clamp(42px, 9.5vw, 98px)",
     color: "#ffffff",
-    letterSpacing: "-0.04em",
+    letterSpacing: "-0.03em",
     lineHeight: 1,
     opacity: 0,
     willChange: "transform, opacity",
