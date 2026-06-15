@@ -1707,3 +1707,21 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Verify in-app that the chip shows once on first occasion mention and never re-appears on later turns that re-state the date.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 sibling cleanup if any, reconfirm Bug 2 (checkout URL).
+
+## Session 051 — 2026-06-15
+
+### What We Did
+- Fixed Bug 4 in `components/ChatScreen.tsx`: products the agent describes verbally now appear on the right stage the same turn.
+- Traced the flow: `app/api/chat/route.ts` builds `products` from MCP (filtered), returns `{ message, products, bundle, ... }` (route.ts:811). `hooks/useChat.ts` filters `data.products` → `freshProducts` and pushes a `"products"` chat item (useChat:158-159), or a `"bundle"` item from `data.bundle.items` (useChat:164). `ChatScreen.stageProducts` (useMemo) walks back to the most recent product-bearing turn and feeds ProductStage/ProductSheet.
+- Root cause: when the agent emits `[BUNDLE: true]` with >=2 products, route.ts (lines 787-791) moves `products` into `bundle.items` and sets `products = []`. So the turn produces a `"bundle"` chat item with NO `"products"` item. `stageProducts` only scanned `it.type === "products"` → bundle picks (named verbally by the agent) never reached the stage; they required a follow-up message.
+- Fix: `stageProducts` now derives its batch from `it.products` for `"products"` turns AND `it.bundle?.items` for `"bundle"` turns, so verbal + visual stay in sync the same turn.
+
+### Gaps Identified
+- The bundle still ALSO renders as a card in the chat column (MessageList) — that's the separately-queued Bug 6 ("bundle cards in left chat pane → stage"). After this fix the bundle products now show on the stage; removing/!relocating the chat-column bundle card is the remaining half. Watch for visual duplication until that's done.
+
+### Mistakes & Lessons
+- None. tsc clean; all 4 layout checks pass (no CSS touched; `#messages-container` keeps overflow-y:auto). Pre-cleaned stray `.next/...* 2.*` artifacts before tsc.
+
+### Next Steps
+- Verify in-app: ask for a bundle (e.g. flowers + cake + chocolates) and confirm the named items render on the stage immediately, no follow-up needed.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage — now partially addressed), reconfirm Bug 2 (checkout URL).
