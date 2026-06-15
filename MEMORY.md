@@ -1610,3 +1610,21 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - On-device iOS/Android QA (keyboard, swipe physics, safe-area).
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 046 — 2026-06-15
+
+### What We Did
+- Hardened CartDock so the expanded panel can never auto-open on page load.
+- Investigated reported "panel auto-opens on load" bug: `useState(false)` was already the initial `open` state (born that way in commit 31b7e25) — no initial-state bug existed.
+- Added a `firstRun` ref guard inside the `useGSAP` effect: on mount it calls `gsap.set(p, { height: 0, opacity: 0, y: 10 })` and returns, instead of relying on a first-run tween. Kills any first-paint flash/auto-open. Panel still opens only on hover/focus/click.
+- Ran all 4 mandatory layout checks — pass. `#messages-container` keeps `overflow-y: auto`; the `overflow:hidden`/`overflow-x:hidden` hits (`.cart-dock-panel` line 416, `.product-stage` line 240) are siblings, not messages ancestors.
+
+### Gaps Identified
+- Could not reproduce a true auto-open from source; root cause as described did not exist. Fix is defensive, not a confirmed-repro fix.
+
+### Mistakes & Lessons
+- `npx tsc --noEmit` first failed with `.next/types/...d 2.ts` "Duplicate identifier" errors — stray duplicated build artifacts (filenames with `" 2.ts"`, likely a Finder/iCloud copy). Cleaned with `find .next -name "* 2.*" -delete`; tsc then clean. These are not source errors — delete the dup artifacts before trusting tsc output.
+
+### Next Steps
+- Confirm on-device whether the auto-open symptom is actually gone (was not reproducible in source).
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
