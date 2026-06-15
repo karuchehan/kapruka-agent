@@ -249,7 +249,20 @@ export function filterProducts<T extends FilterableProduct>(
     // phone in a cake search).
     out = out.filter((p) => categoryMatch(p, categoryHint));
   }
-  if (budget != null) out = out.filter((p) => p.price <= budget);
+  // Budget is a SOFT signal, NOT a hard cut. Previously over-budget items were
+  // dropped here — on a small MCP result set whose relevance ranking surfaced
+  // pricier items first, that discarded the cheaper in-budget products before
+  // they ever reached the pool (the "nothing under Rs. 6,000" bug, when several
+  // bouquets under 6,000 actually existed). Instead, keep every on-topic result
+  // but order within-budget items first (relevance order preserved within each
+  // group). The caller selects within-budget items for the visible cards and the
+  // agent recommends within budget naturally.
+  if (budget != null) {
+    const within: T[] = [];
+    const over: T[] = [];
+    for (const p of out) (p.price <= budget ? within : over).push(p);
+    out = [...within, ...over];
+  }
   if (queryTokens?.length) out = relevanceGate(out, queryTokens, categoryHint);
   return out;
 }

@@ -251,6 +251,17 @@ function categoryQuery(cat: string, convText: string): string {
   return occ ? `${occ} ${term}` : term;
 }
 
+// Select the products that become visible cards. filterProducts now keeps
+// over-budget items (ordered last) so the cheap in-budget options are never
+// discarded from the pool. For the cards we still show ONLY within-budget items
+// when any exist (never SHOW an over-budget product); if none fit, return the
+// top candidates so the agent can be honest / a broaden-retry can fire. Max 4.
+function pickForCards(candidates: Product[], budget: number | null): Product[] {
+  if (budget == null) return candidates.slice(0, 4);
+  const within = candidates.filter((p) => p.price <= budget);
+  return (within.length ? within : candidates).slice(0, 4);
+}
+
 // Search one category and return on-topic, in-budget products (category-gated).
 async function searchCategory(
   cat: string,
@@ -261,7 +272,7 @@ async function searchCategory(
   dropFloral: boolean,
 ): Promise<Product[]> {
   const q = categoryQuery(cat, convText);
-  const r = await callMCP("search_products", { q, limit: 8, in_stock_only: true, sort: "relevance" });
+  const r = await callMCP("search_products", { q, limit: 15, in_stock_only: true, sort: "relevance" });
   // Never drop floral when this very category IS flower (explicit per-category search).
   const c = filterProducts<Product>((r.results || []).map(normaliseProduct), budget, [cat], cat, excludeSympathy, dropFloral && cat !== "flower");
   return c.slice(0, take);
@@ -637,6 +648,12 @@ export async function POST(req: Request) {
         seen.add(p.id);
         return true;
       });
+      // Budget is soft in the pool now — for the visible bundle cards prefer the
+      // within-budget items when any exist, so we never show an over-budget pick.
+      if (budget != null) {
+        const within = products.filter((p) => p.price <= budget);
+        if (within.length) products = within;
+      }
     } else if (intent.type === "search" && (intent as { query?: string }).query) {
       const baseQuery = (intent as { query: string }).query;
       // Enrich the MCP query in a book flow. A bare genre word ("adventure")
@@ -659,20 +676,28 @@ export async function POST(req: Request) {
 
       const result = await callMCP("search_products", {
         q:             searchQuery,
-        limit:         8,
+        limit:         15,
         in_stock_only: true,
         sort:          "relevance",
       });
-      // Filter junk (vendor listings, no-image, zero-price), over-budget, and
-      // off-topic results (relevance gate) BEFORE slicing — cards rendered in UI
-      // come from this array, not Claude.
+      // Filter junk (vendor listings, no-image, zero-price) and off-topic results
+      // (relevance gate) BEFORE slicing — cards rendered in UI come from this
+      // array, not Claude. Budget is now soft (within-budget items ordered first);
+      // pick the within-budget ones for the visible cards so we never SHOW an
+      // over-budget product, while the larger limit surfaces the cheap options
+      // that a narrow query + small limit used to bury.
       const queryTokens = baseQuery.split(/\s+/);
       if (result.results?.length) {
         const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, categoryHint, excludeSympathy, dropFloral);
-        products = candidates.slice(0, 4);
+        products = pickForCards(candidates, budget);
       }
 
-      if (products.length < 2) {
+      const withinBudget = (ps: Product[]) => (budget == null ? ps : ps.filter((p) => p.price <= budget));
+
+      // Retry when results are thin OR a budget was stated and NONE of the
+      // current results fit it (the cheap in-budget items often rank below the
+      // limit on a narrow query).
+      if (products.length < 2 || (budget != null && withinBudget(products).length === 0)) {
         const lastUser = [...messages].reverse().find((m: ApiMessage) => m.role === "user");
         const fallbackKws = lastUser ? extractKeywords(lastUser.content) : [];
         const fallbackQ   = fallbackKws.slice(0, 3).join(" ");
@@ -684,13 +709,29 @@ export async function POST(req: Request) {
                 : categoryHint && categoryHint in CATEGORY_TERMS
                   ? categoryQuery(categoryHint, convText)
                   : enrichGenericQuery(fallbackQ, recipientProfile, convText);
-            const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 8, in_stock_only: true, sort: "relevance" });
+            const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 15, in_stock_only: true, sort: "relevance" });
             const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint, excludeSympathy, dropFloral);
-            if (c2.length > products.length) {
-              products = c2.slice(0, 4);
+            const pick2 = pickForCards(c2, budget);
+            // Prefer the retry only if it gives more cards OR more within-budget cards.
+            if (pick2.length > products.length || withinBudget(pick2).length > withinBudget(products).length) {
+              products = pick2;
             }
           } catch { /* best-effort */ }
         }
+      }
+
+      // Budget broaden: if a budget was stated and STILL nothing fits it, do one
+      // last broad search (the bare category term, large limit) before the agent
+      // tells the user nothing is available — this is the explicit fix for "said
+      // nothing under Rs. 6,000 when in-budget bouquets existed".
+      if (budget != null && categoryHint && categoryHint in CATEGORY_TERMS && withinBudget(products).length === 0) {
+        try {
+          const broadQ = categoryQuery(categoryHint, ""); // bare category term, no narrowing
+          const rb = await callMCP("search_products", { q: broadQ, limit: 15, in_stock_only: true, sort: "relevance" });
+          const cb = filterProducts<Product>((rb.results || []).map(normaliseProduct), budget, [categoryHint], categoryHint, excludeSympathy, dropFloral);
+          const within = withinBudget(cb);
+          if (within.length) products = within.slice(0, 4);
+        } catch { /* best-effort */ }
       }
     } else if (intent.type === "track" && (intent as { orderNumber?: string }).orderNumber) {
       trackingData = await callMCP("track_order", { order_number: (intent as { orderNumber: string }).orderNumber });
