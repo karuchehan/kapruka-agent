@@ -1685,3 +1685,25 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Re-run gifting eval scenarios to confirm the offer fires exactly once right after add-to-cart and never on self-purchases.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 050 — 2026-06-15
+
+### What We Did
+- Fixed Bug 6 in `hooks/useChat.ts`: OccasionCountdown chip ("Birthday in 1 day") appearing at wrong/random times.
+- Root cause: the chip was pushed on EVERY response where `data.occasion?.targetDate` was present (old line 154). Per `directives/system_prompt.md` line ~78, the agent emits `[OCCASION_DATE: YYYY-MM-DD]` whenever a deadline/occasion date is (re)mentioned — "at most once per message" but across many messages. `app/api/chat/route.ts:41` parses it via `OCCASION_RE = /\[OCCASION_DATE:\s*(\d{4}-\d{2}-\d{2})\]/i` and returns `data.occasion` each time. So the client re-rendered the chip on every later turn that re-emitted the marker.
+- Fix: added an `occasionShown` useRef(false) guard mirroring the existing `giftMessageShown` one-shot pattern:
+  - declared next to `giftMessageShown`
+  - reset to false in `initWithOnboarding` (new session)
+  - `const showOccasion = !!data.occasion?.targetDate && !occasionShown.current; if (showOccasion) occasionShown.current = true;` computed OUTSIDE the setState updater (StrictMode double-invoke safe)
+  - chip addition now gated on `showOccasion` instead of `data.occasion?.targetDate`
+- Chip now renders only the first time an occasion date is detected per session.
+
+### Gaps Identified
+- Same as the gift-message one-shot: relies on a ref that resets only on new session via initWithOnboarding. Correct for this app's session model.
+
+### Mistakes & Lessons
+- `npx tsc --noEmit` again surfaced stray `.next/...d 2.ts` duplicate-identifier artifacts on a prior run; cleaning with `find .next -name "* 2.*" -delete` before tsc keeps the check clean. Did it pre-emptively this session.
+
+### Next Steps
+- Verify in-app that the chip shows once on first occasion mention and never re-appears on later turns that re-state the date.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 sibling cleanup if any, reconfirm Bug 2 (checkout URL).
