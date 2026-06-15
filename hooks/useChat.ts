@@ -20,11 +20,17 @@ export function useChat(onCartAdd?: (product: Product) => void) {
   // [GIFT_MESSAGE] marker, never again — even if the agent re-emits the marker
   // after the user has already saved a message. Reset only on a new session.
   const giftMessageShown = useRef(false);
+  // OccasionCountdown chip is a one-shot too: render it the FIRST time an
+  // [OCCASION_DATE] is detected, never again — the agent re-emits the marker on
+  // later turns, which was making the chip reappear randomly. Reset only on a
+  // new session.
+  const occasionShown = useRef(false);
 
   function initWithOnboarding(messages: ApiMessage[]) {
     shownProductIds.current = new Set(); // new session — clear dedupe history
     lastShownProducts.current = [];
     giftMessageShown.current = false;
+    occasionShown.current = false;
     setApiMessages(messages);
     // Show the final onboarding agent message as the chat screen's welcome bubble
     const lastAgent = [...messages].reverse().find((m) => m.role === "assistant");
@@ -123,6 +129,12 @@ export function useChat(onCartAdd?: (product: Product) => void) {
       const showGift = !!data.giftMessage && !giftMessageShown.current;
       if (showGift) giftMessageShown.current = true;
 
+      // One-shot occasion chip: only render the FIRST time a date is detected.
+      // Decided OUTSIDE the updater (StrictMode double-invoke safe), same as
+      // showGift — otherwise the second pass sees the flipped flag and drops it.
+      const showOccasion = !!data.occasion?.targetDate && !occasionShown.current;
+      if (showOccasion) occasionShown.current = true;
+
       // Order confirmed → build a checkout card from the CART (the items the user
       // actually added). Fall back to the last carousel if the cart is empty.
       // URL comes from the product page, never from the model. Decided outside the
@@ -150,8 +162,9 @@ export function useChat(onCartAdd?: (product: Product) => void) {
         if (data.delivery?.city) {
           additions.push({ id: uid(), type: "delivery", delivery: data.delivery });
         }
-        // Detected occasion/deadline → render a live countdown chip.
-        if (data.occasion?.targetDate) {
+        // Detected occasion/deadline → render a live countdown chip, but only
+        // the first time per session (see showOccasion above).
+        if (showOccasion) {
           additions.push({ id: uid(), type: "occasion", occasion: data.occasion });
         }
         // Agent invites a gift message → render an editable greeting card,
