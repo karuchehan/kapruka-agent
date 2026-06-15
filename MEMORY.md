@@ -1494,3 +1494,25 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Live test with API approval: confirm agent emits `[ADD_TO_CART]` on add, dock updates, no double-count on button+marker, checkout uses real cart items.
 - Bugs 1,2,3,4,6 still queued (user sending one at a time): bundle grouping, checkout URL, tab auto-switch, stage accumulation, bundle cards in left chat pane.
+
+## Session 041 — 2026-06-15
+
+### What We Did
+- **Live-tested cart sync (Session 040 fix)** with API approval. POST to `/api/chat` with a prior carousel + user "add the springtime birthday ribbon cake". Result: agent emitted `[ADD_TO_CART]`, message returned clean (marker stripped: "...added the Springtime Birthday Ribbon Cake to your cart!"), `addedProducts` = exactly the Springtime cake resolved to the REAL this-turn product (id `CAKE00KA001685` + real URL), no Topaz. End-to-end PASS.
+- **Prompt 2 — checkout background tab** (`ChatScreen.tsx`): both `window.open` calls now `"noopener,noreferrer"`; auto-open effect defers 100ms via `setTimeout` (with cleanup) so the checkout card paints first and the tab opens behind the agent.
+- **Prompt 3 — stage replace not accumulate**:
+  - `ChatScreen.tsx` `stageProducts`: was flattening ALL products-turns into a growing grid; now walks back to the most recent products-turn and returns just that batch (deduped). Replaces on each new search.
+  - `ProductStage.tsx`: dropped append-only `prevCount` slice; now keys a `sig` (product-id signature) and re-animates the full current batch on change. Skeletons excluded via `:not(.stage-card-skeleton)`.
+- `npx tsc --noEmit` EXIT=0. Homepage 200, no compile errors. Layout checks pass (`#messages-container` overflow-y:auto intact; no CSS touched).
+- Commit `846737c`, pushed to main. (Cart sync was `842e67b`/Session 040.)
+
+### Gaps Identified
+- Background-tab behavior is browser-dependent — `noreferrer` + 100ms defer discourages focus-steal but some browsers/popup-blockers still vary. Not verified on a real browser this session (logic + compile only).
+- ProductSheet (mobile) inherits the replaced `stageProducts` array so it auto-fixed, but its own animation logic wasn't audited.
+
+### Mistakes & Lessons
+- None this session — fixes were targeted, live test confirmed the prior session's marker pipeline works against real MCP data.
+
+### Next Steps
+- Remaining queued bugs (user sending one at a time): Bug 1 (bundle grouping wrong — 3 similar cakes instead of cross-category), Bug 2 (checkout wrong product URL — should now be mostly fixed by cart sync; reconfirm), Bug 6 (bundle cards appearing in left chat pane — should move to right stage / dedicated section).
+- Real-browser QA: confirm checkout opens in background, stage visibly replaces on new search.
