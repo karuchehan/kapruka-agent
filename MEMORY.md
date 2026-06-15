@@ -1516,3 +1516,27 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Remaining queued bugs (user sending one at a time): Bug 1 (bundle grouping wrong — 3 similar cakes instead of cross-category), Bug 2 (checkout wrong product URL — should now be mostly fixed by cart sync; reconfirm), Bug 6 (bundle cards appearing in left chat pane — should move to right stage / dedicated section).
 - Real-browser QA: confirm checkout opens in background, stage visibly replaces on new search.
+
+## Session 042 — 2026-06-15
+
+### What We Did
+- **Critical mobile bug: chat input not visible/typeable ≤720px.** Root cause: `#input-area` sat in the chat-panel flow at the bottom; the fixed `.product-sheet` peek handle (`bottom:0`, 72px, `z-index:75`) and the cart dock overlaid the bottom strip, hiding the input.
+- Fix in `app/globals.css` `@media (max-width:720px)` only (desktop untouched):
+  - `#input-area` → `position:fixed; bottom:0; z-index:76`, opaque `background:var(--bg-primary)`, removed from flow so `#messages-container` (flex:1) owns the height. Sits above the sheet (z75) so the peek handle can't cover it.
+  - `.product-sheet` → `bottom: calc(72px + env(safe-area-inset-bottom))` so its 72px peek handle rests ABOVE the input. Key insight: ProductSheet's peek is a height-relative GSAP `translateY(peekTranslate = height - 72)`, independent of CSS `bottom` — so the CSS offset just shifts the whole sheet up; drag/open math (`ProductSheet.tsx`) unchanged.
+  - `.cart-dock` → `bottom: calc(72px + 72px + 16px + safe)` to clear input(72) + peek(72).
+  - `#messages-container` → `padding-bottom: calc(84px + safe)` so last bubble clears the fixed input.
+- Stacking bottom→top now: input (0–72) | peek handle (72–144) | cart dock (160+). Input always visible; when sheet OPENs (rests at bottom:72) the input at 0–72 stays clear (z76 > sheet z75, > scrim z70).
+- All 4 mandatory layout checks pass: `tsc` EXIT=0; no `overflow:hidden`/`overflow-x:hidden` on messages/chat-screen/chat-panel ancestors; `#messages-container overflow-y:auto` intact. Dev server compiles (home 200, no errors).
+- Commit `9dd8d93`, pushed to main.
+
+### Gaps Identified
+- Not tested on a real device / narrow browser this session (compile + logic + math reasoning only). Needs visual QA: input visible at PEEK and OPEN, keyboard-open behavior (iOS Safari resizes viewport — fixed bottom:0 with env(safe-area) should ride above the keyboard, but confirm), textarea autoresize (max 120px) not overlapping the peek handle.
+- Note: literal request was "input above the dock and peek." Physically with a fixed bottom sheet the only always-visible layout is input at the very bottom with peek+dock stacked above it — implemented that (input is the bottom-most, never occluded). Flag if user wanted input literally floating above the dock instead.
+
+### Mistakes & Lessons
+- None. The height-relative GSAP peek translate meant lifting the sheet was a one-line CSS `bottom` change with zero JS risk.
+
+### Next Steps
+- Real-device mobile QA (iOS Safari + Android Chrome): input visibility at PEEK/OPEN, keyboard overlap, autoresize vs peek handle clearance.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong — similar items not cross-category), Bug 6 (bundle cards in left chat pane → move to stage), reconfirm Bug 2 (checkout URL, likely fixed by cart sync).
