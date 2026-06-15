@@ -18,22 +18,25 @@ interface Props {
  */
 export function ProductStage({ products, isLoading, onAddToCart }: Props) {
   const gridRef = useRef<HTMLDivElement>(null);
-  const prevCount = useRef(0);
 
+  // The stage REPLACES its contents each batch (not append), so re-animate every
+  // real card whenever the batch changes. Keyed on the product-id signature so a
+  // new search result staggers in cleanly and stale cards never linger.
+  const sig = products.map((p) => p.id || p.name).join("|");
   useGSAP(() => {
     const el = gridRef.current;
     if (!el) return;
-    const cards = Array.from(el.querySelectorAll(".stage-card")) as HTMLElement[];
-    const fresh = cards.slice(prevCount.current);
-    if (fresh.length) {
+    const cards = Array.from(
+      el.querySelectorAll(".stage-card:not(.stage-card-skeleton)")
+    ) as HTMLElement[];
+    if (cards.length) {
       gsap.fromTo(
-        fresh,
+        cards,
         { opacity: 0, y: 28, scale: 0.96 },
         { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.06, ease: "power3.out" }
       );
     }
-    prevCount.current = cards.length;
-  }, { dependencies: [products.length] });
+  }, { dependencies: [sig] });
 
   const hasProducts = products.length > 0;
 

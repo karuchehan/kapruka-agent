@@ -64,25 +64,33 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     if (last?.type !== "checkout" || !last.checkoutUrl) return;
     if (openedCheckout.current.has(last.id)) return;
     openedCheckout.current.add(last.id);
-    window.open(last.checkoutUrl, "_blank", "noopener");
+    // Open checkout in a BACKGROUND tab — user stays in the agent view.
+    // noreferrer (with noopener) discourages focus-stealing; the 100ms defer lets
+    // the checkout card paint first so the new tab opens behind it, not in front.
+    const url = last.checkoutUrl;
+    const t = setTimeout(() => window.open(url, "_blank", "noopener,noreferrer"), 100);
+    return () => clearTimeout(t);
   }, [chatItems]);
 
-  // Products live on the right stage, not in the chat column. Flatten every
-  // products-turn into one accumulating grid, deduped by id (upstream already
-  // dedupes, this is belt-and-suspenders) so the stage grows as picks arrive.
+  // Products live on the right stage, not in the chat column. The stage shows the
+  // CURRENT batch only — each new products-turn REPLACES the previous display, so
+  // stale picks don't pile up. Walk back to the most recent products-turn and show
+  // just that one, deduped by id within the batch.
   const stageProducts = useMemo(() => {
-    const seen = new Set<string>();
-    const out: Product[] = [];
-    for (const it of chatItems) {
-      if (it.type !== "products" || !it.products) continue;
+    for (let i = chatItems.length - 1; i >= 0; i--) {
+      const it = chatItems[i];
+      if (it.type !== "products" || !it.products?.length) continue;
+      const seen = new Set<string>();
+      const out: Product[] = [];
       for (const p of it.products) {
         const key = p.id || p.name;
         if (seen.has(key)) continue;
         seen.add(key);
         out.push(p);
       }
+      return out;
     }
-    return out;
+    return [];
   }, [chatItems]);
 
   function handleSend(text: string) {
@@ -105,7 +113,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     // agent to place the order (which will then emit [ORDER_CONFIRMED]).
     const url = cart.find((i) => i.product.url)?.product.url;
     if (url) {
-      window.open(url, "_blank", "noopener");
+      window.open(url, "_blank", "noopener,noreferrer");
     } else {
       handleSend("I'm ready to checkout. Please place the order.");
     }
