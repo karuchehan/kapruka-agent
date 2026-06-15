@@ -87,10 +87,19 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   const stageProducts = useMemo(() => {
     for (let i = chatItems.length - 1; i >= 0; i--) {
       const it = chatItems[i];
-      if (it.type !== "products" || !it.products?.length) continue;
+      // Both plain product carousels AND bundle turns feed the stage. A bundle
+      // moves its products off into bundle.items server-side (products is emptied
+      // when [BUNDLE: true] fires), so if we only read "products" turns the
+      // bundle picks the agent just named verbally would never appear on the
+      // stage that turn. Read bundle.items too so verbal + visual stay in sync.
+      const batch =
+        it.type === "products" ? it.products :
+        it.type === "bundle"   ? it.bundle?.items :
+        null;
+      if (!batch?.length) continue;
       const seen = new Set<string>();
       const out: Product[] = [];
-      for (const p of it.products) {
+      for (const p of batch) {
         const key = p.id || p.name;
         if (seen.has(key)) continue;
         seen.add(key);
