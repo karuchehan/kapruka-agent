@@ -258,7 +258,9 @@ function categoryQuery(cat: string, convText: string): string {
 // top candidates so the agent can be honest / a broaden-retry can fire. Max 4.
 function pickForCards(candidates: Product[], budget: number | null): Product[] {
   if (budget == null) return candidates.slice(0, 4);
-  const within = candidates.filter((p) => p.price <= budget);
+  // Sort within-budget items price-asc so cheapest options show first when user
+  // has a budget constraint — prevents the most expensive result dominating card 1.
+  const within = candidates.filter((p) => p.price <= budget).sort((a, b) => a.price - b.price);
   return (within.length ? within : candidates).slice(0, 4);
 }
 
@@ -271,11 +273,63 @@ async function searchCategory(
   excludeSympathy: boolean,
   dropFloral: boolean,
 ): Promise<Product[]> {
+  if (cat === "flower") {
+    // Flowers need a multi-query parallel search — a single "flowers" query returns
+    // popularity-ranked (expensive) results. Cheap bouquets (Rs.4,200–4,400) exist
+    // but rank below the limit when only one query fires.
+    const pool = await searchFlowersParallel(convText, budget, excludeSympathy);
+    return pool.slice(0, take);
+  }
   const q = categoryQuery(cat, convText);
   const r = await callMCP("search_products", { q, limit: 15, in_stock_only: true, sort: "relevance" });
   // Never drop floral when this very category IS flower (explicit per-category search).
   const c = filterProducts<Product>((r.results || []).map(normaliseProduct), budget, [cat], cat, excludeSympathy, dropFloral && cat !== "flower");
   return c.slice(0, take);
+}
+
+// Flower searches require multiple parallel queries because MCP relevance-ranks by
+// popularity (expensive items first). Three queries targeting different vocabulary
+// pools the top-15 from each (~45 candidates), deduplicated, then sorted price-asc
+// when a budget exists — guarantees cheap in-budget bouquets surface.
+const FLOWER_QUERIES = ["roses bouquet", "flower bouquet", "bouquet"];
+async function searchFlowersParallel(
+  convText: string,
+  budget: number | null,
+  excludeSympathy: boolean,
+): Promise<Product[]> {
+  const occ = OCCASION_WORDS.find((o) => new RegExp(`\\b${o}\\b`).test(convText));
+  const queries = FLOWER_QUERIES.map((q) => (occ ? `${occ} ${q}` : q));
+  // Always add the bare category term as a 4th query
+  queries.push(occ ? `${occ} flowers` : "flowers");
+
+  const settled = await Promise.allSettled(
+    queries.map((q) =>
+      callMCP("search_products", { q, limit: 15, in_stock_only: true, sort: "relevance" })
+    )
+  );
+
+  // Pool + dedupe across all query results
+  const seen = new Set<string>();
+  const pool: Product[] = [];
+  for (const r of settled) {
+    if (r.status !== "fulfilled") continue;
+    for (const p of (r.value.results || []).map(normaliseProduct)) {
+      const key = p.id || p.name;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      pool.push(p);
+    }
+  }
+
+  // Gate for flower relevance + junk; never drop floral here (this IS the flower search)
+  const filtered = filterProducts<Product>(pool, budget, ["flower", "bouquet", "roses"], "flower", excludeSympathy, false);
+
+  // Sort price ascending when budget given — surfaces cheapest options first
+  if (budget != null) {
+    filtered.sort((a, b) => a.price - b.price);
+  }
+
+  return filtered;
 }
 
 // Known Sri Lankan delivery cities — used to extract the target city from a
@@ -659,6 +713,16 @@ export async function POST(req: Request) {
       }
     } else if (intent.type === "search" && (intent as { query?: string }).query) {
       const baseQuery = (intent as { query: string }).query;
+
+      // Flower category: use parallel multi-query search instead of single query.
+      // A bare "flowers" query returns popularity-ranked (expensive) results; cheap
+      // bouquets (Rs.4,200–4,400) exist on Kapruka but rank below the limit.
+      // searchFlowersParallel fires 4 queries in parallel, pools ~60 candidates,
+      // dedupes, and sorts price-asc when a budget is set.
+      if (categoryHint === "flower") {
+        const flowerPool = await searchFlowersParallel(convText, budget, excludeSympathy);
+        products = pickForCards(flowerPool, budget);
+      } else {
       // Enrich the MCP query in a book flow. A bare genre word ("adventure")
       // makes MCP rank adventure-themed CAKES/GAMES first. The phrasing
       // "kids <genre> books" flips results to genuine children's books
@@ -725,8 +789,7 @@ export async function POST(req: Request) {
 
       // Budget broaden: if a budget was stated and STILL nothing fits it, do one
       // last broad search (the bare category term, large limit) before the agent
-      // tells the user nothing is available — this is the explicit fix for "said
-      // nothing under Rs. 6,000 when in-budget bouquets existed".
+      // tells the user nothing is available.
       if (budget != null && categoryHint && categoryHint in CATEGORY_TERMS && withinBudget(products).length === 0) {
         try {
           const broadQ = categoryQuery(categoryHint, ""); // bare category term, no narrowing
@@ -736,6 +799,7 @@ export async function POST(req: Request) {
           if (within.length) products = within.slice(0, 4);
         } catch { /* best-effort */ }
       }
+      } // end non-flower branch
     } else if (intent.type === "track" && (intent as { orderNumber?: string }).orderNumber) {
       trackingData = await callMCP("track_order", { order_number: (intent as { orderNumber: string }).orderNumber });
     } else if (intent.type === "delivery" && (intent as { city?: string | null }).city) {
