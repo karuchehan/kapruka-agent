@@ -21,10 +21,17 @@ interface Props {
 export function CartDock({ cart, cartCount, cartTotal, pendingCheckoutUrl, onRemove, onCheckout }: Props) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const firstRun = useRef(true);
 
   useGSAP(() => {
     const p = panelRef.current;
     if (!p) return;
+    // On mount: force collapsed with no animation. Never auto-open on load.
+    if (firstRun.current) {
+      firstRun.current = false;
+      gsap.set(p, { height: 0, opacity: 0, y: 10 });
+      return;
+    }
     if (open) {
       gsap.to(p, { height: "auto", opacity: 1, y: 0, duration: 0.32, ease: "power3.out" });
     } else {
