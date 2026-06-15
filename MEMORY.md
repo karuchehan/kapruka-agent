@@ -1666,3 +1666,22 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Re-run delivery eval scenarios (Kandy same-day, Sunday deadline) to confirm the full-address gate fires before checkout but doesn't disrupt the feasibility conversation.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 049 — 2026-06-15
+
+### What We Did
+- Fixed Bug 7 in `directives/system_prompt.md`: agent now proactively offers a gift message after an add-to-cart in a gifting context.
+- Added "GIFT MESSAGE OFFER — HARD RULE (gifting only)" to the CART AND CHECKOUT section. Trigger: gift context AND item just added to cart AND no gift-message offer made yet this session → the very next response must casually offer a personal note.
+- Wording: one line, user's register, e.g. "Want to add a little note for her with it?" (Tanglish variant given).
+- Guardrails: offer once per session only (skip if already offered, already written, or declined); skip entirely for self-purchases; the offer is NOT the [GIFT_MESSAGE: true] tag — that tag still fires only when the user actually asks to write/add a note (HIDDEN UI MARKERS section unchanged).
+- Documented as `[gift_message_offer]` in the in-file changelog comment.
+
+### Gaps Identified
+- "No gift message offered yet this session" relies on the model tracking its own prior turns — no deterministic state flag. If conversation history is truncated, the agent could re-offer. Acceptable for now; revisit if evals show repeat offers.
+
+### Mistakes & Lessons
+- None. Directive-only (markdown) change — no tsc/overflow layout checks required.
+
+### Next Steps
+- Re-run gifting eval scenarios to confirm the offer fires exactly once right after add-to-cart and never on self-purchases.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
