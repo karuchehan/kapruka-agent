@@ -1651,14 +1651,36 @@ html, body {
   /* Product grid (rendered inside the sheet) tightens for narrow screens. */
   .product-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 
-  #messages-container { padding: 16px 14px; }
+  /* Last bubble must clear the fixed input bar (≈72px) + a little breathing room. */
+  #messages-container { padding: 16px 14px calc(84px + env(safe-area-inset-bottom)); }
   .message-bubble { max-width: 88%; font-size: 14px; }
+
+  /* CRITICAL: the input bar is pinned to the very bottom and stays visible +
+     typeable at all times. It removes itself from the chat-panel flow (so the
+     messages list owns the remaining height) and sits ABOVE the product sheet
+     (z 75) so the peek handle can never cover it. Opaque background so the
+     messages scrolling underneath don't show through. */
+  #input-area {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 76;
+    padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+    background: var(--bg-primary);
+  }
+
+  /* Lift the bottom sheet so its 72px peek handle rests ABOVE the input bar
+     (the GSAP peek translate is height-relative, so this CSS offset just shifts
+     the whole sheet up — drag math is unaffected). */
+  .product-sheet { bottom: calc(72px + env(safe-area-inset-bottom)); }
 
   .cart-dock-panel { width: 92vw; }
 
-  /* Dock clears the 72px peek handle; hidden while the sheet is open. */
+  /* Dock clears the input bar (72px) AND the peek handle (72px) stacked above
+     it; hidden while the sheet is open. */
   .cart-dock {
-    bottom: calc(72px + 16px + env(safe-area-inset-bottom));
+    bottom: calc(72px + 72px + 16px + env(safe-area-inset-bottom));
     transition: opacity 0.25s ease, transform 0.25s ease;
   }
   :root.sheet-open .cart-dock {
