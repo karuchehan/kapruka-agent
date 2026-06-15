@@ -113,8 +113,13 @@ export function useChat(onCartAdd?: (product: Product) => void) {
         // (MCP itself returns duplicate rows) — add to the Set during the filter
         // so the second occurrence of a same-response id is dropped too.
         freshProducts = (data.products as Product[]).filter((p) => {
-          if (shownProductIds.current.has(p.id)) return false;
-          shownProductIds.current.add(p.id);
+          // Use id||name as the dedup key — MCP products frequently have no id
+          // field, so normaliseProduct sets id:"". All empty-id products would
+          // share the key "" and every one after the first would be dropped,
+          // making freshProducts empty and leaving the old carousel in the stage.
+          const key = p.id || p.name;
+          if (!key || shownProductIds.current.has(key)) return false;
+          shownProductIds.current.add(key);
           return true;
         });
         // Remember this carousel so the next request can answer follow-ups

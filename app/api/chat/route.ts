@@ -493,7 +493,10 @@ function normaliseProduct(p: Record<string, unknown>): Product {
     ? String((cat as { name?: string }).name || "")
     : String(cat || p.category_name || p.type || "");
   return {
-    id:        String(p.id || p.product_id || ""),
+    // Use url as final fallback — every Kapruka product has a unique URL even
+    // when the MCP omits the numeric id field. Prevents all no-id products from
+    // collapsing to the key "" and being wrongly deduplicated client-side.
+    id:        String(p.id || p.product_id || p.url || p.product_url || p.link || ""),
     name:      String(p.name || p.title || ""),
     price:     Number(price),
     image_url: String(p.image_url || p.image || p.thumbnail || ""),
@@ -840,6 +843,13 @@ export async function POST(req: Request) {
         .replace(BUNDLE_RE, "")
         .replace(ORDER_RE, "")
         .replace(ADD_RE, "")
+        // Hard safety net: strip any leaked system-prompt product dump. The model
+        // occasionally reproduces the injected "AVAILABLE PRODUCTS:" block as text
+        // instead of weaving products into a natural sentence — visible to users
+        // as a raw numbered list. Strip it before the message reaches the client.
+        .replace(/AVAILABLE PRODUCTS[^\n]*\n[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
+        .replace(/\d+\.\s+[^\n]+(?:—|–)\s*LKR\s*[\d,]+[^\n]*/gi, "")
+        .replace(/LAST SHOWN PRODUCTS[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
         .trim(),
       3
     );
