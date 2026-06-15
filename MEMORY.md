@@ -1470,3 +1470,27 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Live test (needs API approval): confirm agent emits `[ORDER_CONFIRMED]` on final yes, tab opens, no double-open.
 - Real-device touch QA of the sheet (iOS Safari/Android Chrome): drag/flick/scrim, grid momentum scroll, auto-open on new batch, dock clearance/hide.
+
+## Session 040 — 2026-06-15
+
+### What We Did
+- Bug 5 / Prompt 1 (cart dock not updating). Traced full button path: `StageCard.handleAdd → onAddToCart → ChatScreen.handleAddToCart → addToCart → useCart (single source) → CartDock props`. Path was already correct (no CSS block, prices are `Number()`, single `useCart`).
+- Root cause of the "0 items / Rs. 0" symptom: **conversational adds never called `addToCart`**. Items added via chat ("let's add the springtime cake") only produced LLM text — cart stayed empty, so the dock showed 0 AND checkout fell back to `lastShownProducts` (wrong product URL = Bug 2).
+- Added `[ADD_TO_CART: <exact name>]` hidden marker:
+  - `directives/system_prompt.md`: marker spec + example (emit once per item, first add only).
+  - `app/api/chat/route.ts`: `ADD_RE` global regex; resolve each captured name to a real product from `products` (this turn, parsed BEFORE bundle reset) + `priorProducts`; dedupe; strip from message; return `addedProducts`.
+  - `hooks/useChat.ts`: `useChat(onCartAdd?)` fires callback per `data.addedProducts` (runs once per response, StrictMode-safe).
+  - `hooks/useCart.ts`: new idempotent `addToCartUnique` (add only if id/name absent).
+  - `components/ChatScreen.tsx`: reordered hooks (useCart before useChat), wired `useChat(addToCartUnique)`.
+- Commit `842e67b`, pushed to main. `npx tsc --noEmit` EXIT=0. No CSS touched.
+
+### Gaps Identified
+- Not live-tested (needs API key approval) — depends on the agent actually emitting `[ADD_TO_CART]`. Prompt-following risk if model omits the marker.
+- Marker name-match is fuzzy (`includes` both directions); very short product names could mis-match (low risk for real Kapruka names).
+
+### Mistakes & Lessons
+- Initial instinct was to hunt for a button bug; static trace proved the button path sound. The real defect was the conversational flow bypassing cart state — the symptom (dock=0) and Bug 2 (wrong checkout URL) share this one root cause.
+
+### Next Steps
+- Live test with API approval: confirm agent emits `[ADD_TO_CART]` on add, dock updates, no double-count on button+marker, checkout uses real cart items.
+- Bugs 1,2,3,4,6 still queued (user sending one at a time): bundle grouping, checkout URL, tab auto-switch, stage accumulation, bundle cards in left chat pane.
