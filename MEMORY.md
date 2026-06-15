@@ -1561,3 +1561,27 @@ Built the branded intro animation that plays before onboarding.
 
 ### Next Steps
 - Remaining queued bugs: Bug 1 (bundle grouping wrong — similar items not cross-category), Bug 6 (bundle cards in left chat pane → move to stage), reconfirm Bug 2 (checkout URL, likely fixed by cart sync).
+
+## Session 044 — 2026-06-15
+
+### What We Did
+- Mobile layout, two issues from user screenshots:
+  1. Input bar appeared behind the Products peek handle.
+  2. Sheet auto-opened to a confusing empty full-screen on first batch; peek handle showed on load with zero products.
+- Diagnosis: post-042 the input (z76) vs sheet (z75) geometry was actually non-overlapping (input 0–~66px, peek 72–144px) — the reported overlap was likely the pre-042 build. Real defects: (a) `ProductSheet` auto-open effect fired `setState("OPEN")` when `products.length` went 0→N, and (b) the sheet/peek mounted even with no products.
+- Fixes:
+  - `ChatScreen.tsx`: mobile renders `ProductSheet` only when `stageProducts.length > 0` (else `null`) — load = chat full-screen + input bar only, no peek. Added effect toggling `root.has-products` (= isMobile && products>0).
+  - `ProductSheet.tsx`: removed the auto-open effect (and `prevLen`/`mounted` refs). On mount it sits at PEEK (handle visible) via the existing initial `useGSAP` set; never auto-expands. Tap/drag still opens.
+  - `globals.css` (@media ≤720): `#input-area` z-index 76 → **90** (top of cluster: scrim 70 < sheet 75 < dock 80 < input 90) so nothing covers it. Dock bottom = `calc(72+16+safe)` by default; `:root.has-products .cart-dock` = `calc(72+72+16+safe)` to clear the peek. `#messages-container` padding-bottom 84px default; `:root.has-products` → 156px to clear the peek handle.
+- Key insight (carried from 042): ProductSheet's peek is a height-relative GSAP `translateY(height-72)`, independent of CSS `bottom`, so `.product-sheet { bottom: 72px }` lifts the peek above the input with zero JS change.
+- All 4 layout checks pass (tsc EXIT=0; no overflow:hidden/overflow-x on messages ancestors; `#messages-container overflow-y:auto`). Dev compiles (home 200). Commit `0bc2ec8`, pushed.
+
+### Gaps Identified
+- Not real-device verified: confirm on load no peek handle shows; after first products the peek appears (not full-screen); input always visible/tappable above peek; dock repositions when products arrive; keyboard-open on iOS Safari.
+
+### Mistakes & Lessons
+- Session 042 likely worked in code but the user tested before Vercel redeployed — the actual user-facing bugs (auto-open empty + peek-on-load) were separate from z-index. Lesson: when a user reports a layout bug post-fix, check whether the deploy propagated AND look for a second distinct cause rather than assuming the prior fix failed.
+
+### Next Steps
+- Real-device mobile QA of the above.
+- Remaining queued: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
