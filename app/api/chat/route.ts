@@ -797,13 +797,15 @@ export async function POST(req: Request) {
     if (cm) checkoutUrl = cm[1];
 
     // Hidden UI markers → structured fields (parsed from raw, stripped from message).
-    const om = rawText.match(OCCASION_RE);
+    // ORDER_CONFIRMED must be parsed first — occasion chip is suppressed when checkout
+    // fires in the same response (prevents the "Birthday Today!" chip appearing at checkout).
+    if (ORDER_RE.test(rawText)) orderConfirmed = true;
+    const om = !orderConfirmed ? rawText.match(OCCASION_RE) : null;
     if (om) {
       const occ = buildOccasion(om[1], convText);
       if (occ.targetDate) occasion = occ;
     }
     if (GIFT_RE.test(rawText)) giftMessage = true;
-    if (ORDER_RE.test(rawText)) orderConfirmed = true;
 
     // [ADD_TO_CART: name] — resolve each confirmed add to a real product from this
     // turn's results or the last carousel, so the client syncs the cart + dock.
