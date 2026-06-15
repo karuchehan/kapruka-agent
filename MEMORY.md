@@ -1540,3 +1540,24 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Real-device mobile QA (iOS Safari + Android Chrome): input visibility at PEEK/OPEN, keyboard overlap, autoresize vs peek handle clearance.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong — similar items not cross-category), Bug 6 (bundle cards in left chat pane → move to stage), reconfirm Bug 2 (checkout URL, likely fixed by cart sync).
+
+## Session 043 — 2026-06-15
+
+### What We Did
+- **Add to Cart button reverted from "Added ✓" back to "Add to Cart".** Root cause: `StageCard` in `components/ProductStage.tsx` used a local `added` state flipped true then reset via `setTimeout(..., 1800)`.
+- Fix — drive the added state from real cart membership:
+  - `ChatScreen.tsx`: added `cartIds` useMemo = `new Set(cart.map(i => i.product.id || i.product.name))` (same `id || name` key the cart/`addToCartUnique` dedupe on). Passed `addedIds={cartIds}` to both `ProductStage` (desktop) and `ProductSheet` (mobile).
+  - `ProductStage.tsx`: new `addedIds: Set<string>` prop; `StageCard` now takes `added: boolean` (= `addedIds.has(p.id || p.name)`), removed the local `added` state + timeout; `handleAdd` no-ops if already added.
+  - `ProductSheet.tsx`: forwards `addedIds` to its inner `ProductStage`.
+  - Green styling `.stage-card-add.added` already existed in globals.css — unchanged.
+- `tsc` EXIT=0. Push `622013e`.
+- Note: `components/ProductCard.tsx` (chat-column carousel) still has the old local-timeout `added` pattern, but products no longer render in the chat column (they live on the stage), so it's effectively dead for this flow — left untouched.
+
+### Gaps Identified
+- Not runtime-verified this session (tsc only). Visual check: button shows green "Added ✓" immediately on add and stays after the cart syncs / re-renders / new product batch.
+
+### Mistakes & Lessons
+- None.
+
+### Next Steps
+- Remaining queued bugs: Bug 1 (bundle grouping wrong — similar items not cross-category), Bug 6 (bundle cards in left chat pane → move to stage), reconfirm Bug 2 (checkout URL, likely fixed by cart sync).
