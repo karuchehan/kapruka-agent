@@ -80,20 +80,10 @@ export function ProductSheet({ products, isLoading, onAddToCart, addedIds }: Pro
     return () => window.removeEventListener("resize", onResize);
   }, [state, measure, animateTo]);
 
-  // Auto-open when a NEW product batch arrives (length increases). Guard the
-  // first mount so it stays PEEK on initial load even if products already exist.
-  const prevLen = useRef(0);
-  const mounted = useRef(false);
-  useEffect(() => {
-    const len = products.length;
-    if (!mounted.current) {
-      mounted.current = true;
-      prevLen.current = len;
-      return;
-    }
-    if (len > prevLen.current) setState("OPEN");
-    prevLen.current = len;
-  }, [products.length]);
+  // The sheet only mounts once products exist (gated in ChatScreen) and reveals
+  // itself at PEEK — the handle appears automatically, but it never auto-OPENS to
+  // full screen. The user taps/drags the handle to expand. This avoids a
+  // confusing empty full-screen sheet on first arrival.
 
   // ── Drag (handle only) ──────────────────────────────────────────────────────
   function onPointerDown(e: React.PointerEvent) {

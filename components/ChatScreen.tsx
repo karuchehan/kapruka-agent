@@ -101,6 +101,15 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     return [];
   }, [chatItems]);
 
+  // Reflect "the mobile peek handle is showing" to a root class so the cart dock
+  // and message padding can clear it only when it actually exists.
+  useEffect(() => {
+    const root = document.documentElement;
+    const show = isMobile && stageProducts.length > 0;
+    root.classList.toggle("has-products", show);
+    return () => root.classList.remove("has-products");
+  }, [isMobile, stageProducts.length]);
+
   function handleSend(text: string) {
     sendMessage(text, userProfile, recipientProfile, cartProducts);
   }
@@ -136,7 +145,11 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
       </div>
 
       {isMobile ? (
-        <ProductSheet products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} addedIds={cartIds} />
+        // Mobile: the sheet (and its peek handle) only exist once products have
+        // arrived — until then it's chat full-screen with just the input bar.
+        stageProducts.length > 0 ? (
+          <ProductSheet products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} addedIds={cartIds} />
+        ) : null
       ) : (
         <ProductStage products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} addedIds={cartIds} />
       )}

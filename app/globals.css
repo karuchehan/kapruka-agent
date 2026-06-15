@@ -1651,21 +1651,23 @@ html, body {
   /* Product grid (rendered inside the sheet) tightens for narrow screens. */
   .product-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 
-  /* Last bubble must clear the fixed input bar (≈72px) + a little breathing room. */
+  /* Last bubble clears the fixed input bar (≈72px). When the peek handle is
+     showing (root.has-products) reserve extra room so the last bubble clears it. */
   #messages-container { padding: 16px 14px calc(84px + env(safe-area-inset-bottom)); }
+  :root.has-products #messages-container { padding-bottom: calc(156px + env(safe-area-inset-bottom)); }
   .message-bubble { max-width: 88%; font-size: 14px; }
 
-  /* CRITICAL: the input bar is pinned to the very bottom and stays visible +
-     typeable at all times. It removes itself from the chat-panel flow (so the
-     messages list owns the remaining height) and sits ABOVE the product sheet
-     (z 75) so the peek handle can never cover it. Opaque background so the
-     messages scrolling underneath don't show through. */
+  /* CRITICAL: the input bar is the BOTTOM-MOST element the user can see + tap.
+     Pinned to the very bottom, removed from the chat-panel flow (so the messages
+     list owns the remaining height), with the highest z-index of the bottom
+     cluster (scrim 70 < sheet 75 < dock 80 < input 90) so the peek handle, dock,
+     and scrim can NEVER cover it. Opaque so messages don't show through. */
   #input-area {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 76;
+    z-index: 90;
     padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
     background: var(--bg-primary);
   }
@@ -1677,11 +1679,15 @@ html, body {
 
   .cart-dock-panel { width: 92vw; }
 
-  /* Dock clears the input bar (72px) AND the peek handle (72px) stacked above
-     it; hidden while the sheet is open. */
+  /* No products yet → no peek handle, so the dock sits just above the input bar.
+     Once products arrive (root.has-products) the peek handle appears, so the dock
+     rises to clear input (72px) + peek (72px). Hidden while the sheet is open. */
   .cart-dock {
-    bottom: calc(72px + 72px + 16px + env(safe-area-inset-bottom));
+    bottom: calc(72px + 16px + env(safe-area-inset-bottom));
     transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  :root.has-products .cart-dock {
+    bottom: calc(72px + 72px + 16px + env(safe-area-inset-bottom));
   }
   :root.sheet-open .cart-dock {
     opacity: 0;
