@@ -1585,3 +1585,28 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Real-device mobile QA of the above.
 - Remaining queued: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 045 — 2026-06-15
+
+### What We Did
+- **Mobile layout fundamental restructure** (user screenshots + explicit spec). Target top→bottom: header (fixed top) → chat messages (scroll, fill) → input bar (fixed) → cart dock (fixed, below input) → product-sheet peek handle (fixed, very bottom, thin strip; swipe up for products). Prior builds put input at the very bottom and let the sheet overlap chat.
+- `app/globals.css` (@media ≤720): replaced the bottom-cluster rules with a var-driven stack — `--m-peek` (0px default, 52px on `:root.has-products`), `--m-dock-h:52px`, `--m-input-h:60px`, `--m-gap:12px`, `--m-safe`. 
+  - `#input-area`: fixed, `bottom: calc(--m-peek + --m-dock-h + 2*--m-gap + --m-safe)`, z90 (top of cluster). `:root.sheet-open` drops it to `calc(--m-gap + --m-safe)`.
+  - `.cart-dock`: `bottom: calc(--m-peek + --m-gap + --m-safe)`, z80; hidden on `.sheet-open`.
+  - `.product-sheet { bottom:0 }`; `.product-sheet-handle` slimmed 72→52px; `.product-sheet .product-stage` padded bottom so the grid clears the input when open.
+  - `#messages-container` padding-bottom reserves the whole cluster.
+- `components/ProductSheet.tsx`: `PEEK_PX` 72→52 to match the thin handle. (No-auto-open + mount-only-with-products from Session 044 retained.)
+- **Verified in DevTools mobile** (iPhone 390×844) via `puppeteer-core` driving system Chrome, with `/api/chat` mocked (4 hamper products) — NO live Anthropic call. Bounding rects: header 0–58 | input 639–716 | dock 720–780 | peek 793–845. Collapsed screenshot = header/messages/input/dock/thin-peek, no products; open screenshot = sheet with 2-col grid + "4 picks" collapse chevron. Both match the spec.
+- Removed `puppeteer-core` after (temp verification dep) — final diff only `globals.css` + `ProductSheet.tsx`. `tsc` EXIT=0. Commit `0101fb1`, pushed.
+
+### Gaps Identified
+- Verified with mocked product images (purple placeholders) — real Kapruka images load in prod.
+- iOS Safari keyboard-open not tested (the env(safe-area) handling should keep the input above the home indicator; confirm on device).
+
+### Mistakes & Lessons
+- Sessions 042/044 made input the bottom-most element; the user actually wanted peek handle bottom-most with input ABOVE the dock. Lesson: when a layout spec lists an explicit top→bottom order, build exactly that order rather than inferring "input at bottom = most reachable."
+- puppeteer-core + system Chrome (executablePath) + request interception is a reliable, zero-cost way to capture DevTools-mobile screenshots and bounding-rect geometry without any API spend — good pattern for future visual verification.
+
+### Next Steps
+- On-device iOS/Android QA (keyboard, swipe physics, safe-area).
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
