@@ -1766,3 +1766,23 @@ Built the branded intro animation that plays before onboarding.
 - Live-verify against the MCP: state a Rs. 6,000 flower budget and confirm Be Mine / Love In Bloom / Whispers Of Love now surface, and the agent no longer claims nothing is available.
 - Consider widening the agent-visible set to 6 while keeping 4 cards if spread feels thin.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane -> stage, half-addressed), reconfirm Bug 2 (checkout URL).
+
+## Session 054 — 2026-06-15
+
+### What We Did
+- Fixed 3 critical bugs visible in screenshot (agent dumping raw product list, wrong products in stage, bouquet not appearing as card).
+- Root cause 1 (empty-ID dedup): MCP products have no id/product_id → normaliseProduct set id:"" → all empty-id products collapsed to key "" in shownProductIds Set → only first survived → freshProducts empty → old cake carousel stayed in stage. Fixed: normaliseProduct uses url as ID fallback; useChat dedup key is now p.id||p.name.
+- Root cause 2 (raw text dump): Model (Sonnet 4.6) reproduced the injected "AVAILABLE PRODUCTS:" block verbatim in its response. Added server-side regex strip in rawText cleanup and new "NEVER REPRODUCE THE PRODUCT LIST AS TEXT" rule at top of CRITICAL OUTPUT RULES in system_prompt.md + WHAT YOU NEVER DO.
+- Root cause 3 (stale stage): Consequence of root cause 1 — no freshProducts = no new "products" chatItem = stageProducts walked back to old cakes turn.
+- Push blocked: karuchehan/kapruka-agent not visible in gh repo list (private repo not listed). Switched active gh account to karuchehan, then git push origin main succeeded. Repo exists and is private.
+
+### Gaps Identified
+- The `gh repo list` command didn't show private repos — caused confusion. Repo was always there.
+- Server-side product dump strip uses regex on the message text; if model output format changes the regex may not catch it. System prompt rule is the primary defence.
+
+### Mistakes & Lessons
+- gh auth was on gtmkaru account — needed `gh auth switch --user karuchehan` before push. Remember: always check `gh auth status` active account before push operations.
+
+### Next Steps
+- Live-verify: flower search with Rs. 6,000 budget should now show bouquet cards (not raw text) with correct products in stage.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left pane → stage, half-addressed), reconfirm Bug 2 (checkout URL).
