@@ -45,6 +45,10 @@ const BUNDLE_RE   = /\[BUNDLE:\s*true\]/i;
 // the order. Boolean signal only — the actual checkout URL is built client-side
 // from the cart (the items the user added), never from the model.
 const ORDER_RE    = /\[ORDER_CONFIRMED:\s*true\]/i;
+// Emitted (one per item) when the user agrees to add a specific product. The
+// captured name is resolved server-side to a real product so the client can sync
+// the cart dock + build checkout from the actual items. Global — multiple adds.
+const ADD_RE      = /\[ADD_TO_CART:\s*([^\]\n]+)\]/gi;
 
 // ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
 
@@ -717,6 +721,7 @@ export async function POST(req: Request) {
   let giftMessage = false;
   let bundle: BundleInfo | null = null;
   let orderConfirmed = false;
+  const addedProducts: Product[] = [];
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -755,6 +760,30 @@ export async function POST(req: Request) {
     }
     if (GIFT_RE.test(rawText)) giftMessage = true;
     if (ORDER_RE.test(rawText)) orderConfirmed = true;
+
+    // [ADD_TO_CART: name] — resolve each confirmed add to a real product from this
+    // turn's results or the last carousel, so the client syncs the cart + dock.
+    // Done BEFORE the bundle reset below so `products` is still populated.
+    {
+      const pool = [...products, ...priorProducts];
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const seen = new Set<string>();
+      let m: RegExpExecArray | null;
+      ADD_RE.lastIndex = 0;
+      while ((m = ADD_RE.exec(rawText)) !== null) {
+        const want = norm(m[1]);
+        if (!want) continue;
+        const match =
+          pool.find((p) => norm(p.name) === want) ||
+          pool.find((p) => { const n = norm(p.name); return !!n && (n.includes(want) || want.includes(n)); });
+        if (!match) continue;
+        const key = match.id || norm(match.name);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        addedProducts.push(match);
+      }
+    }
+
     if (BUNDLE_RE.test(rawText) && products.length >= 2) {
       const total = products.reduce((s, p) => s + Number(p.price || 0), 0);
       bundle = { title: "A bundle made for the occasion", items: products, total };
@@ -769,6 +798,7 @@ export async function POST(req: Request) {
         .replace(GIFT_RE, "")
         .replace(BUNDLE_RE, "")
         .replace(ORDER_RE, "")
+        .replace(ADD_RE, "")
         .trim(),
       3
     );
@@ -778,5 +808,5 @@ export async function POST(req: Request) {
     return Response.json({ error: (err as Error).message || "Internal server error" }, { status });
   }
 
-  return Response.json({ message, products, checkoutUrl, delivery, occasion, giftMessage, bundle, orderConfirmed });
+  return Response.json({ message, products, checkoutUrl, delivery, occasion, giftMessage, bundle, orderConfirmed, addedProducts });
 }

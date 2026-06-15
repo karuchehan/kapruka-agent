@@ -5,7 +5,7 @@ import type { ChatItem, ApiMessage, UserProfile, RecipientProfile, Product } fro
 let _id = 0;
 const uid = () => `ci-${++_id}`;
 
-export function useChat() {
+export function useChat(onCartAdd?: (product: Product) => void) {
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -170,6 +170,12 @@ export function useChat() {
         }
         return [...base, ...additions];
       });
+
+      // Agent confirmed adding items → sync them into the cart (dock + checkout).
+      // Runs once per response (not in a setState updater) so it's StrictMode-safe.
+      if (onCartAdd && Array.isArray(data.addedProducts)) {
+        for (const p of data.addedProducts as Product[]) onCartAdd(p);
+      }
 
       if (data.message) {
         setApiMessages((prev) => [...prev, { role: "assistant", content: data.message }]);

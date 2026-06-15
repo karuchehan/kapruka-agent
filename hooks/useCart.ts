@@ -19,6 +19,17 @@ export function useCart() {
     });
   }
 
+  // Add only if not already present (by id). Used for marker-driven syncs from
+  // the chat flow, which can re-resolve the same item — and to avoid double-adds
+  // when a stage-button click ALSO produces an [ADD_TO_CART] marker round-trip.
+  function addToCartUnique(product: Product) {
+    setCart((prev) => {
+      const key = product.id || product.name;
+      if (prev.some((i) => (i.product.id || i.product.name) === key)) return prev;
+      return [...prev, { product, quantity: 1 }];
+    });
+  }
+
   function removeFromCart(productId: string) {
     setCart((prev) => prev.filter((i) => i.product.id !== productId));
   }
@@ -34,6 +45,7 @@ export function useCart() {
     pendingCheckoutUrl,
     setPendingCheckoutUrl,
     addToCart,
+    addToCartUnique,
     removeFromCart,
     openCart: () => setIsCartOpen(true),
     closeCart: () => setIsCartOpen(false),
