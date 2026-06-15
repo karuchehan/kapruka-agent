@@ -1648,52 +1648,65 @@ html, body {
     border-right: none;
   }
 
-  /* Product grid (rendered inside the sheet) tightens for narrow screens. */
   .product-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
-
-  /* Last bubble clears the fixed input bar (≈72px). When the peek handle is
-     showing (root.has-products) reserve extra room so the last bubble clears it. */
-  #messages-container { padding: 16px 14px calc(84px + env(safe-area-inset-bottom)); }
-  :root.has-products #messages-container { padding-bottom: calc(156px + env(safe-area-inset-bottom)); }
   .message-bubble { max-width: 88%; font-size: 14px; }
 
-  /* CRITICAL: the input bar is the BOTTOM-MOST element the user can see + tap.
-     Pinned to the very bottom, removed from the chat-panel flow (so the messages
-     list owns the remaining height), with the highest z-index of the bottom
-     cluster (scrim 70 < sheet 75 < dock 80 < input 90) so the peek handle, dock,
-     and scrim can NEVER cover it. Opaque so messages don't show through. */
+  /* ── MOBILE BOTTOM CLUSTER (stacked, fixed) ──────────────────────────────────
+     From the viewport bottom UP: peek handle → cart dock → input bar. The chat
+     panel (header + scrolling messages) fills everything above. Sized via vars so
+     each piece stacks with no magic numbers. --m-peek collapses to 0 when there
+     are no products (no sheet/handle), so the dock + input drop toward the bottom. */
+  :root {
+    --m-peek: 0px;          /* peek handle height — 0 until products arrive */
+    --m-dock-h: 52px;       /* cart dock pill height */
+    --m-input-h: 60px;      /* input bar height */
+    --m-gap: 12px;
+    --m-safe: env(safe-area-inset-bottom);
+  }
+  :root.has-products { --m-peek: 52px; }
+
+  /* Messages fill between header and the input bar; pad so the last bubble clears
+     the whole bottom cluster (peek + dock + input + gaps). */
+  #messages-container {
+    padding: 16px 14px calc(var(--m-peek) + var(--m-dock-h) + var(--m-input-h) + 4 * var(--m-gap) + var(--m-safe));
+  }
+
+  /* Input bar — fixed, ALWAYS visible, sits just above the cart dock. Highest z
+     of the cluster so nothing can cover it. */
   #input-area {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: calc(var(--m-peek) + var(--m-dock-h) + 2 * var(--m-gap) + var(--m-safe));
     z-index: 90;
-    padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+    padding: 8px 14px;
     background: var(--bg-primary);
   }
+  /* Sheet open → dock hides, so drop the input to the very bottom where it floats
+     under the product grid (which is padded to clear it). */
+  :root.sheet-open #input-area { bottom: calc(var(--m-gap) + var(--m-safe)); }
 
-  /* Lift the bottom sheet so its 72px peek handle rests ABOVE the input bar
-     (the GSAP peek translate is height-relative, so this CSS offset just shifts
-     the whole sheet up — drag math is unaffected). */
-  .product-sheet { bottom: calc(72px + env(safe-area-inset-bottom)); }
-
+  /* Cart dock — just below the input, just above the peek handle. */
   .cart-dock-panel { width: 92vw; }
-
-  /* No products yet → no peek handle, so the dock sits just above the input bar.
-     Once products arrive (root.has-products) the peek handle appears, so the dock
-     rises to clear input (72px) + peek (72px). Hidden while the sheet is open. */
   .cart-dock {
-    bottom: calc(72px + 16px + env(safe-area-inset-bottom));
+    bottom: calc(var(--m-peek) + var(--m-gap) + var(--m-safe));
+    z-index: 80;
     transition: opacity 0.25s ease, transform 0.25s ease;
-  }
-  :root.has-products .cart-dock {
-    bottom: calc(72px + 72px + 16px + env(safe-area-inset-bottom));
   }
   :root.sheet-open .cart-dock {
     opacity: 0;
     pointer-events: none;
     transform: translateX(-50%) translateY(16px);
   }
+
+  /* Product sheet — the peek handle is the VERY bottom element: a thin drag strip
+     showing "N picks". Products are off-screen below until the user swipes up. */
+  .product-sheet { bottom: 0; }
+  .product-sheet-handle { height: 52px; padding-bottom: 0; }
+  .product-sheet-grabber { top: 7px; }
+  .product-sheet-label, .product-sheet-chevron { margin-top: 4px; }
+  /* When open, the grid clears the input bar pinned at the very bottom. */
+  .product-sheet .product-stage { padding-bottom: calc(var(--m-input-h) + 2 * var(--m-gap) + var(--m-safe)); }
 
   .onboarding-inner { gap: 24px; }
   .brand-name { font-size: 22px; }

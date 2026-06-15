@@ -14,7 +14,7 @@ interface Props {
 
 type SheetState = "PEEK" | "OPEN";
 
-const PEEK_PX = 72; // height of the handle bar visible when collapsed
+const PEEK_PX = 52; // height of the thin handle strip visible when collapsed
 const OPEN_VH = 0.85;
 const VELOCITY_THRESH = 0.5; // px/ms — a fast flick wins over the distance rule
 
