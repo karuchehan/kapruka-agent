@@ -1628,3 +1628,22 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Confirm on-device whether the auto-open symptom is actually gone (was not reproducible in source).
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 047 — 2026-06-15
+
+### What We Did
+- Fixed Bug 3 in `directives/system_prompt.md`: agent now asks for budget before suggesting products.
+- Added new "BUDGET-FIRST HARD RULE" section (after the existing BUDGET HARD RULE): when the user mentions a product category or gift/shopping intent but has NOT stated a budget/price range earlier in the conversation, the agent must ask "What's your budget for this?" before searching or showing products. One sentence, in the user's register.
+- Skip condition: any prior price signal ("around Rs. 5000", "under 2000", "cheap", "premium", "splurge") → go straight to products, never re-ask.
+- Sequencing rules: budget ask is the single clarifying question that turn; after the user answers, move straight to MODE A products within budget; no second qualifying question. Rule explicitly takes precedence over "never ask questions before showing products" but does NOT override MODE B / gifting-no-idea (still lead with budget that turn).
+- Mirrored the rule as an entry in WHAT YOU NEVER DO, and documented it in the in-file changelog comment as `[budget_first]`.
+
+### Gaps Identified
+- Potential tension with existing "Maximum ONE clarifying exchange, then always move to products" (line ~37) — budget question now consumes that single exchange. Worded to make budget the priority question, but if a scenario needs BOTH budget and recipient unknown, only budget is asked first; recipient context is inferred from the user profile. Watch eval scenarios for cases where this feels like too little qualification.
+
+### Mistakes & Lessons
+- None. Directive-only (markdown) change — no tsc/overflow layout checks required (those apply to globals.css/layout/overflow edits).
+
+### Next Steps
+- Re-run eval scenarios to confirm budget-first does not regress the "show products fast" scenarios where a price signal was already present.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
