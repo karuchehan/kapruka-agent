@@ -8,6 +8,9 @@ interface Props {
   products: Product[];
   isLoading: boolean;
   onAddToCart: (product: Product) => void;
+  // Keys (id || name) of products currently in the cart — drives the permanent
+  // "Added ✓" state so it survives re-renders instead of a local timeout.
+  addedIds: Set<string>;
 }
 
 /**
@@ -16,7 +19,7 @@ interface Props {
  * already-mounted tiles are left untouched so the grid doesn't re-stagger on
  * every turn.
  */
-export function ProductStage({ products, isLoading, onAddToCart }: Props) {
+export function ProductStage({ products, isLoading, onAddToCart, addedIds }: Props) {
   const gridRef = useRef<HTMLDivElement>(null);
 
   // The stage REPLACES its contents each batch (not append), so re-animate every
@@ -59,7 +62,12 @@ export function ProductStage({ products, isLoading, onAddToCart }: Props) {
       {(hasProducts || isLoading) && (
         <div className="product-grid" ref={gridRef}>
           {products.map((p) => (
-            <StageCard key={p.id || p.name} product={p} onAddToCart={onAddToCart} />
+            <StageCard
+              key={p.id || p.name}
+              product={p}
+              onAddToCart={onAddToCart}
+              added={addedIds.has(p.id || p.name)}
+            />
           ))}
           {isLoading &&
             Array.from({ length: hasProducts ? 2 : 6 }).map((_, i) => (
@@ -77,14 +85,12 @@ export function ProductStage({ products, isLoading, onAddToCart }: Props) {
   );
 }
 
-function StageCard({ product, onAddToCart }: { product: Product; onAddToCart: (p: Product) => void }) {
-  const [added, setAdded] = useState(false);
+function StageCard({ product, onAddToCart, added }: { product: Product; onAddToCart: (p: Product) => void; added: boolean }) {
   const [imgError, setImgError] = useState(false);
 
   function handleAdd() {
+    if (added) return;
     onAddToCart(product);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
   }
 
   return (

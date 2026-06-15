@@ -9,6 +9,7 @@ interface Props {
   products: Product[];
   isLoading: boolean;
   onAddToCart: (product: Product) => void;
+  addedIds: Set<string>;
 }
 
 type SheetState = "PEEK" | "OPEN";
@@ -23,7 +24,7 @@ const VELOCITY_THRESH = 0.5; // px/ms — a fast flick wins over the distance ru
  * with the product grid scrolling inside. Auto-opens when a new product batch
  * arrives. Desktop never mounts this — ChatScreen renders ProductStage directly.
  */
-export function ProductSheet({ products, isLoading, onAddToCart }: Props) {
+export function ProductSheet({ products, isLoading, onAddToCart, addedIds }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<SheetState>("PEEK");
@@ -162,7 +163,7 @@ export function ProductSheet({ products, isLoading, onAddToCart }: Props) {
           </span>
         </div>
         <div className="product-sheet-body">
-          <ProductStage products={products} isLoading={isLoading} onAddToCart={onAddToCart} />
+          <ProductStage products={products} isLoading={isLoading} onAddToCart={onAddToCart} addedIds={addedIds} />
         </div>
       </section>
     </>

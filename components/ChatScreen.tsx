@@ -35,6 +35,14 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // that confirms the order can build the checkout card from real cart items.
   const cartProducts = useMemo(() => cart.map((i) => i.product), [cart]);
 
+  // Keys of products in the cart (id || name — same key the cart dedupes on).
+  // Drives each stage card's permanent "Added ✓" state from real cart membership
+  // rather than a local timeout, so it never reverts.
+  const cartIds = useMemo(
+    () => new Set(cart.map((i) => i.product.id || i.product.name)),
+    [cart]
+  );
+
   useEffect(() => {
     initWithOnboarding(obMessages);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -128,9 +136,9 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
       </div>
 
       {isMobile ? (
-        <ProductSheet products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} />
+        <ProductSheet products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} addedIds={cartIds} />
       ) : (
-        <ProductStage products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} />
+        <ProductStage products={stageProducts} isLoading={isSending} onAddToCart={handleAddToCart} addedIds={cartIds} />
       )}
 
       <CartDock
