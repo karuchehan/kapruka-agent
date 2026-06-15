@@ -1647,3 +1647,22 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Re-run eval scenarios to confirm budget-first does not regress the "show products fast" scenarios where a price signal was already present.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 048 — 2026-06-15
+
+### What We Did
+- Fixed Bug 5 in `directives/system_prompt.md`: agent now requires a full delivery address, not just a city name.
+- Added "FULL ADDRESS HARD RULE" inside the DELIVERY section: when the user gives only a city/area ("deliver to Kandy"), the agent must ask for the full address — street, area, city — before running any delivery check or proceeding to checkout.
+- Carved the boundary: a bare city is enough only for general feasibility/category talk (e.g. "same-day to Kandy works for flowers and cakes"), NEVER enough to run an actual delivery check, confirm a delivery date, or place/confirm an order.
+- Sample ask wording given (one sentence, user's register): "Could you share the full delivery address — street, area, and city, Nimal? Then I can lock in the delivery." Once given, never re-ask.
+- Reinforced in CART AND CHECKOUT ("Before checkout: confirm the FULL delivery address ... not just a city name") and added a WHAT YOU NEVER DO entry. Documented as `[full_address]` in the in-file changelog comment.
+
+### Gaps Identified
+- Tension to watch with existing SAME-DAY / DEADLINE delivery rules that ask "which city" — those still stand for feasibility framing; full address is a separate, later gate before the actual check/checkout. Eval scenarios should confirm the agent doesn't now ask for full address too early (before the user has even chosen a product).
+
+### Mistakes & Lessons
+- None. Directive-only (markdown) change — no tsc/overflow layout checks required.
+
+### Next Steps
+- Re-run delivery eval scenarios (Kandy same-day, Sunday deadline) to confirm the full-address gate fires before checkout but doesn't disrupt the feasibility conversation.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage), reconfirm Bug 2 (checkout URL).
