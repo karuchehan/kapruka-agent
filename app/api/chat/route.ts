@@ -36,6 +36,25 @@ export const maxDuration = 60;
 
 const CHECKOUT_RE = /\[CHECKOUT_URL\](https?:\/\/[^\s]+)\[\/CHECKOUT_URL\]/;
 
+// ── SESSION SEARCH CACHE ──────────────────────────────────────────────────────
+// Module-level map survives across Vercel Fluid Compute request reuses. Prevents
+// MCP non-determinism from returning different products for the same query within
+// a session. Key: `${sessionId}:${category}:${budget}:${occasion}`.
+const searchCache = new Map<string, { products: Product[]; ts: number }>();
+const CACHE_TTL_MS = 20 * 60 * 1000; // 20 min
+
+function cacheGet(key: string): Product[] | null {
+  const e = searchCache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.ts > CACHE_TTL_MS) { searchCache.delete(key); return null; }
+  return e.products;
+}
+function cacheSet(key: string, products: Product[]): void {
+  const now = Date.now();
+  for (const [k, v] of searchCache) if (now - v.ts > CACHE_TTL_MS) searchCache.delete(k);
+  searchCache.set(key, { products, ts: now });
+}
+
 // Hidden UI markers the agent appends to drive visual cards. Parsed + stripped
 // before the message is shown — same pattern as [CHECKOUT_URL].
 const OCCASION_RE = /\[OCCASION_DATE:\s*(\d{4}-\d{2}-\d{2})\]/i;
@@ -634,7 +653,8 @@ export async function POST(req: Request) {
     return Response.json({ error: `Server config error: ${PROMPT_LOAD_ERROR}` }, { status: 500 });
   }
 
-  const { messages, userProfile, recipientProfile, lastShownProducts } = await req.json();
+  const { messages, userProfile, recipientProfile, lastShownProducts, sessionId } = await req.json();
+  const sid = String(sessionId || "");
 
   if (!messages || !Array.isArray(messages)) {
     return Response.json({ error: "messages array required" }, { status: 400 });
@@ -666,6 +686,12 @@ export async function POST(req: Request) {
   const lastUserMsg = [...(messages as ApiMessage[])].reverse().find((m) => m.role === "user");
   const msgCats = lastUserMsg ? detectCategories(lastUserMsg.content) : [];
 
+  // When the current message names exactly one category, use that — it overrides
+  // the sticky conversation hint. E.g. "show me cakes" after flowers → msgCats[0]
+  // is "cake", not "flower". Without this, the sticky "flower" hint causes a flower
+  // re-search that returns already-deduplicated products → stage never updates.
+  const effectiveCat = msgCats.length === 1 ? msgCats[0] : categoryHint;
+
   // Recipient-gender gate. Derive male recipient from the USER text (relationship
   // nouns + pronouns) or the recipient profile. When the recipient is male AND
   // the user did not explicitly ask for flowers, drop floral bouquets from the
@@ -677,7 +703,7 @@ export async function POST(req: Request) {
     /\b(sister|her|she|female|woman|women|girl|mother|mom|mum|daughter|wife|aunt|niece|grandmother|grandma)\b/.test(userText) ||
     /\b(female|woman|women|girl)\b/.test((recipientProfile?.gender || "").toLowerCase());
   const explicitFlowerRequest =
-    categoryHint === "flower" || msgCats.includes("flower") || /\b(flower|bouquet|roses?|floral|bloom)\b/.test(userText);
+    effectiveCat === "flower" || msgCats.includes("flower") || /\b(flower|bouquet|roses?|floral|bloom)\b/.test(userText);
   const dropFloral = recipientMale && !recipientFemale && !explicitFlowerRequest;
 
   // Occasion-based negative filter: strip funeral/sympathy/get-well items when
@@ -714,14 +740,25 @@ export async function POST(req: Request) {
     } else if (intent.type === "search" && (intent as { query?: string }).query) {
       const baseQuery = (intent as { query: string }).query;
 
-      // Flower category: use parallel multi-query search instead of single query.
-      // A bare "flowers" query returns popularity-ranked (expensive) results; cheap
-      // bouquets (Rs.4,200–4,400) exist on Kapruka but rank below the limit.
-      // searchFlowersParallel fires 4 queries in parallel, pools ~60 candidates,
-      // dedupes, and sorts price-asc when a budget is set.
-      if (categoryHint === "flower") {
-        const flowerPool = await searchFlowersParallel(convText, budget, excludeSympathy);
-        products = pickForCards(flowerPool, budget);
+      // Cache key: stable for the same category + budget + occasion within a session.
+      // Prevents MCP non-determinism from surfacing different products each turn.
+      const occForKey = OCCASION_WORDS.find((o) => new RegExp(`\\b${o}\\b`).test(convText)) ?? "";
+      const cacheKey = `${sid}:${effectiveCat ?? baseQuery}:${budget ?? ""}:${occForKey}`;
+
+      // Flower category: use parallel multi-query search. A bare "flowers" query
+      // returns popularity-ranked (expensive) results; cheap bouquets exist but rank
+      // below the limit. searchFlowersParallel fires 4 queries, pools ~60 candidates,
+      // dedupes, and sorts price-asc when a budget is set. Uses effectiveCat (not
+      // categoryHint) so "show me cakes" after flowers correctly triggers cake search.
+      if (effectiveCat === "flower") {
+        const cached = sid ? cacheGet(cacheKey) : null;
+        if (cached) {
+          products = pickForCards(cached, budget);
+        } else {
+          const flowerPool = await searchFlowersParallel(convText, budget, excludeSympathy);
+          if (sid && flowerPool.length) cacheSet(cacheKey, flowerPool);
+          products = pickForCards(flowerPool, budget);
+        }
       } else {
       // Enrich the MCP query in a book flow. A bare genre word ("adventure")
       // makes MCP rank adventure-themed CAKES/GAMES first. The phrasing
@@ -731,16 +768,21 @@ export async function POST(req: Request) {
       // regresses to piano courses). Keep the gate's queryTokens as the raw
       // genre so relevance still matches on the genre, not on "book".
       const childPrefix =
-        categoryHint === "book" && recipientProfile?.age != null && recipientProfile.age <= 12
+        effectiveCat === "book" && recipientProfile?.age != null && recipientProfile.age <= 12
           ? "kids "
           : "";
       const searchQuery =
-        categoryHint === "book"
+        effectiveCat === "book"
           ? `${childPrefix}${baseQuery} books`.trim()
-          : categoryHint && categoryHint in CATEGORY_TERMS
-            ? categoryQuery(categoryHint, convText) // explicit category, no gender prefix
+          : effectiveCat && effectiveCat in CATEGORY_TERMS
+            ? categoryQuery(effectiveCat, convText) // explicit category, no gender prefix
             : enrichGenericQuery(baseQuery, recipientProfile, convText);
 
+      // Check cache before hitting MCP
+      const cachedNonFlower = sid ? cacheGet(cacheKey) : null;
+      if (cachedNonFlower) {
+        products = pickForCards(cachedNonFlower, budget);
+      } else {
       const result = await callMCP("search_products", {
         q:             searchQuery,
         limit:         15,
@@ -755,7 +797,7 @@ export async function POST(req: Request) {
       // that a narrow query + small limit used to bury.
       const queryTokens = baseQuery.split(/\s+/);
       if (result.results?.length) {
-        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, categoryHint, excludeSympathy, dropFloral);
+        const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, effectiveCat, excludeSympathy, dropFloral);
         products = pickForCards(candidates, budget);
       }
 
@@ -771,13 +813,13 @@ export async function POST(req: Request) {
         if (fallbackQ && fallbackQ !== baseQuery) {
           try {
             const fallbackSearchQ =
-              categoryHint === "book"
+              effectiveCat === "book"
                 ? `${childPrefix}${fallbackQ} books`.trim()
-                : categoryHint && categoryHint in CATEGORY_TERMS
-                  ? categoryQuery(categoryHint, convText)
+                : effectiveCat && effectiveCat in CATEGORY_TERMS
+                  ? categoryQuery(effectiveCat, convText)
                   : enrichGenericQuery(fallbackQ, recipientProfile, convText);
             const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 15, in_stock_only: true, sort: "relevance" });
-            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, categoryHint, excludeSympathy, dropFloral);
+            const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, effectiveCat, excludeSympathy, dropFloral);
             const pick2 = pickForCards(c2, budget);
             // Prefer the retry only if it gives more cards OR more within-budget cards.
             if (pick2.length > products.length || withinBudget(pick2).length > withinBudget(products).length) {
@@ -790,15 +832,19 @@ export async function POST(req: Request) {
       // Budget broaden: if a budget was stated and STILL nothing fits it, do one
       // last broad search (the bare category term, large limit) before the agent
       // tells the user nothing is available.
-      if (budget != null && categoryHint && categoryHint in CATEGORY_TERMS && withinBudget(products).length === 0) {
+      if (budget != null && effectiveCat && effectiveCat in CATEGORY_TERMS && withinBudget(products).length === 0) {
         try {
-          const broadQ = categoryQuery(categoryHint, ""); // bare category term, no narrowing
+          const broadQ = categoryQuery(effectiveCat, ""); // bare category term, no narrowing
           const rb = await callMCP("search_products", { q: broadQ, limit: 15, in_stock_only: true, sort: "relevance" });
-          const cb = filterProducts<Product>((rb.results || []).map(normaliseProduct), budget, [categoryHint], categoryHint, excludeSympathy, dropFloral);
+          const cb = filterProducts<Product>((rb.results || []).map(normaliseProduct), budget, [effectiveCat], effectiveCat, excludeSympathy, dropFloral);
           const within = withinBudget(cb);
           if (within.length) products = within.slice(0, 4);
         } catch { /* best-effort */ }
       }
+
+      // Store successful result in cache
+      if (sid && products.length) cacheSet(cacheKey, products);
+      } // end cache-miss block
       } // end non-flower branch
     } else if (intent.type === "track" && (intent as { orderNumber?: string }).orderNumber) {
       trackingData = await callMCP("track_order", { order_number: (intent as { orderNumber: string }).orderNumber });

@@ -25,12 +25,16 @@ export function useChat(onCartAdd?: (product: Product) => void) {
   // later turns, which was making the chip reappear randomly. Reset only on a
   // new session.
   const occasionShown = useRef(false);
+  // Unique ID for this chat session — sent with each request so the server can
+  // key its search result cache per session. Generated fresh on every new session.
+  const sessionId = useRef<string>("");
 
   function initWithOnboarding(messages: ApiMessage[]) {
     shownProductIds.current = new Set(); // new session — clear dedupe history
     lastShownProducts.current = [];
     giftMessageShown.current = false;
     occasionShown.current = false;
+    sessionId.current = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     setApiMessages(messages);
     // Show the final onboarding agent message as the chat screen's welcome bubble
     const lastAgent = [...messages].reverse().find((m) => m.role === "assistant");
@@ -79,6 +83,7 @@ export function useChat(onCartAdd?: (product: Product) => void) {
           userProfile,
           recipientProfile,
           lastShownProducts: lastShownProducts.current,
+          sessionId: sessionId.current,
         }),
       });
       clearTimeout(clientTimeout);
