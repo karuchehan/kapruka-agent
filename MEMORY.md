@@ -1744,3 +1744,25 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Re-run end-to-end gifting eval: add item -> offer note -> address -> confirm the agent then nudges to checkout in the very next turn without being asked.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane -> stage, half-addressed), reconfirm Bug 2 (checkout URL).
+
+## Session 053 — 2026-06-15
+
+### What We Did
+- Fixed the critical MCP search budget bug: agent said "nothing under Rs. 6,000" while in-budget bouquets (Be Mine Rs. 4,200, Love In Bloom Rs. 4,400, Whispers Of Love Rs. 4,200) existed on the live Kapruka site.
+- Root cause (in `app/api/chat/route.ts` + `lib/productFilter.ts`): MCP search `limit: 8` (too small) combined with a HARD client-side budget cut in `filterProducts` (`out = out.filter(p => p.price <= budget)`). On a narrow query MCP's relevance ranking surfaced pricier items in the top 8, so cheap in-budget items never entered the pool, then the hard cut discarded the rest.
+- Fix 1 — limits: raised `search_products` `limit` 8 -> 15 in `searchCategory` (was line 264), the main single-category search (was line 662), and the thin-results fallback (was line 690).
+- Fix 2 — soft budget: `filterProducts` no longer DROPS over-budget items; it orders within-budget first (relevance preserved within each group), keeping the cheap options in the pool. New module-level `pickForCards(candidates, budget)` selects within-budget items for the visible cards (max 4) when any exist — so we still never SHOW an over-budget product — else returns top candidates so the agent stays honest / a retry fires. Main search now uses `pickForCards`.
+- Fix 3 — auto-retry/broaden: the `< 2` fallback now ALSO triggers when a budget is stated and zero current results fit it; it picks via `pickForCards` and keeps the retry only if it yields more cards OR more within-budget cards. Added a final budget-broaden step: if still nothing within budget, re-search the bare category term (`categoryQuery(cat, "")`, limit 15) and use within-budget results — only then can the agent say nothing is available.
+- Multi-category (bundle) path: after dedupe it now prefers within-budget items for cards (since the pool keeps over-budget items now).
+
+### Gaps Identified
+- `pickForCards` slices to 4; with limit 15 there are more in-budget candidates than shown — fine for UI but the agent only sees the 4 in `products`. If judges want a wider spread, consider passing more (e.g. 6) to the system prompt while keeping cards at 4.
+- Budget extraction (`extractBudget`) regex unchanged — if a user phrases budget oddly it returns null and none of this budget logic engages. Not touched this session.
+
+### Mistakes & Lessons
+- tsc clean. No CSS/layout touched, so the 4 layout checks are N/A (only globals.css/layout/overflow edits require them). Pre-cleaned stray `.next/...* 2.*` artifacts before tsc as usual.
+
+### Next Steps
+- Live-verify against the MCP: state a Rs. 6,000 flower budget and confirm Be Mine / Love In Bloom / Whispers Of Love now surface, and the agent no longer claims nothing is available.
+- Consider widening the agent-visible set to 6 while keeping 4 cards if spread feels thin.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane -> stage, half-addressed), reconfirm Bug 2 (checkout URL).
