@@ -1725,3 +1725,22 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Verify in-app: ask for a bundle (e.g. flowers + cake + chocolates) and confirm the named items render on the stage immediately, no follow-up needed.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane → stage — now partially addressed), reconfirm Bug 2 (checkout URL).
+
+## Session 052 — 2026-06-15
+
+### What We Did
+- Fixed Bug 8 in `directives/system_prompt.md`: agent now proactively nudges to checkout instead of waiting for the user to ask.
+- Added "PROACTIVE CHECKOUT — HARD RULE" to the CART AND CHECKOUT section. Trigger: item in cart AND full delivery address confirmed AND (for gifts) gift message written or declined → the agent's very next response must casually move toward checkout.
+- Wording: one line, user's register, e.g. "Ready to head to checkout?" (Tanglish variant given).
+- Guardrails: verbal nudge only — NOT the [ORDER_CONFIRMED: true] tag (that still fires only after the user actually confirms, per HIDDEN UI MARKERS). Self-purchase has no gift-message step (cart + address is enough). If the user already declined/hesitated, defer to the existing CHECKOUT NUDGE rule instead of re-pushing.
+- Documented as `[proactive_checkout]` in the in-file changelog comment.
+
+### Gaps Identified
+- "All details collected" is model-tracked across turns (cart state, address confirmed, gift-message resolved) — no deterministic gate. Same tradeoff as the gift-message and budget one-shots. Watch evals for premature nudges (before address) or missed nudges.
+
+### Mistakes & Lessons
+- None. Directive-only (markdown) change — no tsc/overflow layout checks required.
+
+### Next Steps
+- Re-run end-to-end gifting eval: add item -> offer note -> address -> confirm the agent then nudges to checkout in the very next turn without being asked.
+- Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left chat pane -> stage, half-addressed), reconfirm Bug 2 (checkout URL).
