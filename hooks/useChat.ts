@@ -25,6 +25,10 @@ export function useChat(onCartAdd?: (product: Product) => void) {
   // later turns, which was making the chip reappear randomly. Reset only on a
   // new session.
   const occasionShown = useRef(false);
+  // Checkout card is one-shot: only render the FIRST time ORDER_CONFIRMED fires.
+  // Prevents a second checkout card (and a second window.open) if the agent
+  // re-emits [ORDER_CONFIRMED: true] on a follow-up turn.
+  const checkoutShown = useRef(false);
   // Unique ID for this chat session — sent with each request so the server can
   // key its search result cache per session. Generated fresh on every new session.
   const sessionId = useRef<string>("");
@@ -34,6 +38,7 @@ export function useChat(onCartAdd?: (product: Product) => void) {
     lastShownProducts.current = [];
     giftMessageShown.current = false;
     occasionShown.current = false;
+    checkoutShown.current = false;
     sessionId.current = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     setApiMessages(messages);
     // Show the final onboarding agent message as the chat screen's welcome bubble
@@ -147,9 +152,11 @@ export function useChat(onCartAdd?: (product: Product) => void) {
 
       // Order confirmed → build a checkout card from the CART (the items the user
       // actually added). Fall back to the last carousel if the cart is empty.
-      // URL comes from the product page, never from the model. Decided outside the
-      // updater (StrictMode double-invoke safe), same as showGift / freshProducts.
-      const showCheckout = !!data.orderConfirmed;
+      // URL comes from the product page, never from the model. One-shot guard same
+      // as showGift — prevents a second card + second window.open if the agent
+      // re-emits [ORDER_CONFIRMED: true] on a follow-up turn.
+      const showCheckout = !!data.orderConfirmed && !checkoutShown.current;
+      if (showCheckout) checkoutShown.current = true;
       let checkoutItems: Product[] = [];
       let checkoutPrimaryUrl = "";
       if (showCheckout) {
