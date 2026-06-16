@@ -556,7 +556,7 @@ function buildSystemPrompt(
 
 // ── PRODUCT NORMALISE ─────────────────────────────────────────────────────────
 
-interface Product { id: string; name: string; price: number; image_url: string; url: string; category?: string; summary?: string; }
+interface Product { id: string; name: string; price: number; image_url: string; url: string; category?: string; summary?: string; in_stock?: boolean; }
 
 function normaliseProduct(p: Record<string, unknown>): Product {
   const rawPrice = (p.price ?? p.sale_price ?? p.regular_price ?? 0) as number | { amount?: number };
@@ -568,6 +568,13 @@ function normaliseProduct(p: Record<string, unknown>): Product {
   const category = typeof cat === "object" && cat !== null
     ? String((cat as { name?: string }).name || "")
     : String(cat || p.category_name || p.type || "");
+  // Resolve stock status from whatever field MCP returns.
+  // Treat undefined (field absent) as in-stock so in_stock_only=true handles it at source.
+  const stockRaw = p.in_stock ?? p.available ?? p.is_available ?? p.stock_status ?? p.availability;
+  const in_stock = stockRaw === undefined ? true
+    : typeof stockRaw === "boolean"  ? stockRaw
+    : typeof stockRaw === "number"   ? stockRaw > 0
+    : !/out.?of.?stock|unavailable/i.test(String(stockRaw));
   return {
     // Use url as final fallback — every Kapruka product has a unique URL even
     // when the MCP omits the numeric id field. Prevents all no-id products from
@@ -579,6 +586,7 @@ function normaliseProduct(p: Record<string, unknown>): Product {
     url:       String(p.url || p.product_url || p.link || ""),
     category,
     summary:   String(p.summary || p.description || p.short_description || ""),
+    in_stock,
   };
 }
 

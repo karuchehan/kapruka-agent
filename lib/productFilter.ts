@@ -9,6 +9,7 @@ interface FilterableProduct {
   image_url: string;
   category?: string;
   summary?: string;
+  in_stock?: boolean;
 }
 
 interface BudgetMessage {
@@ -142,6 +143,7 @@ export function isJunkProduct(p: FilterableProduct): boolean {
   if (!p.image_url || !p.image_url.trim()) return true;
   if (!(p.price > 0)) return true;
   if (isVendorName(p.name)) return true;
+  if (p.in_stock === false) return true;
   return false;
 }
 
