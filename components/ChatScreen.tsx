@@ -20,12 +20,17 @@ interface Props {
 }
 
 export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQuery }: Props) {
-  const { cart, cartCount, cartTotal, pendingCheckoutUrl, setPendingCheckoutUrl, addToCart, addToCartUnique, removeFromCart } = useCart();
+  const { cart, cartCount, cartTotal, pendingCheckoutUrl, setPendingCheckoutUrl, addToCart, addToCartUnique, removeFromCart, removeFromCartByKey } = useCart();
   // Marker-driven adds from the chat flow sync via addToCartUnique (idempotent),
   // so conversational "add the cake" reaches the dock + checkout — not just the
   // stage button. Unique guard also prevents a button click that ALSO triggers an
   // [ADD_TO_CART] round-trip from double-counting.
-  const { chatItems, apiMessages, isSending, sendMessage, initWithOnboarding } = useChat(addToCartUnique);
+  // Marker-driven removes use removeFromCartByKey keyed by id||name — handles
+  // MCP products whose id field is empty (would never match a removeFromCart call).
+  const { chatItems, apiMessages, isSending, sendMessage, initWithOnboarding } = useChat(
+    addToCartUnique,
+    (product) => removeFromCartByKey(product.id || product.name)
+  );
   const { voiceEnabled, speak, toggleVoice, speakingId } = useVoiceOutput();
   const isMobile = useMediaQuery("(max-width: 720px)");
   const initialSent = useRef(false);

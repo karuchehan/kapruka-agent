@@ -34,6 +34,12 @@ export function useCart() {
     setCart((prev) => prev.filter((i) => i.product.id !== productId));
   }
 
+  // Remove by the id||name composite key — used by the chat-driven remove flow
+  // where products may have an empty id field (MCP omits numeric id frequently).
+  function removeFromCartByKey(key: string) {
+    setCart((prev) => prev.filter((i) => (i.product.id || i.product.name) !== key));
+  }
+
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + (i.product.price || 0) * i.quantity, 0);
 
@@ -47,6 +53,7 @@ export function useCart() {
     addToCart,
     addToCartUnique,
     removeFromCart,
+    removeFromCartByKey,
     openCart: () => setIsCartOpen(true),
     closeCart: () => setIsCartOpen(false),
   };

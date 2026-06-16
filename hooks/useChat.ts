@@ -5,7 +5,7 @@ import type { ChatItem, ApiMessage, UserProfile, RecipientProfile, Product } fro
 let _id = 0;
 const uid = () => `ci-${++_id}`;
 
-export function useChat(onCartAdd?: (product: Product) => void) {
+export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (product: Product) => void) {
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -205,6 +205,11 @@ export function useChat(onCartAdd?: (product: Product) => void) {
       // Runs once per response (not in a setState updater) so it's StrictMode-safe.
       if (onCartAdd && Array.isArray(data.addedProducts)) {
         for (const p of data.addedProducts as Product[]) onCartAdd(p);
+      }
+
+      // Agent confirmed removing items → remove them from the cart dock.
+      if (onCartRemove && Array.isArray(data.removedProducts)) {
+        for (const p of data.removedProducts as Product[]) onCartRemove(p);
       }
 
       if (data.message) {
