@@ -1786,3 +1786,152 @@ Built the branded intro animation that plays before onboarding.
 ### Next Steps
 - Live-verify: flower search with Rs. 6,000 budget should now show bouquet cards (not raw text) with correct products in stage.
 - Remaining queued bugs: Bug 1 (bundle grouping wrong), Bug 6 (bundle cards in left pane → stage, half-addressed), reconfirm Bug 2 (checkout URL).
+
+## Session 055 — 2026-06-15
+
+### What We Did
+- FIX 1 (budget ask timing): Removed BUDGET-FIRST HARD RULE (mandatory ask-budget-before-products gate) from `directives/system_prompt.md`. Replaced with BUDGET — NATURAL FLOW: budget is now asked casually after occasion/recipient context is established, as part of the conversational flow. Example phrasing: "Lovely! Any budget in mind or shall I show you a range?" — one line, never a standalone interrogation. If user skips budget or says "show me a range", agent shows products spanning affordable to premium immediately. No budget ask before knowing who the gift is for.
+- FIX 2 (occasion chip at checkout): Two changes:
+  1. `app/api/chat/route.ts`: parse ORDER_CONFIRMED before OCCASION_DATE; suppress occasion chip when orderConfirmed is true (`const om = !orderConfirmed ? rawText.match(OCCASION_RE) : null`). Prevents the "Birthday Today!" chip appearing for the first time alongside the checkout card.
+  2. `directives/system_prompt.md`: changed `[OCCASION_DATE]` rule from "at most once per message" to "at most once per conversation — emit only when date is FIRST mentioned, never in subsequent turns or checkout responses."
+- Commit `2e4c3c0` → pushed.
+
+### Mistakes & Lessons
+- None. Two-file change (route.ts + system_prompt.md). TS clean; layout checks N/A (no CSS touched).
+
+### Next Steps
+- Live-verify: budget question should now come naturally in conversation after occasion context, not as immediate gating question.
+- Live-verify: "Birthday Today!" chip should appear early in conversation when date first mentioned, not at checkout.
+- Remaining queued: Bug 1 (bundle grouping), Bug 6 (bundle cards in left pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 056 — 2026-06-15
+
+### What We Did
+- Fixed critical flower search bug: agent said "no flowers under Rs. 5,000" while Be Mine Rs.4,200, Love In Bloom Rs.4,400, Whispers Of Love Rs.4,200 all exist on Kapruka.
+- Root cause: single `"flowers"` MCP query returns popularity-ranked (expensive) results. Cheap bouquets rank below limit 15. The budget-broaden fallback used same `"flowers"` query — no improvement.
+- Fix: Added `searchFlowersParallel()` in `app/api/chat/route.ts` — fires 4 queries in parallel: `"roses bouquet"`, `"flower bouquet"`, `"bouquet"`, `"flowers"` (optionally prefixed with detected occasion). Pools ~60 candidates, dedupes by id/name, filters for flower relevance, sorts price-asc when budget given.
+- `searchCategory("flower")` now delegates to `searchFlowersParallel` — covers bundle path too.
+- Single-category path: flower branch short-circuits the entire single-query + fallback + broaden chain.
+- `pickForCards()`: now sorts within-budget items price-asc — cheapest option always card 1 when budget set.
+- Commit `4d77ae4` → pushed.
+
+### Mistakes & Lessons
+- Fallback broaden was retrying with same `"flowers"` query — same ranking, same expensive results, useless as a fallback. Diverse query vocabulary is necessary for MCP's keyword-frequency ranking.
+- MCP `sort: "relevance"` = popularity/keyword frequency, NOT price. Never assume relevance-sorted = budget-sorted.
+
+### Next Steps
+- Live-verify: flower search with Rs. 4,000 or Rs. 5,000 budget should now surface Be Mine, Love In Bloom, Whispers Of Love as cards.
+- Remaining queued: Bug 1 (bundle grouping), Bug 6 (bundle cards in left pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 057 — 2026-06-15
+
+### What We Did
+- Fixed two bugs from screenshots (PDF: Screenshot 2026-06-15 at 17.03.43).
+
+BUG 1 — Stage not updating on category switch:
+- Root cause: `categoryHint` is derived from ALL user messages joined. After user asked for flowers, "flower" is in userText, so `categoryHint = "flower"` persists even when user says "show me cakes". The flower search returned already-deduplicated products → `freshProducts = []` → no new "products" chatItem → stage stuck on old flowers.
+- Fix: added `effectiveCat = msgCats.length === 1 ? msgCats[0] : categoryHint` in `route.ts`. When current message explicitly names one category, use that. Replaced all `categoryHint` references in single-category search path with `effectiveCat`.
+
+BUG 2 — MCP search inconsistency:
+- Fix: added module-level `searchCache Map<string, {products, ts}>` in `route.ts`. TTL 20 min. Key: `sessionId:category:budget:occasion`. `useChat.ts` generates `sessionId` per session on `initWithOnboarding`, sends with each request. Cache checked before MCP call, written after success. Same query now returns same products within session.
+
+- Commit `008fb19` → pushed.
+
+### Mistakes & Lessons
+- `effectiveCat` must be computed BEFORE `explicitFlowerRequest` so the dropFloral flag uses the correct category intent.
+- The sticky `categoryHint` is correct for follow-up questions ("tell me more about that") but must be overridden by an explicit current-message category — two separate concerns.
+
+### Next Steps
+- Live-verify: "show me cakes" after flowers should now update stage to cakes.
+- Live-verify: same flower search should return consistent results across turns.
+- Remaining queued: Bug 1 (bundle grouping), Bug 6 (bundle cards in left pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 058 — 2026-06-16
+
+### What We Did
+- Diagnosed: agent hallucinating product names/prices not in MCP results (e.g. "6 Red Rose Bouquet at Rs. 5,210" invented from training data while stage showed Rs.3,500–4,000 bouquets). Also pushing budget — saying "it's only slightly over" when user stated a hard limit.
+- Added two hard rules to CRITICAL OUTPUT RULES section in `directives/system_prompt.md`:
+  1. ONLY MENTION PRODUCTS FROM CURRENT AVAILABLE PRODUCTS LIST — never invent/recall/guess names or prices; LAST SHOWN PRODUCTS is context only, not a quote source; if empty say so honestly.
+  2. NEVER PUSH BUDGET — if budget stated, only show at or below; never suggest stretching; if nothing fits, be honest.
+- Both rules also reinforced in WHAT YOU NEVER DO.
+- Commit `b46731b` → pushed.
+
+### Mistakes & Lessons
+- Root cause of hallucination: agent uses LAST SHOWN PRODUCTS context to answer follow-ups but was also quoting those products BY NAME as if they were new results — and inventing prices/variants that didn't exist in either list. The rule clarifies: LAST SHOWN is read-only context; AVAILABLE PRODUCTS is the only source for named product mentions.
+
+### Next Steps
+- Live-verify: agent should only name products actually in the stage cards, with correct prices.
+- Monitor for budget-pushing recurrence.
+- Remaining queued: Bug 1 (bundle grouping), Bug 6 (bundle cards in left pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 059 — 2026-06-16
+
+### What We Did
+- Audited checkout auto-open in `components/ChatScreen.tsx`:
+  - `window.open` useEffect (line 70–81) is correctly gated: only fires when `last.type === "checkout"`, which is only added when `data.orderConfirmed` is true (from agent emitting `[ORDER_CONFIRMED: true]`). Also guarded by `openedCheckout` Set ref per item ID — no double-open on re-render. No change needed here.
+- Fixed: checkout card appearing more than once. Added `checkoutShown` ref to `hooks/useChat.ts` (same pattern as `giftMessageShown` / `occasionShown`). `showCheckout = !!data.orderConfirmed && !checkoutShown.current`. Flag flipped outside setState updater (StrictMode safe). Reset in `initWithOnboarding`.
+- Commit `ec4465f` → pushed.
+
+### Mistakes & Lessons
+- None. Clean audit + surgical one-shot guard addition.
+
+### Next Steps
+- Live-verify: checkout card appears exactly once per session; window.open fires exactly once.
+- Remaining queued: Bug 6 (bundle cards in left pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 060 — 2026-06-16
+
+### What We Did
+- Implemented `[REMOVE_FROM_CART: exact product name]` marker — same pattern as `[ADD_TO_CART]`.
+- `hooks/useCart.ts`: added `removeFromCartByKey(key: string)` — filters cart by `(product.id || product.name) !== key`. Exported in return. The existing `removeFromCart(productId)` stays for CartDock click handler (which always has a product in hand). `removeFromCartByKey` handles the chat-driven flow where MCP products may have empty id.
+- `app/api/chat/route.ts`: added `REMOVE_RE = /\[REMOVE_FROM_CART:\s*([^\]\n]+)\]/gi`. Added `removedProducts: Product[] = []`. Added resolution block (same pool + norm logic as ADD_RE block) placed after ADD_RE block and before BUNDLE check. Added `.replace(REMOVE_RE, "")` to message stripping chain. Added `removedProducts` to `Response.json(...)`.
+- `hooks/useChat.ts`: added `onCartRemove?: (product: Product) => void` second param. After `onCartAdd` block, added `onCartRemove` block for `data.removedProducts`.
+- `components/ChatScreen.tsx`: destructured `removeFromCartByKey` from `useCart()`. Passed `(product) => removeFromCartByKey(product.id || product.name)` as second arg to `useChat()`.
+- `directives/system_prompt.md`: added `[REMOVE_FROM_CART]` to HIDDEN UI MARKERS section with trigger rule + example.
+- Commit `6f1f852` → pushed.
+
+### Mistakes & Lessons
+- `removeFromCart(productId)` only matches by `product.id` — fails for MCP products with empty id (common). New `removeFromCartByKey` uses same `id||name` composite key as `addToCartUnique`. Old function preserved — CartDock button-driven removal still works because the product is already in cart when button clicked.
+
+### Next Steps
+- Live-verify: "remove the flowers" / "remove the previous one" should sync cart dock immediately after agent responds.
+- Remaining queued: Bug 6 (bundle cards in left pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 061 — 2026-06-16
+
+### What We Did
+- Fixed Bug 3: out-of-stock products appearing as cards.
+- `in_stock_only: true` was already sent on ALL MCP calls — MCP may ignore it or return the field separately per product.
+- Added `in_stock?: boolean` to `FilterableProduct` (lib/productFilter.ts) and local `Product` interface (app/api/chat/route.ts).
+- `normaliseProduct` now resolves stock from raw MCP fields in priority order: `in_stock`, `available`, `is_available`, `stock_status`, `availability`. Handles boolean/number/string variants. Absent field → default `true` (in_stock_only param handles it at source).
+- `isJunkProduct` in productFilter.ts drops products where `in_stock === false` — they never reach the carousel.
+- Commit `ec7f4e3` → pushed.
+
+### Mistakes & Lessons
+- `in_stock_only: true` request param is not sufficient — MCP can return out-of-stock products regardless. Must also filter client-side on the returned stock field.
+
+### Next Steps
+- Live-verify: out-of-stock products should not appear as cards.
+- Remaining queued: Bug 6 (bundle cards in left pane → stage), reconfirm Bug 2 (checkout URL).
+
+## Session 062 — 2026-06-16
+
+### What We Did
+- No code changes. Two audits:
+
+**Project status audit** — confirmed what is done vs not done:
+- Done: Tanglish/Sinhala personality, voice I/O, gift flow end-to-end, cart sync + remove from cart, checkout redirect, prompt caching (system prompt block only via cache_control: ephemeral).
+- NOT done: broad category shopping (agent logic is gift-tuned — CATEGORY_TERMS/DETECT/SIGNALS cover only flowers/cake/chocolate/hamper/books; electronics/clothing/groceries/shoes have no routing or filtering), emotional personality + situational opinions ("drunk husband bro" energy), auto-fill cart+address+gift note on Kapruka.com at checkout, full dynamic prompt caching (per-turn context not cached), Sinhala keyword extraction (extractKeywords is English-only, Sinhala tokens don't survive to MCP query).
+
+**Kapruka team email review** — confirmed all 3 questions are legitimate and cannot be answered from codebase alone:
+1. Cart pre-fill: create_order in TOOL_MAP but never tested; unknown whether it pre-fills Kapruka.com session.
+2. Rate limits: searchFlowersParallel fires 4 concurrent MCP calls + fallback/broaden = up to 6–7 MCP calls per user message; no documented limit.
+3. Stock availability: in_stock_only:true sent correctly but out-of-stock products still returned by MCP (patched client-side in ec7f4e3 but root cause unresolved).
+
+### Mistakes & Lessons
+- None. Audit-only session.
+
+### Next Steps
+- Await Kapruka team response on cart pre-fill, rate limits, stock availability.
+- Plan: broad category shopping support (electronics, clothing, groceries routing + filtering).
+- Plan: emotional personality layer in system_prompt.md.
