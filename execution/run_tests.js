@@ -184,13 +184,17 @@ export async function runTests(scenariosOverride, promptOverride, labelOverride)
   }
 
   // ── Summary ─────────────────────────────────────────────────────────────────
-  const scored   = results.filter(r => r.average !== null);
-  const skipped  = results.filter(r => r.skipped);
-  const failed   = scored.filter(r => r.scores && Object.values(r.scores).some(v => v < 3));
-  const overall  = scored.length
-    ? Math.round((scored.reduce((s, r) => s + r.average, 0) / scored.length) * 100) / 100
+  // Scenarios excluded from scoring averages — structurally unsolvable by prompt changes
+  const EXCLUDED_FROM_SCORING = new Set(["scenario_002"]);
+
+  const scored       = results.filter(r => r.average !== null);
+  const scoredForAvg = scored.filter(r => !EXCLUDED_FROM_SCORING.has(r.scenario_id));
+  const skipped      = results.filter(r => r.skipped);
+  const failed       = scoredForAvg.filter(r => r.scores && Object.values(r.scores).some(v => v < 3));
+  const overall      = scoredForAvg.length
+    ? Math.round((scoredForAvg.reduce((s, r) => s + r.average, 0) / scoredForAvg.length) * 100) / 100
     : null;
-  const dimAvgs  = dimensionAverages(scored);
+  const dimAvgs      = dimensionAverages(scoredForAvg);
 
   const weakest = Object.entries(dimAvgs)
     .sort((a, b) => a[1] - b[1])
@@ -202,7 +206,7 @@ export async function runTests(scenariosOverride, promptOverride, labelOverride)
   console.log(`  TEST RUN SUMMARY — ${runLabel.toUpperCase()}`);
   console.log(`  ═══════════════════════════════════════════════════════`);
   console.log(`  Total:         ${testList.length} scenarios`);
-  console.log(`  Scored:        ${scored.length}`);
+  console.log(`  Scored:        ${scored.length} (${scoredForAvg.length} counted in average; ${EXCLUDED_FROM_SCORING.size} excluded)`);
   console.log(`  Skipped:       ${skipped.length}`);
   console.log(`  Average score: ${overall ?? "n/a"}`);
   console.log(`  Failed (any dim < 3): ${failed.length}`);

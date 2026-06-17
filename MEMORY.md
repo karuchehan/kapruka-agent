@@ -1935,3 +1935,33 @@ BUG 2 — MCP search inconsistency:
 - Await Kapruka team response on cart pre-fill, rate limits, stock availability.
 - Plan: broad category shopping support (electronics, clothing, groceries routing + filtering).
 - Plan: emotional personality layer in system_prompt.md.
+
+## Session 063 — 2026-06-17
+
+### What We Did
+Fixed three behavioural bugs in a single commit (`7ebe4c6`):
+
+**Bug 1 — Product category substitution (system_prompt.md)**
+Added `PRODUCT CATEGORY SUBSTITUTION — ABSOLUTE HARD RULE` after PRODUCT QUALITY FILTER:
+- If user asks for "chocolates", show ONLY chocolates — silently filter MCP mixed results.
+- If zero products remain after filtering: say so honestly, ask permission before suggesting a different category.
+- Added mirror rule to WHAT YOU NEVER DO: "Never substitute a different product category without asking permission first."
+
+**Bug 2 — Checkout exit on negation (system_prompt.md)**
+Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
+- Any "no", "cancel", "never mind", "forget it" during checkout flow → immediately exit.
+- Never re-ask for delivery address. Acknowledge + pivot: "No worries, Nimal! What else can I help you find?"
+- Added `CART EMPTY — HARD RULE`: agent exits checkout flow when it receives a [SYSTEM] cart-empty notification.
+- Added two mirror rules to WHAT YOU NEVER DO.
+
+**Bug 3 — Cart-empty detection (useChat.ts + ChatScreen.tsx)**
+- `useChat.ts`: refactored `sendMessage` to accept `opts: { showUserBubble?: boolean }`. Added `sendSystemMessage` wrapper that passes `showUserBubble: false` (no user chat bubble, but the text goes into API context as a user turn).
+- `ChatScreen.tsx`: added `prevCartCount` ref + `useEffect` on `cartCount`. When cartCount drops from >0 to 0, fires `sendSystemMessage("[SYSTEM] The user has removed all items from the cart...")` — agent responds naturally, exiting checkout and asking what they want next.
+
+### Mistakes & Lessons
+- None on this session.
+- Note: cart-empty system message silently drops if `isSendingRef.current` is true (agent currently generating). Edge case — next user turn will still have empty cart context. Acceptable.
+
+### Next Steps
+- Live-test all three bugs in dev.
+- Autoresearch loop diagnosis: loop has stalled 10/10 across both runs; scenario_009 breaks every challenger. Programmatic DELIVERY section lock in orchestrator.js is the correct fix (not advisory text). Manual patches to system_prompt.md for scenario_011 (London expat), scenario_012 (multi-item cart), scenario_015 (Sinhala + products) are needed before next loop run.
