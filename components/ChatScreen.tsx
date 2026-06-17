@@ -27,7 +27,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // [ADD_TO_CART] round-trip from double-counting.
   // Marker-driven removes use removeFromCartByKey keyed by id||name — handles
   // MCP products whose id field is empty (would never match a removeFromCart call).
-  const { chatItems, apiMessages, isSending, sendMessage, initWithOnboarding } = useChat(
+  const { chatItems, apiMessages, isSending, sendMessage, sendSystemMessage, initWithOnboarding } = useChat(
     addToCartUnique,
     (product) => removeFromCartByKey(product.id || product.name)
   );
@@ -35,6 +35,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   const isMobile = useMediaQuery("(max-width: 720px)");
   const initialSent = useRef(false);
   const openedCheckout = useRef<Set<string>>(new Set());
+  const prevCartCount = useRef(0);
 
   // Snapshot of the products in the cart, passed to sendMessage so the API turn
   // that confirms the order can build the checkout card from real cart items.
@@ -61,6 +62,21 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     initialSent.current = true;
     sendMessage(initialQuery, userProfile, recipientProfile);
   }, [apiMessages, initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cart-empty detection: when cart drops from non-zero to zero, inject a hidden
+  // system message so the agent knows to exit any active checkout flow.
+  useEffect(() => {
+    const prev = prevCartCount.current;
+    prevCartCount.current = cartCount;
+    if (prev > 0 && cartCount === 0) {
+      sendSystemMessage(
+        "[SYSTEM] The user has removed all items from the cart. The cart is now empty. Exit any active checkout flow immediately. Acknowledge naturally in one warm sentence and ask what they would like to look for next.",
+        userProfile,
+        recipientProfile,
+        []
+      );
+    }
+  }, [cartCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Speak agent messages when they arrive
   useEffect(() => {

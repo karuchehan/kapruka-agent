@@ -52,8 +52,10 @@ export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (
     text: string,
     userProfile: UserProfile,
     recipientProfile: RecipientProfile,
-    cartProducts: Product[] = []
+    cartProducts: Product[] = [],
+    opts: { showUserBubble?: boolean } = {}
   ) {
+    const { showUserBubble = true } = opts;
     if (!text.trim() || isSendingRef.current) return;
     isSendingRef.current = true;
     setIsSending(true);
@@ -63,9 +65,9 @@ export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (
 
     setChatItems((prev) => [
       ...prev,
-      { id: uid(), type: "user", text },
-      { id: typingId, type: "typing" },
-      { id: skeletonId, type: "skeleton" },
+      ...(showUserBubble ? [{ id: uid(), type: "user" as const, text }] : []),
+      { id: typingId, type: "typing" as const },
+      { id: skeletonId, type: "skeleton" as const },
     ]);
 
     const newApiMessages: ApiMessage[] = [
@@ -230,5 +232,14 @@ export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (
     }
   }
 
-  return { chatItems, apiMessages, isSending, sendMessage, initWithOnboarding };
+  function sendSystemMessage(
+    text: string,
+    userProfile: UserProfile,
+    recipientProfile: RecipientProfile,
+    cartProducts: Product[] = []
+  ) {
+    return sendMessage(text, userProfile, recipientProfile, cartProducts, { showUserBubble: false });
+  }
+
+  return { chatItems, apiMessages, isSending, sendMessage, sendSystemMessage, initWithOnboarding };
 }
