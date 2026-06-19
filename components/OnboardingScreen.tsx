@@ -145,10 +145,6 @@ export function OnboardingScreen({ onComplete }: Props) {
       <div className="onboarding-inner">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logos/kapruka-main.svg" alt="Kapruka" className="onboarding-logo" />
-        <div className="brand-lockup">
-          <div className="brand-dot" />
-          <span className="brand-name">Kapruka</span>
-        </div>
         <p className="onboarding-tagline">What would you like to send today?</p>
         <div id="onboarding-messages" ref={msgsRef} role="log" aria-live="polite">
           {bubbles.map((b) => (

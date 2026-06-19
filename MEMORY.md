@@ -37,6 +37,23 @@
 
 ---
 
+## Session 065 — 2026-06-20 (onboarding visual polish — gradient bg + logo scale + remove brand lockup)
+
+### What We Did
+- **Background gradient**: replaced flat `background: var(--bg-primary)` on `#onboarding-screen` with a radial gradient — `rgba(59,31,122,0.55)` center → `rgba(45,27,94,0.28)` mid → `#12091a` edge. `background-color: #12091a` as fallback. Deep purple glow effect, fades to near-black.
+- **Logo scale**: `.onboarding-logo { width }` bumped `160px → 240px` (~50% increase). Makes logo a proper hero element.
+- **Removed brand lockup**: deleted `<div className="brand-lockup">` block (yellow dot + "Kapruka" text) entirely from `OnboardingScreen.tsx`. JSX goes directly: logo → tagline.
+- **All 4 mandatory checks passed**: TS clean, no `overflow: hidden` on messages ancestors, no `overflow-x: hidden` on messages ancestors, `#messages-container` has `overflow-y: auto`.
+
+### Mistakes & Lessons
+- None this session — surgical 3-file edit, all checks clean first pass.
+
+### Next Steps
+- Verify visual in browser — confirm gradient feels rich, logo not clipped
+- Push when ready
+
+---
+
 ## Session 036 — 2026-06-14 (UI cleanup pass — prompts sent one at a time)
 
 ### What We Did

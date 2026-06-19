@@ -54,7 +54,8 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--bg-primary);
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(59, 31, 122, 0.55) 0%, rgba(45, 27, 94, 0.28) 45%, #12091a 100%);
+  background-color: #12091a;
 }
 
 .onboarding-inner {
@@ -67,7 +68,7 @@ html, body {
 
 .onboarding-logo {
   display: block;
-  width: 160px;
+  width: 240px;
   margin: 0 auto;
 }
 
