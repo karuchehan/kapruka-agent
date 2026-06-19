@@ -37,6 +37,21 @@
 
 ---
 
+## Session 066 — 2026-06-20 (onboarding — expanded glow gradient + agent bubble restyle)
+
+### What We Did
+- **Expanded center glow**: `#onboarding-screen` radial gradient replaced — now fully opaque purple bloom: `#3b1f7a 0% → #2d1b5e 30% → #1a0f3a 60% → #0d0820 100%`. Removed fallback `background-color` (no longer needed — gradient is opaque end-to-end). Covers 80%×70% of viewport, feels expansive not subtle.
+- **Agent bubble restyle**: `.ob-bubble.agent` — removed dark card (`var(--bg-card)` / `var(--border)`). Now `rgba(98,70,180,0.28)` background, `rgba(255,255,255,0.12)` border, `var(--radius-lg)` border-radius (20px), white text. Floats on the gradient, not a dark card on top of it.
+- All 4 mandatory checks passed.
+
+### Mistakes & Lessons
+- None this session.
+
+### Next Steps
+- Verify in browser — confirm bubble feels native to the gradient
+
+---
+
 ## Session 065 — 2026-06-20 (onboarding visual polish — gradient bg + logo scale + remove brand lockup)
 
 ### What We Did

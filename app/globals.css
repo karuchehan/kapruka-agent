@@ -54,8 +54,7 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(59, 31, 122, 0.55) 0%, rgba(45, 27, 94, 0.28) 45%, #12091a 100%);
-  background-color: #12091a;
+  background: radial-gradient(ellipse 80% 70% at 50% 40%, #3b1f7a 0%, #2d1b5e 30%, #1a0f3a 60%, #0d0820 100%);
 }
 
 .onboarding-inner {
@@ -813,9 +812,10 @@ html, body {
 }
 
 .ob-bubble.agent {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
+  background: rgba(98, 70, 180, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-lg);
+  color: #ffffff;
 }
 
 .ob-bubble.user {
