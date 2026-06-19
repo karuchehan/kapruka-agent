@@ -103,6 +103,80 @@ The loop cannot break this pattern on its own because it doesn't know *which* ru
 
 ## What Does Not Work (Tried And Discarded)
 <!-- populated automatically -->
+### Iteration 24 — 2026-06-17 — Winner: **BASELINE**
+
+**Scores:** baseline 4.42 → challenger 4.24
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.92 | 4.71 ▼ -0.21 |
+| personalization | 3.88 | 3.71 ▼ -0.17 |
+| product_quality | 3.92 | 3.71 ▼ -0.21 |
+| tone | 4.92 | 4.79 ▼ -0.13 |
+| language_match | 4.79 | 4.75 → |
+| completeness | 4.08 | 3.79 ▼ -0.29 |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_002**: The agent immediately dismissed the user's explicit electronics request and redirected to unrelated categories, failing to engage with what Ruwan actually wanted to buy. *(dims: relevance: User asked about electronics but agent deflected entirely instead of attempting to help with the actual request, product_quality: Suggested food hampers, chocolates, and fragrances to a 45-year-old man asking specifically for electronics — completely off-target, personalization: Used the name Ruwan but ignored the age and gender context; redirected to categories irrelevant to his stated intent, completeness: Did not move the conversation toward electronics at all; pivoted away from the user's goal rather than toward it)*
+  - **scenario_011**: The agent skipped past the user's international context entirely and prematurely asked for a delivery address without confirming product interest or budget, making the response feel presumptuous and incomplete. *(dims: completeness: Jumped straight to asking for a delivery address without confirming budget, whether the user wants these specific products, or acknowledging the international sender context and how Kapruka handles overseas orders, personalization: Used the name but didn't leverage the international context meaningfully — no reassurance about ordering from London or how the overseas gifting process works, relevance: Did not acknowledge that the user is calling from London and sending internationally, which is a key part of the scenario)*
+  - **scenario_014**: Tanglish input: machan I need something for my amma *(dims: personalization: Did not use Kavinda's name at all, and didn't ask anything about amma's preferences before jumping to products)*
+  - **scenario_015**: The agent asked only about budget but failed to suggest any gift ideas or ask about the daughter's age, leaving the conversation without any concrete product direction. *(dims: product_quality: No products were suggested at all — the agent only asked about budget without offering any gift ideas, completeness: The agent missed asking about the daughter's age which is critical for appropriate gift suggestions, and didn't offer any starting options to guide the conversation)*
+
+**Outcome:** **Blocked by no-regression rule (per-scenario avg ≥ 4.0):** scenario_009 4.5→2.67; scenario_010 4.5→3.17; scenario_012 4.33→3.67
+
+---
+
+### Iteration 23 — 2026-06-17 — Winner: **BASELINE**
+
+**Scores:** baseline 4.36 → challenger 4.2
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.79 | 4.71 ▼ -0.08 |
+| personalization | 3.83 | 3.75 ▼ -0.08 |
+| product_quality | 3.96 | 3.75 ▼ -0.21 |
+| tone | 4.79 | 4.67 ▼ -0.12 |
+| language_match | 4.75 | 4.71 → |
+| completeness | 4.04 | 3.63 ▼ -0.41 |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_002**: The agent falsely claimed Kapruka doesn't reliably stock electronics and failed to suggest any products, completely abandoning the user's direct purchase intent. *(dims: relevance: Agent incorrectly dismissed electronics availability on Kapruka — Kapruka does stock electronics, so this is factually wrong and deflects the user's clear intent, product_quality: No electronics products were suggested at all — the core request was completely ignored, completeness: Redirected to 'gifting' context when user showed clear personal purchase intent, moving the conversation in the wrong direction, personalization: Used the name but ignored the 45-year-old male context entirely — no age or gender-relevant framing applied)*
+  - **scenario_011**: The agent skipped the essential reassurance that Kapruka handles international orders well and bypassed asking about budget or preferences, instead prematurely jumping to requesting a delivery address, which may feel pushy and doesn't build the trust needed for an international customer. *(dims: completeness: Jumped straight to asking for delivery address without acknowledging the international sender context, reassuring about overseas delivery capability, or asking about budget — skipped critical trust-building steps for an international customer, personalization: Used Nathasha's name only once at the start; did not leverage the London-based sender context meaningfully or acknowledge the emotional significance of sending gifts from abroad)*
+  - **scenario_015**: The agent asked only about budget while completely missing the most important clarifying question (daughter's age), offered zero product suggestions, and felt cold and unhelpfully minimal for a gift-shopping request. *(dims: product_quality: No products were suggested at all — the response is purely a clarifying question about budget, completeness: The agent only asked about budget but missed asking the more critical missing detail — the daughter's age — which would determine appropriate gift categories entirely, language_match: The response mixes English words like 'range' in a way that feels lazy rather than natural Tanglish-in-Sinhala; also partly English phrasing, relevance: The user asked for gift ideas to bring from Colombo — the agent should have at least offered some initial ideas or asked age before budget, tone: The response is very transactional and brief — lacks warmth expected when a mother is shopping for her daughter)*
+
+**Outcome:** **Blocked by no-regression rule (per-scenario avg ≥ 4.0):** scenario_001 4.83→3.5; scenario_004 4→3.83; scenario_009 4.5→2.83; scenario_010 4.67→3.17; scenario_012 4.33→3.83
+
+---
+
+### Iteration 22 — 2026-06-17 — Winner: **BASELINE**
+
+**Scores:** baseline 4.34 → challenger 4.18
+
+**Dimension breakdown:**
+
+| Dimension | Baseline | Challenger |
+|---|---|---|
+| relevance | 4.83 | 4.5 ▼ -0.33 |
+| personalization | 3.83 | 3.71 ▼ -0.12 |
+| product_quality | 3.75 | 3.79 → |
+| tone | 4.79 | 4.67 ▼ -0.12 |
+| language_match | 4.75 | 4.71 → |
+| completeness | 4.08 | 3.71 ▼ -0.37 |
+
+**Baseline failed scenarios (what needed fixing):**
+  - **scenario_002**: The agent incorrectly claimed it lacks electronics inventory and failed to suggest any products, which is the opposite of what a shopping assistant should do when a user expresses clear purchase intent. *(dims: relevance: Agent falsely claims it has no electronics, which is a critical factual failure for a Kapruka shopping assistant, product_quality: No products were suggested at all — the agent completely avoided recommending anything, personalization: Used the name Ruwan but failed to leverage the 45-year-old male context in any meaningful way, completeness: Instead of moving toward a purchase, the agent deflected with vague questions that stall the conversation)*
+  - **scenario_004**: The response asks two questions in one sentence ('for yourself or someone special, and what's the occasion?'), violating the core requirement of asking exactly one clarifying question. *(dims: product_quality: No products were suggested or even hinted at, which is expected at this stage, but the question itself doesn't narrow down enough to lead toward products — acceptable, but the dual question violates the 'ask exactly one clarifying question' rule, personalization: Used the name but ignored the age (32) and gender (male) context which could have slightly informed a warmer, more tailored question, completeness: Asked two questions in one ('for yourself or someone special' AND 'what's the occasion') which breaks the single clarifying question requirement)*
+  - **scenario_011**: The agent skipped the essential step of reassuring an overseas sender about Kapruka's international delivery capability and jumped straight to product recommendations without asking about budget or preferences, making the response feel premature and incomplete. *(dims: completeness: Never acknowledged the international sender context or reassured about overseas delivery — a critical gap for someone calling from London, completeness: Did not ask about budget or preferences before jumping to specific products, personalization: Used the name but did not engage with the London-to-Colombo gifting situation meaningfully; age/gender context not leveraged)*
+  - **scenario_015**: The agent asked only about budget without suggesting any products or asking about the daughter's age/interests, making the response feel incomplete and unhelpful. *(dims: product_quality: No products were suggested at all — the agent only asked about budget without offering any gift ideas or asking about the daughter's age to narrow options, completeness: Asking only about budget misses equally important clarifying questions like the daughter's age, interests, or occasion — conversation barely moved forward)*
+
+**Outcome:** **Blocked by no-regression rule (per-scenario avg ≥ 4.0):** scenario_007 4.17→3.33; scenario_009 4.5→2.83; scenario_010 4.67→2; scenario_017 4.67→3.67
+
+---
+
 ### Iteration 21 — 2026-06-16 — Winner: **BASELINE**
 
 **Scores:** baseline 4.42 → challenger 4.22
@@ -520,6 +594,9 @@ The loop cannot break this pattern on its own because it doesn't know *which* ru
 
 | Run | Date | Baseline | Challenger | Winner | Key Changes |
 |---|---|---|---|---|---|
+| 24 | 2026-06-17 | 4.42 | 4.24 | BASELINE | No-regression rule: scenario_009(4.5→2.67), scenario_010(4.5→3.17), scenario_012 |
+| 23 | 2026-06-17 | 4.36 | 4.2 | BASELINE | No-regression rule: scenario_001(4.83→3.5), scenario_004(4→3.83), scenario_009(4 |
+| 22 | 2026-06-17 | 4.34 | 4.18 | BASELINE | No-regression rule: scenario_007(4.17→3.33), scenario_009(4.5→2.83), scenario_01 |
 | 21 | 2026-06-16 | 4.42 | 4.22 | BASELINE | No-regression rule: scenario_003(4.67→3.33), scenario_007(4.17→3.67), scenario_0 |
 | 20 | 2026-06-16 | 4.39 | 4.27 | BASELINE | product_quality: 3.83→4 |
 | 19 | 2026-06-16 | 4.39 | 4.28 | BASELINE | product_quality: 3.88→4 |
@@ -541,6 +618,9 @@ The loop cannot break this pattern on its own because it doesn't know *which* ru
 
 ## Weakest Dimensions Over Time
 <!-- populated automatically -->
+- **Run 24**: personalization, product_quality, completeness
+- **Run 23**: personalization, product_quality, completeness
+- **Run 22**: product_quality, personalization, completeness
 - **Run 21**: product_quality, personalization, completeness
 - **Run 20**: product_quality, personalization, completeness
 - **Run 19**: personalization, product_quality, completeness

@@ -4,6 +4,39 @@
 
 ---
 
+## Session 064 — 2026-06-19/20 (autoresearch loop + delivery rules + onboarding logo)
+
+### What We Did
+- **Autoresearch loop** (`node execution/orchestrator.js`): ran 3 full iterations (iters 1–3) before crashing — API credits exhausted mid-iter 4 challenger generation.
+  - All 3 challengers rejected: regressions on scenarios 009, 010, 011 every time. Challenger avg never beat baseline avg (4.34–4.42).
+  - Persistent failures: 009 (delivery promise without location), 010 (same-day Kandy question ignored), 011 (international sender — no reassurance before jumping to address).
+- **Manual prompt patch** (commit `3ac3838`): added three numbered DELIVERY HARD RULES at top of delivery section in `directives/system_prompt.md`:
+  - Rule 1 — banned phrases list (never imply delivery confirmed without city)
+  - Rule 2 — explicit step order: city → full address → confirm (never skip)
+  - Rule 3 — location availability: clear yes/no on feasibility, suggest nearest city if unavailable
+  - Added INTERNATIONAL SENDER HARD RULE to gifting section: reassure overseas senders (London, Australia, etc.) before anything else.
+- **Onboarding logo — initial add** (commit `985d38e`): added `<img>` for `kapruka-logo.svg` above brand-lockup in `OnboardingScreen.tsx`. `.onboarding-logo { width: 160px; margin: 0 auto }` added to `globals.css`.
+- **Logo swap to kapruka-main.svg** (commit `175726b`): user supplied `kapruka-main.svg` — swapped src in `OnboardingScreen.tsx`. File was untracked; broken image showed in browser (alt text "Kapruka" visible in screenshot).
+- **Asset commit fix** (commit `1fbe9e0`): committed `public/brand/logos/kapruka-main.svg` which had been dropped in `public/brand/logos/` but never `git add`ed. Logo now in repo and renders on deployed URL.
+- **Logo cleanup**: user deleted `ChatGPT__-cropped.svg` and `kapruka-logo.svg` from `public/brand/logos/` (now replaced by `kapruka-main.svg`).
+
+### Gaps Identified
+- Playfair Display (`--font-display`) already wired to `.brand-name` and `.onboarding-tagline` — no font import needed.
+- API credits need topping up before next autoresearch loop run.
+- Logo size (160px) may need tuning once verified in browser with the new SVG.
+
+### Mistakes & Lessons
+- **Always `git add` new asset files explicitly** — dropping a file into `public/` and committing only the code change that references it leaves the asset untracked. The broken image in the screenshot was caused by exactly this. Always run `git status` to confirm the asset is staged before pushing.
+- Monitor grep filter too granular — fired on every individual scenario line. Next time filter to iteration-level events only (`Iteration complete`, `PROMOTED`, `BASELINE HOLDS`).
+- `git push` failed with "repository not found" — active gh account was `gtmkaru` not `karuchehan`. Fix: `gh auth switch --user karuchehan` before pushing.
+
+### Next Steps
+- Top up Anthropic credits → rerun `node execution/orchestrator.js` (10 iterations)
+- Scenarios 009/010/011 should now pass with explicit delivery rules
+- Verify logo renders at correct size/spacing on deployed URL; tweak `.onboarding-logo` width if needed
+
+---
+
 ## Session 036 — 2026-06-14 (UI cleanup pass — prompts sent one at a time)
 
 ### What We Did
