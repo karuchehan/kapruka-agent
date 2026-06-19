@@ -143,6 +143,8 @@ export function OnboardingScreen({ onComplete }: Props) {
   return (
     <div id="onboarding-screen">
       <div className="onboarding-inner">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logos/kapruka-logo.svg" alt="Kapruka" className="onboarding-logo" />
         <div className="brand-lockup">
           <div className="brand-dot" />
           <span className="brand-name">Kapruka</span>
