@@ -37,6 +37,21 @@
 
 ---
 
+## Session 069 — 2026-06-20 (onboarding — message thread ceiling + initial position shift)
+
+### What We Did
+- **Message thread upper boundary** (`OnboardingScreen.tsx`): Added `logoRef = useRef<HTMLImageElement>(null)` and `ref={logoRef}` on the logo `<img>`. In the bubble slide `useEffect`, after computing `msgOffsetRef.current -= slideBy`, added clamping: `logoRef.current.getBoundingClientRect().bottom + 20 - (parentTop + el.offsetTop)` gives the minimum allowed offset. Uses `el.offsetTop` (not affected by GSAP transforms) + offsetParent's `getBoundingClientRect().top` to get the element's natural viewport top. Clamps `msgOffsetRef.current` so thread never crosses above logo bottom + 20px padding.
+- **Initial position shift** (`globals.css`): `#onboarding-messages` top changed from `calc(62% - 130px)` → `calc(66% - 130px)`. `.onboarding-input-row` top changed from `62%` → `66%`. SVG aspect ratio 753×138 (≈5.45:1), logo width `min(80vw, 460px)` → height ≈84px on desktop, logo bottom ≈204px. At 66%: messages+input cluster midpoint ≈553px on 900px screen, center of available space (logo→bottom) ≈552px — near-perfect balance.
+- All 4 mandatory checks passed. TS clean.
+
+### Mistakes & Lessons
+- None this session.
+
+### Next Steps
+- Verify in browser: thread stops at logo boundary after many messages, initial layout feels centered
+
+---
+
 ## Session 068 — 2026-06-20 (onboarding — logo fixed top, input center-bottom, yellow user bubbles)
 
 ### What We Did

@@ -35,6 +35,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({ name: "", age: null, gender: "" });
   const msgsRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLImageElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
   const msgOffsetRef = useRef(0);
@@ -58,6 +59,18 @@ export function OnboardingScreen({ onComplete }: Props) {
       const prev = items[items.length - 2];
       const slideBy = prev ? prev.offsetHeight + 12 : 58;
       msgOffsetRef.current -= slideBy;
+
+      // Hard ceiling: don't let thread scroll above logo bottom + 20px
+      if (logoRef.current && el.offsetParent) {
+        const logoBottom = logoRef.current.getBoundingClientRect().bottom;
+        const parentTop = (el.offsetParent as HTMLElement).getBoundingClientRect().top;
+        const naturalViewportTop = parentTop + el.offsetTop;
+        const minOffset = logoBottom + 20 - naturalViewportTop;
+        if (msgOffsetRef.current < minOffset) {
+          msgOffsetRef.current = minOffset;
+        }
+      }
+
       gsap.to(el, { y: msgOffsetRef.current, duration: 0.3, ease: "power1.out" });
     }
     if (last) {
@@ -145,7 +158,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   return (
     <div id="onboarding-screen">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka" className="onboarding-logo" />
+      <img ref={logoRef} src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka" className="onboarding-logo" />
       <div className="onboarding-inner">
         <div id="onboarding-messages" ref={msgsRef} role="log" aria-live="polite">
           {bubbles.map((b) => (

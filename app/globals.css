@@ -125,7 +125,7 @@ html, body {
 
 #onboarding-messages {
   position: absolute;
-  top: calc(62% - 130px);
+  top: calc(66% - 130px);
   left: 24px;
   right: 24px;
   display: flex;
@@ -178,7 +178,7 @@ html, body {
 
 .onboarding-input-row {
   position: absolute;
-  top: 62%;
+  top: 66%;
   left: 24px;
   right: 24px;
   display: flex;
