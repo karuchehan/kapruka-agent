@@ -27,40 +27,20 @@ export function OnboardingScreen({ onComplete }: Props) {
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState<UserProfile>({ name: "", age: null, gender: "" });
   const msgsRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLImageElement>(null);
-  const inputRowRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function addBubble(role: "agent" | "user", text: string) {
     setBubbles((prev) => [...prev, { id: ++bubbleId, role, text }]);
   }
 
-  // Set exact top/bottom of messages container from measured logo position.
-  // Called on logo load (primary) and via rAF on mount (cached-image fallback).
-  function positionMessages() {
-    const el = msgsRef.current;
-    const logo = logoRef.current;
-    const inputRow = inputRowRef.current;
-    if (!el || !logo) return;
-    const parent = el.offsetParent as HTMLElement | null;
-    if (!parent) return;
-    const logoRect = logo.getBoundingClientRect();
-    if (logoRect.height === 0) return; // image not yet loaded
-    const parentRect = parent.getBoundingClientRect();
-    const msgTop = Math.round(logoRect.bottom + 20 - parentRect.top);
-    el.style.top = `${msgTop}px`;
-    const inputH = inputRow ? (inputRow.offsetHeight || 52) : 52;
-    el.style.bottom = `${80 + inputH + 16}px`;
-  }
-
   useEffect(() => {
-    const raf = requestAnimationFrame(positionMessages);
     setTimeout(() => addBubble("agent", STEPS[0]!), 400);
     inputRef.current?.focus();
-    return () => cancelAnimationFrame(raf);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fade in new bubble, then scroll container to bottom so newest is always visible
+  // Fade in new bubble, then scroll thread to bottom so newest is always visible.
+  // Layout (logo clearance, centered cluster, internal scroll) is pure CSS flexbox
+  // — no JS measurement, so it can't drift or clip behind the logo.
   useEffect(() => {
     const el = msgsRef.current;
     if (!el) return;
@@ -121,14 +101,14 @@ export function OnboardingScreen({ onComplete }: Props) {
   return (
     <div id="onboarding-screen">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img ref={logoRef} src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka" className="onboarding-logo" onLoad={positionMessages} />
+      <img src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka" className="onboarding-logo" />
       <div className="onboarding-inner">
         <div id="onboarding-messages" ref={msgsRef} role="log" aria-live="polite">
           {bubbles.map((b) => (
             <div key={b.id} className={`ob-bubble ${b.role}`}>{b.text}</div>
           ))}
         </div>
-        <div className="onboarding-input-row" ref={inputRowRef}>
+        <div className="onboarding-input-row">
           <input
             ref={inputRef}
             type="text"

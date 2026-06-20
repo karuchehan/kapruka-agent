@@ -4,6 +4,27 @@
 
 ---
 
+## Session 073 — 2026-06-20 (onboarding — KILL THE VOID, pure-flexbox centered cluster)
+
+### What We Did
+- **Problem (screenshot)**: Session 072's "input fixed at bottom:80px + messages anchored below logo" produced a HUGE dead void — first message stuck near the logo, input pinned at the very bottom, empty space between. User furious (repeated complaint across sessions).
+- **Root cause of the recurring failure**: every prior fix tried to position the thread and input *independently* (absolute top/bottom, GSAP translateY, JS-measured offsets). Any independent positioning leaves a gap when message count is low. The thread and input must be ONE cohesive cluster.
+- **Final fix — pure CSS flexbox, zero JS measurement** (`globals.css`):
+  - `.onboarding-inner`: now `height:100%; display:flex; flex-direction:column; justify-content:center; padding:220px 24px 100px`. The 220px top padding clears the logo (logo bottom ≈204px); `justify-content:center` centers the messages+input cluster vertically in the remaining space.
+  - `#onboarding-messages`: removed `position:absolute; top/bottom`. Now `flex:0 1 auto; min-height:0; overflow-y:auto`. Sizes to content, shrinks + scrolls internally when the cluster gets tall. Kept top-fade mask + hidden scrollbar.
+  - `.onboarding-input-row`: removed `position:absolute; bottom:80px`. Now `flex:0 0 auto; margin-top:16px` — sits directly 16px below the last message, always part of the cluster. No void possible.
+- **Component** (`OnboardingScreen.tsx`): deleted `positionMessages()`, `logoRef`, `inputRowRef`, the `onLoad` handler, and the mount rAF. Bubble effect reduced to: fade-in last bubble + `scrollTop=scrollHeight`. Layout is 100% CSS now.
+- **Verified visually**: headless Chrome screenshot at 720×900 (`/tmp/ob-shot.png`) — message bubble sits directly above the input as a tight centered cluster, logo at top, no void. Confirmed before reporting.
+- All 4 mandatory checks passed. TS clean.
+
+### Mistakes & Lessons
+- **The repeated bug was architectural, not parametric.** Tweaking absolute top/bottom values or adding JS measurement never fixed it because independent positioning of thread vs input ALWAYS gaps at low message count. The thread + input must live in ONE flex cluster (`justify-content:center` parent, input as `margin-top:16px` flex sibling). Pure flexbox can't drift, can't clip, needs no measurement — should have been the approach from the start. Stop reaching for GSAP/JS to position a static layout.
+
+### Next Steps
+- Verify the multi-message case live (cluster grows upward, scrolls internally with top-fade past ~zone height) — logic is standard flexbox so high confidence.
+
+---
+
 ## Session 072 — 2026-06-20 (onboarding — fixed zone layout, downward growth, overflow scroll)
 
 ### What We Did

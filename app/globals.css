@@ -59,6 +59,11 @@ html, body {
   position: relative;
   width: 100%;
   max-width: 480px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;     /* center the messages+input cluster vertically */
+  padding: 220px 24px 100px;   /* top clears the logo; bottom keeps cluster off the edge */
 }
 
 .onboarding-inner::after {
@@ -124,17 +129,15 @@ html, body {
 }
 
 #onboarding-messages {
-  position: absolute;
-  top: 220px;           /* fallback; exact value set by JS positionMessages() on logo load */
-  bottom: 148px;        /* fallback; exact value set by JS positionMessages() on logo load */
-  left: 24px;
-  right: 24px;
+  flex: 0 1 auto;          /* sizes to content, shrinks + scrolls when the cluster is tall */
+  min-height: 0;           /* allow flex child to shrink so overflow-y actually triggers */
   display: flex;
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
   scrollbar-width: none;
   z-index: 2;
+  /* top-fade: messages scrolling out of view fade rather than clip */
   mask-image: linear-gradient(to bottom, transparent 0px, black 40px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 40px);
 }
@@ -183,10 +186,8 @@ html, body {
 }
 
 .onboarding-input-row {
-  position: absolute;
-  bottom: 80px;
-  left: 24px;
-  right: 24px;
+  flex: 0 0 auto;          /* fixed height; sits directly below the thread, no void */
+  margin-top: 16px;        /* 16px gap below the last message */
   display: flex;
   gap: 10px;
   align-items: center;
