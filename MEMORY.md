@@ -37,6 +37,26 @@
 
 ---
 
+## Session 068 — 2026-06-20 (onboarding — logo fixed top, input center-bottom, yellow user bubbles)
+
+### What We Did
+- **Logo**: swapped to `kapruka-main-cropped.svg`. Moved `<img>` outside `.onboarding-inner` — direct child of `#onboarding-screen` (position: fixed; inset:0) so no GSAP ancestor transform can ever move it. Positioned: `position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 260px; z-index: 10`. Never fades, never moves. Removed `logoVisible` state entirely.
+- **Top-fade overlay**: `.onboarding-inner::after` — gradient from `#0d0820` (45% solid) to transparent, 220px tall, z-index 5. Old messages that slide up behind the logo zone are absorbed into the screen background naturally.
+- **Input bar**: moved from `bottom: 32px` to `top: 62%` with `z-index: 4`. Now sits in the center-bottom of the screen, not pinned to the very bottom edge.
+- **Messages anchor**: `#onboarding-messages` top changed from `55%` to `calc(62% - 75px)` — places first message just above the input bar. Added `z-index: 2`.
+- **Chips**: moved inside `#onboarding-messages` div (no longer absolutely positioned separately). They animate with the message thread as it slides up. Removed absolute positioning from `.quickstart-chips`.
+- **Slide animation**: duration slowed from 0.4 → 0.3s, ease changed from `power2.out` → `power1.out` for gentler drift.
+- **User bubble color**: `.ob-bubble.user` changed from `accent-soft` (dark brownish) to `var(--accent)` (#FFCC00) with `color: #1a0f3a` (dark purple text) and `font-weight: 600`. Matches brand yellow.
+- All 4 mandatory checks passed. TS clean.
+
+### Mistakes & Lessons
+- None this session.
+
+### Next Steps
+- Verify in browser: logo fixed at top, input at center-bottom, yellow bubbles, gentle slide-up flow
+
+---
+
 ## Session 067 — 2026-06-20 (onboarding — gradient direction + layout + slide-up animation)
 
 ### What We Did

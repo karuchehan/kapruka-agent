@@ -37,7 +37,6 @@ export function OnboardingScreen({ onComplete }: Props) {
   const msgsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
-  const [logoVisible, setLogoVisible] = useState(true);
   const msgOffsetRef = useRef(0);
 
   function addBubble(role: "agent" | "user", text: string) {
@@ -59,7 +58,7 @@ export function OnboardingScreen({ onComplete }: Props) {
       const prev = items[items.length - 2];
       const slideBy = prev ? prev.offsetHeight + 12 : 58;
       msgOffsetRef.current -= slideBy;
-      gsap.to(el, { y: msgOffsetRef.current, duration: 0.4, ease: "power2.out" });
+      gsap.to(el, { y: msgOffsetRef.current, duration: 0.3, ease: "power1.out" });
     }
     if (last) {
       gsap.killTweensOf(last);
@@ -81,7 +80,6 @@ export function OnboardingScreen({ onComplete }: Props) {
   function handleSubmit() {
     const val = inputValue.trim();
     if (!val) return;
-    setLogoVisible(false);
     addBubble("user", val);
     setInputValue("");
 
@@ -146,29 +144,29 @@ export function OnboardingScreen({ onComplete }: Props) {
 
   return (
     <div id="onboarding-screen">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka" className="onboarding-logo" />
       <div className="onboarding-inner">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/logos/kapruka-main.svg" alt="Kapruka" className={`onboarding-logo${!logoVisible ? " faded" : ""}`} />
         <div id="onboarding-messages" ref={msgsRef} role="log" aria-live="polite">
           {bubbles.map((b) => (
             <div key={b.id} className={`ob-bubble ${b.role}`}>{b.text}</div>
           ))}
+          {step === 3 && (
+            <div className="quickstart-chips" ref={chipsRef}>
+              {QUICKSTART.map((c) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  className="chip"
+                  onClick={() => handleChip(c.label)}
+                >
+                  <span className="chip-emoji">{c.emoji}</span>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        {step === 3 && (
-          <div className="quickstart-chips" ref={chipsRef}>
-            {QUICKSTART.map((c) => (
-              <button
-                key={c.label}
-                type="button"
-                className="chip"
-                onClick={() => handleChip(c.label)}
-              >
-                <span className="chip-emoji">{c.emoji}</span>
-                {c.label}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="onboarding-input-row">
           <input
             ref={inputRef}

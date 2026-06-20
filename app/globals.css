@@ -61,18 +61,25 @@ html, body {
   max-width: 480px;
 }
 
-.onboarding-logo {
+.onboarding-inner::after {
+  content: '';
   position: absolute;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 240px;
-  transition: opacity 0.5s ease;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 220px;
+  background: linear-gradient(to bottom, #0d0820 45%, transparent 100%);
+  z-index: 5;
+  pointer-events: none;
 }
 
-.onboarding-logo.faded {
-  opacity: 0;
-  pointer-events: none;
+.onboarding-logo {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  z-index: 10;
 }
 
 .brand-lockup {
@@ -118,20 +125,17 @@ html, body {
 
 #onboarding-messages {
   position: absolute;
-  top: 55%;
+  top: calc(62% - 75px);
   left: 24px;
   right: 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   overflow: visible;
+  z-index: 2;
 }
 
 .quickstart-chips {
-  position: absolute;
-  bottom: 96px;
-  left: 24px;
-  right: 24px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -174,12 +178,13 @@ html, body {
 
 .onboarding-input-row {
   position: absolute;
-  bottom: 32px;
+  top: 62%;
   left: 24px;
   right: 24px;
   display: flex;
   gap: 10px;
   align-items: center;
+  z-index: 4;
 }
 
 #onboarding-input {
@@ -836,9 +841,10 @@ html, body {
 
 .ob-bubble.user {
   align-self: flex-end;
-  background: var(--accent-soft);
-  border: 1px solid rgba(218,83,44,0.2);
-  color: var(--text-primary);
+  background: var(--accent);
+  border: 1px solid var(--accent-dark);
+  color: #1a0f3a;
+  font-weight: 600;
 }
 
 /* ── TYPING INDICATOR ── */
