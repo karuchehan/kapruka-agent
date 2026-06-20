@@ -36,6 +36,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   const [profile, setProfile] = useState<UserProfile>({ name: "", age: null, gender: "" });
   const msgsRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
+  const inputRowRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
   const msgOffsetRef = useRef(0);
@@ -73,6 +74,16 @@ export function OnboardingScreen({ onComplete }: Props) {
 
       gsap.to(el, { y: msgOffsetRef.current, duration: 0.3, ease: "power1.out" });
     }
+
+    // Always reposition input: 16px below container bottom, clamped at vh-80
+    if (inputRowRef.current && el.offsetParent) {
+      const parentTop = (el.offsetParent as HTMLElement).getBoundingClientRect().top;
+      const containerBottom = el.offsetTop + msgOffsetRef.current + el.offsetHeight;
+      const maxCSSTop = window.innerHeight - 80 - parentTop;
+      const targetCSSTop = Math.min(containerBottom + 16, maxCSSTop);
+      gsap.to(inputRowRef.current, { top: targetCSSTop, duration: 0.3, ease: "power1.out" });
+    }
+
     if (last) {
       gsap.killTweensOf(last);
       gsap.fromTo(last, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.38, ease: "power2.out" });
@@ -180,7 +191,7 @@ export function OnboardingScreen({ onComplete }: Props) {
             </div>
           )}
         </div>
-        <div className="onboarding-input-row">
+        <div className="onboarding-input-row" ref={inputRowRef}>
           <input
             ref={inputRef}
             type="text"

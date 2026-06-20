@@ -37,6 +37,22 @@
 
 ---
 
+## Session 070 — 2026-06-20 (onboarding — dynamic input bar position follows thread)
+
+### What We Did
+- **Root cause identified**: after the logo ceiling clamp stops the container from sliding up, new bubbles still grow the container downward — its bottom eventually crosses the static input bar.
+- **Fix** (`OnboardingScreen.tsx`): added `inputRowRef = useRef<HTMLDivElement>(null)`, attached `ref={inputRowRef}` to `.onboarding-input-row` div. In the bubble `useEffect`, after ceiling clamp and message slide, always compute `containerBottom = el.offsetTop + msgOffsetRef.current + el.offsetHeight`, then `targetCSSTop = Math.min(containerBottom + 16, window.innerHeight - 80 - parentTop)`. GSAP animates input row `top` to this value (0.3s, power1.out). Runs on every bubble addition — first bubble (no slide) also repositions input immediately.
+- No CSS changes. `top: 66%` in globals.css remains as initial position before first bubble.
+- All 4 mandatory checks passed. TS clean.
+
+### Mistakes & Lessons
+- None this session.
+
+### Next Steps
+- Verify in browser: input always sits 16px below last message, never overlaps, never goes off-screen
+
+---
+
 ## Session 069 — 2026-06-20 (onboarding — message thread ceiling + initial position shift)
 
 ### What We Did
