@@ -4,6 +4,23 @@
 
 ---
 
+## Session 071 — 2026-06-20 (onboarding — transition at gender, shopping question moves to chat)
+
+### What We Did
+- **Transition point moved**: onboarding now ends at step 2 (gender). After gender is submitted, `onComplete` is called with a 700ms delay (to let user bubble animate in). No step 3 in onboarding.
+- **Shopping question as first chat bubble**: the `obMessages` array passed to `onComplete` ends with `{ role: "assistant", content: "Perfect! So what are we shopping for today, [name]?" }`. `initWithOnboarding` in `useChat.ts` already picks the last assistant message and renders it as the first chat bubble — no code change needed in chat layer.
+- **`initialQuery` = `""`**: ChatScreen's auto-send effect guards on `!initialQuery` (falsy), so nothing is auto-sent. User types their shopping intent naturally.
+- **Removed from `OnboardingScreen.tsx`**: `QUICKSTART` array, `chipsRef` ref, chips GSAP entrance effect, `handleChip` function, `submitShopping` function, step 3 handler in `handleSubmit`, chips JSX (`step === 3` block inside `#onboarding-messages`), STEPS[3] from the array.
+- All 4 mandatory checks passed. TS clean.
+
+### Mistakes & Lessons
+- None this session.
+
+### Next Steps
+- Verify in browser: onboarding ends after gender answer, chat screen opens with "Perfect! So what are we shopping for today, [name]?" as first bubble, user types naturally
+
+---
+
 ## Session 064 — 2026-06-19/20 (autoresearch loop + delivery rules + onboarding logo)
 
 ### What We Did

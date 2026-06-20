@@ -11,14 +11,6 @@ const STEPS = [
   "Hey! Just a few quick things so I can give you better recommendations. What's your name?",
   null as string | null,
   "And are you male or female?",
-  null as string | null,
-];
-
-const QUICKSTART = [
-  { emoji: "🎂", label: "Birthday gift" },
-  { emoji: "💐", label: "Flowers" },
-  { emoji: "🎁", label: "Hamper" },
-  { emoji: "📦", label: "Track order" },
 ];
 
 interface Bubble {
@@ -38,7 +30,6 @@ export function OnboardingScreen({ onComplete }: Props) {
   const logoRef = useRef<HTMLImageElement>(null);
   const inputRowRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const chipsRef = useRef<HTMLDivElement>(null);
   const msgOffsetRef = useRef(0);
 
   function addBubble(role: "agent" | "user", text: string) {
@@ -90,17 +81,6 @@ export function OnboardingScreen({ onComplete }: Props) {
     }
   }, [bubbles]);
 
-  // GSAP staggered entrance on quick-start chips when they mount (step 3)
-  useEffect(() => {
-    if (step !== 3 || !chipsRef.current) return;
-    const chips = chipsRef.current.children;
-    gsap.fromTo(
-      chips,
-      { opacity: 0, y: 12 },
-      { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", stagger: 0.06, delay: 0.6 }
-    );
-  }, [step]);
-
   function handleSubmit() {
     const val = inputValue.trim();
     if (!val) return;
@@ -131,39 +111,19 @@ export function OnboardingScreen({ onComplete }: Props) {
       if (lower.includes("male") || lower.includes("man") || lower.includes("boy") || lower === "m") gender = "male";
       else if (lower.includes("female") || lower.includes("woman") || lower.includes("girl") || lower === "f") gender = "female";
 
-      setProfile((p) => ({ ...p, gender }));
-      const msg = `Perfect! So what are we shopping for today, ${profile.name}?`;
-      STEPS[3] = msg;
-      setStep(3);
-      setTimeout(() => addBubble("agent", msg), 500);
-
-    } else if (step === 3) {
-      submitShopping(val);
+      const finalProfile = { ...profile, gender };
+      const shoppingMsg = `Perfect! So what are we shopping for today, ${profile.name}?`;
+      const obMessages: ApiMessage[] = [
+        { role: "assistant", content: STEPS[0]! },
+        { role: "user", content: finalProfile.name },
+        { role: "assistant", content: STEPS[1]! },
+        { role: "user", content: String(finalProfile.age ?? "") },
+        { role: "assistant", content: STEPS[2]! },
+        { role: "user", content: finalProfile.gender },
+        { role: "assistant", content: shoppingMsg },
+      ];
+      setTimeout(() => onComplete(finalProfile, obMessages, ""), 700);
     }
-  }
-
-  // Final intake answer (typed or via a quick-start chip).
-  // Seed history ends at the closing agent question; the shopping intent is passed
-  // as initialQuery so ChatScreen auto-sends it (agent actually responds).
-  function submitShopping(text: string) {
-    const finalProfile = { ...profile };
-    const obMessages: ApiMessage[] = [
-      { role: "assistant", content: STEPS[0]! },
-      { role: "user", content: finalProfile.name },
-      { role: "assistant", content: STEPS[1]! },
-      { role: "user", content: String(finalProfile.age ?? "") },
-      { role: "assistant", content: STEPS[2]! },
-      { role: "user", content: finalProfile.gender },
-      { role: "assistant", content: STEPS[3]! },
-    ];
-    setTimeout(() => onComplete(finalProfile, obMessages, text), 700);
-  }
-
-  function handleChip(label: string) {
-    if (step !== 3) return;
-    addBubble("user", label);
-    setInputValue("");
-    submitShopping(label);
   }
 
   return (
@@ -175,21 +135,6 @@ export function OnboardingScreen({ onComplete }: Props) {
           {bubbles.map((b) => (
             <div key={b.id} className={`ob-bubble ${b.role}`}>{b.text}</div>
           ))}
-          {step === 3 && (
-            <div className="quickstart-chips" ref={chipsRef}>
-              {QUICKSTART.map((c) => (
-                <button
-                  key={c.label}
-                  type="button"
-                  className="chip"
-                  onClick={() => handleChip(c.label)}
-                >
-                  <span className="chip-emoji">{c.emoji}</span>
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
         <div className="onboarding-input-row" ref={inputRowRef}>
           <input
