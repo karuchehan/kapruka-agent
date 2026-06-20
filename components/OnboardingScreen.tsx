@@ -30,55 +30,47 @@ export function OnboardingScreen({ onComplete }: Props) {
   const logoRef = useRef<HTMLImageElement>(null);
   const inputRowRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const msgOffsetRef = useRef(0);
 
   function addBubble(role: "agent" | "user", text: string) {
     setBubbles((prev) => [...prev, { id: ++bubbleId, role, text }]);
   }
 
+  // Set exact top/bottom of messages container from measured logo position.
+  // Called on logo load (primary) and via rAF on mount (cached-image fallback).
+  function positionMessages() {
+    const el = msgsRef.current;
+    const logo = logoRef.current;
+    const inputRow = inputRowRef.current;
+    if (!el || !logo) return;
+    const parent = el.offsetParent as HTMLElement | null;
+    if (!parent) return;
+    const logoRect = logo.getBoundingClientRect();
+    if (logoRect.height === 0) return; // image not yet loaded
+    const parentRect = parent.getBoundingClientRect();
+    const msgTop = Math.round(logoRect.bottom + 20 - parentRect.top);
+    el.style.top = `${msgTop}px`;
+    const inputH = inputRow ? (inputRow.offsetHeight || 52) : 52;
+    el.style.bottom = `${80 + inputH + 16}px`;
+  }
+
   useEffect(() => {
+    const raf = requestAnimationFrame(positionMessages);
     setTimeout(() => addBubble("agent", STEPS[0]!), 400);
     inputRef.current?.focus();
-  }, []);
+    return () => cancelAnimationFrame(raf);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Slide container up + fade in new bubble
+  // Fade in new bubble, then scroll container to bottom so newest is always visible
   useEffect(() => {
     const el = msgsRef.current;
     if (!el) return;
     const items = Array.from(el.children) as HTMLElement[];
     const last = items[items.length - 1];
-    if (items.length > 1) {
-      const prev = items[items.length - 2];
-      const slideBy = prev ? prev.offsetHeight + 12 : 58;
-      msgOffsetRef.current -= slideBy;
-
-      // Hard ceiling: don't let thread scroll above logo bottom + 20px
-      if (logoRef.current && el.offsetParent) {
-        const logoBottom = logoRef.current.getBoundingClientRect().bottom;
-        const parentTop = (el.offsetParent as HTMLElement).getBoundingClientRect().top;
-        const naturalViewportTop = parentTop + el.offsetTop;
-        const minOffset = logoBottom + 20 - naturalViewportTop;
-        if (msgOffsetRef.current < minOffset) {
-          msgOffsetRef.current = minOffset;
-        }
-      }
-
-      gsap.to(el, { y: msgOffsetRef.current, duration: 0.3, ease: "power1.out" });
-    }
-
-    // Always reposition input: 16px below container bottom, clamped at vh-80
-    if (inputRowRef.current && el.offsetParent) {
-      const parentTop = (el.offsetParent as HTMLElement).getBoundingClientRect().top;
-      const containerBottom = el.offsetTop + msgOffsetRef.current + el.offsetHeight;
-      const maxCSSTop = window.innerHeight - 80 - parentTop;
-      const targetCSSTop = Math.min(containerBottom + 16, maxCSSTop);
-      gsap.to(inputRowRef.current, { top: targetCSSTop, duration: 0.3, ease: "power1.out" });
-    }
-
     if (last) {
       gsap.killTweensOf(last);
-      gsap.fromTo(last, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.38, ease: "power2.out" });
+      gsap.fromTo(last, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.38, ease: "power2.out" });
     }
+    el.scrollTop = el.scrollHeight;
   }, [bubbles]);
 
   function handleSubmit() {
@@ -129,7 +121,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   return (
     <div id="onboarding-screen">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img ref={logoRef} src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka" className="onboarding-logo" />
+      <img ref={logoRef} src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka" className="onboarding-logo" onLoad={positionMessages} />
       <div className="onboarding-inner">
         <div id="onboarding-messages" ref={msgsRef} role="log" aria-live="polite">
           {bubbles.map((b) => (

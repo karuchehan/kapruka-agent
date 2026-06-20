@@ -125,15 +125,21 @@ html, body {
 
 #onboarding-messages {
   position: absolute;
-  top: calc(66% - 130px);
+  top: 220px;           /* fallback; exact value set by JS positionMessages() on logo load */
+  bottom: 148px;        /* fallback; exact value set by JS positionMessages() on logo load */
   left: 24px;
   right: 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: visible;
+  overflow-y: auto;
+  scrollbar-width: none;
   z-index: 2;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 40px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 40px);
 }
+
+#onboarding-messages::-webkit-scrollbar { display: none; }
 
 .quickstart-chips {
   display: flex;
@@ -178,7 +184,7 @@ html, body {
 
 .onboarding-input-row {
   position: absolute;
-  top: 66%;
+  bottom: 80px;
   left: 24px;
   right: 24px;
   display: flex;

@@ -4,6 +4,27 @@
 
 ---
 
+## Session 072 — 2026-06-20 (onboarding — fixed zone layout, downward growth, overflow scroll)
+
+### What We Did
+- **Root cause**: old pattern used `translateY` slide-up on the message container + a ceiling clamp. This was fragile — offsetTop/offsetParent arithmetic drifted, causing messages to clip behind the logo or exceed the ceiling.
+- **New layout model** (`globals.css` + `OnboardingScreen.tsx`):
+  - `#onboarding-messages`: removed `top: calc(66% - 130px)`, `overflow: visible`. Now `top: 220px; bottom: 148px` as CSS fallbacks (overridden by JS). Added `overflow-y: auto`, hidden scrollbars (`scrollbar-width: none` + `::-webkit-scrollbar`), and a top-fade mask (`mask-image: linear-gradient(to bottom, transparent 0px, black 40px)`).
+  - `.onboarding-input-row`: removed `top: 66%`. Now `bottom: 80px` — fixed, never moves.
+- **`positionMessages()` function** (`OnboardingScreen.tsx`): measures logo `getBoundingClientRect()` and parent rect, sets `el.style.top = logoBottom + 20 - parentTop` and `el.style.bottom = 80 + inputH + 16 + "px"`. Guards on `logoRect.height === 0` so it won't run before the SVG has loaded.
+- **Called on**: logo `onLoad` (primary) and `requestAnimationFrame` inside mount `useEffect` (cached-image fallback).
+- **Bubble effect simplified**: removed all `gsap.to(container)` translateY, ceiling clamp, and input reposition code. Now just: fade-in last bubble + `el.scrollTop = el.scrollHeight` to keep newest visible.
+- **Removed**: `msgOffsetRef`.
+- All 4 mandatory checks passed. TS clean.
+
+### Mistakes & Lessons
+- Ceiling clamp via offsetTop + offsetParent arithmetic is unreliable when GSAP has already applied transforms — `offsetTop` reads the CSS layout position, not the GSAP-translated position. That mismatch was the root cause of the clipping bug. The fix: don't translate the container at all; use a fixed top/bottom zone with internal scrolling.
+
+### Next Steps
+- Verify in browser: messages start just below logo, grow downward, scroll internally when overflow occurs, top-fade visible, input fixed at bottom-80px
+
+---
+
 ## Session 071 — 2026-06-20 (onboarding — transition at gender, shopping question moves to chat)
 
 ### What We Did
