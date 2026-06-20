@@ -137,9 +137,6 @@ html, body {
   overflow-y: auto;
   scrollbar-width: none;
   z-index: 2;
-  /* top-fade: messages scrolling out of view fade rather than clip */
-  mask-image: linear-gradient(to bottom, transparent 0px, black 40px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 40px);
 }
 
 #onboarding-messages::-webkit-scrollbar { display: none; }

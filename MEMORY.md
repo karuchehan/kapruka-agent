@@ -4,6 +4,22 @@
 
 ---
 
+## Session 074 — 2026-06-20 (onboarding — remove top-fade mask that dimmed the first line)
+
+### What We Did
+- **Problem (screenshot)**: the top-fade mask added in Session 073 (`mask-image: linear-gradient(to bottom, transparent 0px, black 40px)` on `#onboarding-messages`) faded the top ~40px of the container ALWAYS — even with a single message and no scrolling. Result: the first line of the welcome bubble rendered semi-transparent/dimmed while the second line was full white. Looked broken.
+- **Fix** (`globals.css`): removed the `mask-image` + `-webkit-mask-image` declarations from `#onboarding-messages` entirely. Internal `overflow-y: auto` scrolling is kept; the fade was cosmetic overkill that hurt the common (1-message) case.
+- **Verified visually**: headless Chrome screenshot (`/tmp/ob-shot2.png`) — both lines of the welcome bubble now render at uniform full white, no per-line fade. Agent bubble text is `#ffffff` on translucent purple; reads clean.
+- All 4 mandatory checks passed. TS clean.
+
+### Mistakes & Lessons
+- A top-fade `mask-image` on a scroll container fades content at the top edge **unconditionally**, not just when scrolled. For a container that usually holds 1–2 items, that means permanently dimming the first line. Don't add edge-fade masks to containers whose normal state isn't overflowing. If a scroll-fade is ever wanted, gate it (e.g. only when `scrollTop > 0`) — but here it wasn't worth it; removed.
+
+### Next Steps
+- None — onboarding layout is stable: centered cluster, no void, no fade artifact.
+
+---
+
 ## Session 073 — 2026-06-20 (onboarding — KILL THE VOID, pure-flexbox centered cluster)
 
 ### What We Did
