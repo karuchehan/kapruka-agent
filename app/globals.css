@@ -51,24 +51,28 @@ html, body {
   inset: 0;
   z-index: 100;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: radial-gradient(ellipse 80% 70% at 50% 40%, #3b1f7a 0%, #2d1b5e 30%, #1a0f3a 60%, #0d0820 100%);
+  background: linear-gradient(to bottom, #0d0820 0%, #1a0f3a 30%, #2d1b5e 60%, #3b1f7a 85%, #4a2490 100%);
 }
 
 .onboarding-inner {
+  position: relative;
   width: 100%;
   max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
 }
 
 .onboarding-logo {
-  display: block;
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 240px;
-  margin: 0 auto;
+  transition: opacity 0.5s ease;
+}
+
+.onboarding-logo.faded {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .brand-lockup {
@@ -113,13 +117,21 @@ html, body {
 }
 
 #onboarding-messages {
-  min-height: 200px;
+  position: absolute;
+  top: 55%;
+  left: 24px;
+  right: 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: visible;
 }
 
 .quickstart-chips {
+  position: absolute;
+  bottom: 96px;
+  left: 24px;
+  right: 24px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -161,6 +173,10 @@ html, body {
 }
 
 .onboarding-input-row {
+  position: absolute;
+  bottom: 32px;
+  left: 24px;
+  right: 24px;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -1715,6 +1731,5 @@ html, body {
   /* When open, the grid clears the input bar pinned at the very bottom. */
   .product-sheet .product-stage { padding-bottom: calc(var(--m-input-h) + 2 * var(--m-gap) + var(--m-safe)); }
 
-  .onboarding-inner { gap: 24px; }
   .brand-name { font-size: 22px; }
 }

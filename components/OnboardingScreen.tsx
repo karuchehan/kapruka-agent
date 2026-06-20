@@ -37,6 +37,8 @@ export function OnboardingScreen({ onComplete }: Props) {
   const msgsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
+  const [logoVisible, setLogoVisible] = useState(true);
+  const msgOffsetRef = useRef(0);
 
   function addBubble(role: "agent" | "user", text: string) {
     setBubbles((prev) => [...prev, { id: ++bubbleId, role, text }]);
@@ -47,17 +49,18 @@ export function OnboardingScreen({ onComplete }: Props) {
     inputRef.current?.focus();
   }, []);
 
-  // Scroll to bottom when bubbles change
-  useEffect(() => {
-    const el = msgsRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [bubbles]);
-
-  // GSAP on new bubbles
+  // Slide container up + fade in new bubble
   useEffect(() => {
     const el = msgsRef.current;
     if (!el) return;
-    const last = el.lastElementChild as HTMLElement | null;
+    const items = Array.from(el.children) as HTMLElement[];
+    const last = items[items.length - 1];
+    if (items.length > 1) {
+      const prev = items[items.length - 2];
+      const slideBy = prev ? prev.offsetHeight + 12 : 58;
+      msgOffsetRef.current -= slideBy;
+      gsap.to(el, { y: msgOffsetRef.current, duration: 0.4, ease: "power2.out" });
+    }
     if (last) {
       gsap.killTweensOf(last);
       gsap.fromTo(last, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.38, ease: "power2.out" });
@@ -78,6 +81,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   function handleSubmit() {
     const val = inputValue.trim();
     if (!val) return;
+    setLogoVisible(false);
     addBubble("user", val);
     setInputValue("");
 
@@ -144,8 +148,7 @@ export function OnboardingScreen({ onComplete }: Props) {
     <div id="onboarding-screen">
       <div className="onboarding-inner">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/logos/kapruka-main.svg" alt="Kapruka" className="onboarding-logo" />
-        <p className="onboarding-tagline">What would you like to send today?</p>
+        <img src="/brand/logos/kapruka-main.svg" alt="Kapruka" className={`onboarding-logo${!logoVisible ? " faded" : ""}`} />
         <div id="onboarding-messages" ref={msgsRef} role="log" aria-live="polite">
           {bubbles.map((b) => (
             <div key={b.id} className={`ob-bubble ${b.role}`}>{b.text}</div>

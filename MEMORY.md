@@ -37,6 +37,30 @@
 
 ---
 
+## Session 067 — 2026-06-20 (onboarding — gradient direction + layout + slide-up animation)
+
+### What We Did
+- **Gradient direction**: `#onboarding-screen` background switched from radial to `linear-gradient(to bottom, #0d0820 0%, #1a0f3a 30%, #2d1b5e 60%, #3b1f7a 85%, #4a2490 100%)` — dark at top, bright purple at bottom.
+- **Removed tagline**: deleted `<p className="onboarding-tagline">What would you like to send today?</p>` from JSX.
+- **Layout overhaul** — onboarding screen now uses absolute positioning instead of flexbox column:
+  - `.onboarding-inner`: removed flex/gap, now `position: relative`.
+  - `#onboarding-screen`: removed `align-items: center` and `padding: 24px`; inner fills full height via flex stretch.
+  - `.onboarding-logo`: `position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%)` — sits at ~40% from top.
+  - `#onboarding-messages`: `position: absolute; top: 55%` — below-center anchor.
+  - `.quickstart-chips`: `position: absolute; bottom: 96px` — above input row.
+  - `.onboarding-input-row`: `position: absolute; bottom: 32px` — fixed to viewport bottom.
+- **Logo fade**: added `logoVisible` state. First `handleSubmit` call sets it false → `.onboarding-logo.faded` class → `opacity: 0` (transition 0.5s). Logo disappears after first interaction so messages don't collide with it.
+- **Slide-up animation**: replaced static GSAP fade-in with container-slide pattern. `msgOffsetRef` tracks cumulative `translateY`. On each new bubble, measures the second-to-last element's `offsetHeight + 12` (gap) and subtracts from container Y. New bubble fades in at bottom. Creates flowing upward conversation motion — no scroll.
+- All 4 mandatory layout checks passed. TS clean.
+
+### Mistakes & Lessons
+- None this session.
+
+### Next Steps
+- Verify in browser — confirm logo fade, slide-up flow, gradient direction, chips positioning
+
+---
+
 ## Session 066 — 2026-06-20 (onboarding — expanded glow gradient + agent bubble restyle)
 
 ### What We Did
