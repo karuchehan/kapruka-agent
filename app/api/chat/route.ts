@@ -36,6 +36,11 @@ export const maxDuration = 60;
 
 const CHECKOUT_RE = /\[CHECKOUT_URL\](https?:\/\/[^\s]+)\[\/CHECKOUT_URL\]/;
 
+// How many raw results each search_products MCP call fetches. The pool is
+// filtered/ranked down to the visible cards downstream; this is the candidate
+// breadth, not the display count.
+const MCP_FETCH_LIMIT = 25;
+
 // ── SESSION SEARCH CACHE ──────────────────────────────────────────────────────
 // Module-level map survives across Vercel Fluid Compute request reuses. Prevents
 // MCP non-determinism from returning different products for the same query within
@@ -279,11 +284,11 @@ function categoryQuery(cat: string, convText: string): string {
 // when any exist (never SHOW an over-budget product); if none fit, return the
 // top candidates so the agent can be honest / a broaden-retry can fire. Max 4.
 function pickForCards(candidates: Product[], budget: number | null): Product[] {
-  if (budget == null) return candidates.slice(0, 4);
+  if (budget == null) return candidates.slice(0, 8);
   // Sort within-budget items price-asc so cheapest options show first when user
   // has a budget constraint — prevents the most expensive result dominating card 1.
   const within = candidates.filter((p) => p.price <= budget).sort((a, b) => a.price - b.price);
-  return (within.length ? within : candidates).slice(0, 4);
+  return (within.length ? within : candidates).slice(0, 8);
 }
 
 // Search one category and return on-topic, in-budget products (category-gated).
@@ -303,7 +308,7 @@ async function searchCategory(
     return pool.slice(0, take);
   }
   const q = categoryQuery(cat, convText);
-  const r = await callMCP("search_products", { q, limit: 15, in_stock_only: true, sort: "relevance" });
+  const r = await callMCP("search_products", { q, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" });
   // Never drop floral when this very category IS flower (explicit per-category search).
   const c = filterProducts<Product>((r.results || []).map(normaliseProduct), budget, [cat], cat, excludeSympathy, dropFloral && cat !== "flower");
   return c.slice(0, take);
@@ -326,7 +331,7 @@ async function searchFlowersParallel(
 
   const settled = await Promise.allSettled(
     queries.map((q) =>
-      callMCP("search_products", { q, limit: 15, in_stock_only: true, sort: "relevance" })
+      callMCP("search_products", { q, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" })
     )
   );
 
@@ -796,7 +801,7 @@ export async function POST(req: Request) {
       } else {
       const result = await callMCP("search_products", {
         q:             searchQuery,
-        limit:         15,
+        limit:         MCP_FETCH_LIMIT,
         in_stock_only: true,
         sort:          "relevance",
       });
@@ -829,7 +834,7 @@ export async function POST(req: Request) {
                 : effectiveCat && effectiveCat in CATEGORY_TERMS
                   ? categoryQuery(effectiveCat, convText)
                   : enrichGenericQuery(fallbackQ, recipientProfile, convText);
-            const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: 15, in_stock_only: true, sort: "relevance" });
+            const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" });
             const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, effectiveCat, excludeSympathy, dropFloral);
             const pick2 = pickForCards(c2, budget);
             // Prefer the retry only if it gives more cards OR more within-budget cards.
@@ -846,10 +851,10 @@ export async function POST(req: Request) {
       if (budget != null && effectiveCat && effectiveCat in CATEGORY_TERMS && withinBudget(products).length === 0) {
         try {
           const broadQ = categoryQuery(effectiveCat, ""); // bare category term, no narrowing
-          const rb = await callMCP("search_products", { q: broadQ, limit: 15, in_stock_only: true, sort: "relevance" });
+          const rb = await callMCP("search_products", { q: broadQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" });
           const cb = filterProducts<Product>((rb.results || []).map(normaliseProduct), budget, [effectiveCat], effectiveCat, excludeSympathy, dropFloral);
           const within = withinBudget(cb);
-          if (within.length) products = within.slice(0, 4);
+          if (within.length) products = within.slice(0, 8);
         } catch { /* best-effort */ }
       }
 
