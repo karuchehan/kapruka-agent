@@ -2180,3 +2180,22 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Live-test all three bugs in dev.
 - Autoresearch loop diagnosis: loop has stalled 10/10 across both runs; scenario_009 breaks every challenger. Programmatic DELIVERY section lock in orchestrator.js is the correct fix (not advisory text). Manual patches to system_prompt.md for scenario_011 (London expat), scenario_012 (multi-item cart), scenario_015 (Sinhala + products) are needed before next loop run.
+
+## Session 064 — 2026-06-22
+### What We Did
+- Located every MCP product-query limit in the codebase (read-only sweep first). All limits live in `app/api/chat/route.ts` — no separate MCP client config, no `.mcp.json`, `callMCP` defined inline.
+- Two distinct limit types identified: (1) MCP fetch limit = raw candidate pool size passed to `search_products`; (2) card display cap in `pickForCards` = number of cards shown to user. System prompt "2–4 products" text rules are agent-output instructions, NOT fetch limits — left untouched.
+- Change 1: extracted `const MCP_FETCH_LIMIT = 25` (added after CHECKOUT_RE, ~line 38). Replaced all 5 hardcoded `limit: 15` call sites (searchCategory, searchFlowersParallel, main search, fallback retry, budget-broaden).
+- Change 2: raised card cap 4→8 — `pickForCards` both branches (no-budget + budget) and the budget-broaden `within.slice` path.
+- Verified: `npx tsc --noEmit` CLEAN. grep confirmed 0 leftover `limit: 15`, 0 `slice(0, 4)`, 6 `MCP_FETCH_LIMIT` refs (1 const + 5 uses).
+- Commit `537dc8e`, pushed to main.
+
+### Gaps Identified
+- Did not live-test card rendering at 8 products — UI carousel/layout may need a look at higher count.
+
+### Mistakes & Lessons
+- None. Scoped edit, all checks passed first try.
+
+### Next Steps
+- Live-test that 8 cards render cleanly in the carousel (no overflow/reflow regression).
+- Confirm larger fetch pool (25) doesn't surface more junk past the relevance/budget filters.
