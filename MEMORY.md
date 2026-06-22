@@ -2199,3 +2199,25 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Live-test that 8 cards render cleanly in the carousel (no overflow/reflow regression).
 - Confirm larger fetch pool (25) doesn't surface more junk past the relevance/budget filters.
+
+## Session 065 — 2026-06-22
+### What We Did
+- Added a category-intent verification step to the MCP result pipeline in `app/api/chat/route.ts`.
+- New `INTENT_EXCLUDE` map (chocolate/cake/flower/perfume → mismatched-category word regex) + `filterByIntent(requestedType, results)` function placed just above `searchCategory`.
+- `filterByIntent` resolves the request string to one of 4 intent keys (chocolate/sweets, cake, flower, perfume/fragrance), drops results whose NAME matches the excluded-category words, and logs every exclusion via `console.log("[filterByIntent] ...")`.
+- Safety valve per spec: if <3 results would remain after filtering, skip the filter and return the ORIGINAL array (also logged). Never strands the user.
+- Wired into the PRIMARY non-flower search path only — after `filterProducts` (candidates), before `pickForCards`. Requested type passed as `${effectiveCat ?? ""} ${baseQuery}` so perfume (NOT in CATEGORY_DETECT/CATEGORY_TERMS, so never an effectiveCat) is still caught via the raw query words.
+- system_prompt.md: added one rule under PRODUCT CATEGORY SUBSTITUTION — agent verifies MCP results match the request, acknowledges mismatch naturally, offers to re-search.
+- Verified `npx tsc --noEmit` CLEAN. Commit `b0440e9`, pushed to main.
+
+### Gaps Identified
+- filterByIntent applied to the primary non-flower path ONLY. NOT applied to: flower path (searchFlowersParallel — already category-pure), cache-hit branch (stored products are pre-verified from a prior run), the thin-results fallback retry (line ~837), the budget-broaden path (~857), or the multi-category bundle path (msgCats >= 2). If mismatches surface in those paths, extend there.
+- "candy" exclusion for cakes uses `\bcandy\b`; "chocolate box"/"chocolate bar" matched as literal phrases — verify against real MCP product-name formatting in dev.
+
+### Mistakes & Lessons
+- None. Scoped edit, tsc clean first try.
+
+### Next Steps
+- Live-test: search "chocolates" and confirm any cake/pastry results are dropped (watch server console for `[filterByIntent]` lines).
+- Confirm the <3 safety valve doesn't silently neuter the filter on small result sets — may need to lower threshold or widen MCP_FETCH_LIMIT pool.
+- Decide whether to extend filterByIntent to the fallback/bundle paths.
