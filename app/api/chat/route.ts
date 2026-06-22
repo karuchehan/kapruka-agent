@@ -291,6 +291,58 @@ function pickForCards(candidates: Product[], budget: number | null): Product[] {
   return (within.length ? within : candidates).slice(0, 8);
 }
 
+// Category-mismatch guard. MCP relevance search occasionally returns adjacent-
+// category products (a cake when chocolates were asked for). After MCP returns and
+// before the visible cards are picked, drop results whose NAME carries a word that
+// belongs to a different category than the one requested.
+const INTENT_EXCLUDE: Record<string, RegExp> = {
+  // chocolates / sweets — exclude baked goods
+  chocolate: /\b(cake|pastry|bread|tart|pie)\b/,
+  // cakes — exclude packaged confectionery
+  cake:      /(chocolate box|chocolate bar|\bcandy\b)/,
+  // flowers — exclude non-floral gifts
+  flower:    /\b(cake|chocolate|perfume)\b/,
+  // perfume / fragrance — exclude non-fragrance gifts
+  perfume:   /\b(cake|flower|chocolate)\b/,
+};
+
+// Resolve the user's requested product type to an INTENT_EXCLUDE key, then drop
+// results whose name matches the mismatched-category words. Safety valve: if the
+// filter would leave fewer than 3 results, skip it and return the original array —
+// never strand the user with almost nothing. Logs every exclusion for debugging.
+function filterByIntent(requestedType: string | null, results: Product[]): Product[] {
+  if (!requestedType || !results.length) return results;
+  const req = requestedType.toLowerCase();
+
+  let key: string | null = null;
+  if (/\b(chocolate|chocolates|sweet|sweets)\b/.test(req)) key = "chocolate";
+  else if (/\b(cake|cakes)\b/.test(req)) key = "cake";
+  else if (/\b(flower|flowers|bouquet|roses?|floral)\b/.test(req)) key = "flower";
+  else if (/\b(perfume|perfumes|fragrance|fragrances|cologne)\b/.test(req)) key = "perfume";
+  if (!key) return results;
+
+  const exclude = INTENT_EXCLUDE[key];
+  const kept: Product[] = [];
+  const dropped: Product[] = [];
+  for (const p of results) {
+    if (exclude.test(p.name.toLowerCase())) dropped.push(p);
+    else kept.push(p);
+  }
+
+  // Skip the filter entirely when too little would remain.
+  if (kept.length < 3) {
+    if (dropped.length) {
+      console.log(`[filterByIntent] skipped for "${requestedType}" — only ${kept.length} would remain after dropping ${dropped.length}`);
+    }
+    return results;
+  }
+
+  if (dropped.length) {
+    console.log(`[filterByIntent] "${requestedType}" (${key}) excluded ${dropped.length}: ${dropped.map((p) => p.name).join(" | ")}`);
+  }
+  return kept;
+}
+
 // Search one category and return on-topic, in-budget products (category-gated).
 async function searchCategory(
   cat: string,
@@ -814,7 +866,11 @@ export async function POST(req: Request) {
       const queryTokens = baseQuery.split(/\s+/);
       if (result.results?.length) {
         const candidates = filterProducts<Product>(result.results.map(normaliseProduct), budget, queryTokens, effectiveCat, excludeSympathy, dropFloral);
-        products = pickForCards(candidates, budget);
+        // Verify category intent before the cards are picked — drop adjacent-category
+        // results (e.g. cakes when chocolates were asked for). Pass both the detected
+        // category and the raw query so perfume (not an effectiveCat) is still caught.
+        const verified = filterByIntent(`${effectiveCat ?? ""} ${baseQuery}`.trim(), candidates);
+        products = pickForCards(verified, budget);
       }
 
       const withinBudget = (ps: Product[]) => (budget == null ? ps : ps.filter((p) => p.price <= budget));
