@@ -41,6 +41,17 @@ const CHECKOUT_RE = /\[CHECKOUT_URL\](https?:\/\/[^\s]+)\[\/CHECKOUT_URL\]/;
 // breadth, not the display count.
 const MCP_FETCH_LIMIT = 25;
 
+// When the shopper states a budget, constrain the MCP search itself with
+// `max_price` (verified live: kapruka_search_products honours `max_price` — the
+// keys `price_max`/`maxPrice`/`price_to` are ignored and return zero results).
+// This is the real fix for "nothing under Rs X" when cheap in-budget products
+// exist: MCP relevance-ranks pricier items first, so the affordable ones rank
+// below `limit` and never reach the client-side filter. max_price surfaces them
+// at the source. Client-side budget filtering stays as a belt-and-suspenders.
+function budgetArg(budget: number | null): Record<string, number> {
+  return budget != null ? { max_price: budget } : {};
+}
+
 // ── SESSION SEARCH CACHE ──────────────────────────────────────────────────────
 // Module-level map survives across Vercel Fluid Compute request reuses. Prevents
 // MCP non-determinism from returning different products for the same query within
@@ -278,17 +289,16 @@ function categoryQuery(cat: string, convText: string): string {
   return occ ? `${occ} ${term}` : term;
 }
 
-// Select the products that become visible cards. filterProducts now keeps
-// over-budget items (ordered last) so the cheap in-budget options are never
-// discarded from the pool. For the cards we still show ONLY within-budget items
-// when any exist (never SHOW an over-budget product); if none fit, return the
-// top candidates so the agent can be honest / a broaden-retry can fire. Max 4.
+// Select the products that become visible cards. When a budget is stated, show
+// ONLY within-budget products — NEVER an over-budget card (the user is explicit:
+// no upselling). Within-budget items keep their incoming MCP relevance order
+// (best match for the budget first), NOT price-asc — "best product for the
+// budget, not cheapest". If none fit, return [] so the agent stays honest and a
+// broaden-retry can fire; never fall back to showing over-budget candidates. Max 8.
 function pickForCards(candidates: Product[], budget: number | null): Product[] {
   if (budget == null) return candidates.slice(0, 8);
-  // Sort within-budget items price-asc so cheapest options show first when user
-  // has a budget constraint — prevents the most expensive result dominating card 1.
-  const within = candidates.filter((p) => p.price <= budget).sort((a, b) => a.price - b.price);
-  return (within.length ? within : candidates).slice(0, 8);
+  const within = candidates.filter((p) => p.price <= budget);
+  return within.slice(0, 8);
 }
 
 // Category-mismatch guard. MCP relevance search occasionally returns adjacent-
@@ -360,7 +370,7 @@ async function searchCategory(
     return pool.slice(0, take);
   }
   const q = categoryQuery(cat, convText);
-  const r = await callMCP("search_products", { q, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" });
+  const r = await callMCP("search_products", { q, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance", ...budgetArg(budget) });
   // Never drop floral when this very category IS flower (explicit per-category search).
   const c = filterProducts<Product>((r.results || []).map(normaliseProduct), budget, [cat], cat, excludeSympathy, dropFloral && cat !== "flower");
   return c.slice(0, take);
@@ -383,7 +393,7 @@ async function searchFlowersParallel(
 
   const settled = await Promise.allSettled(
     queries.map((q) =>
-      callMCP("search_products", { q, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" })
+      callMCP("search_products", { q, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance", ...budgetArg(budget) })
     )
   );
 
@@ -919,6 +929,7 @@ export async function POST(req: Request) {
         limit:         MCP_FETCH_LIMIT,
         in_stock_only: true,
         sort:          "relevance",
+        ...budgetArg(budget),
       });
       // Filter junk (vendor listings, no-image, zero-price) and off-topic results
       // (relevance gate) BEFORE slicing — cards rendered in UI come from this
@@ -953,7 +964,7 @@ export async function POST(req: Request) {
                 : effectiveCat && effectiveCat in CATEGORY_TERMS
                   ? categoryQuery(effectiveCat, convText)
                   : enrichGenericQuery(fallbackQ, recipientProfile, convText);
-            const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" });
+            const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance", ...budgetArg(budget) });
             const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, effectiveCat, excludeSympathy, dropFloral);
             const pick2 = pickForCards(c2, budget);
             // Prefer the retry only if it gives more cards OR more within-budget cards.
@@ -970,7 +981,7 @@ export async function POST(req: Request) {
       if (budget != null && effectiveCat && effectiveCat in CATEGORY_TERMS && withinBudget(products).length === 0) {
         try {
           const broadQ = categoryQuery(effectiveCat, ""); // bare category term, no narrowing
-          const rb = await callMCP("search_products", { q: broadQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance" });
+          const rb = await callMCP("search_products", { q: broadQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance", ...budgetArg(budget) });
           const cb = filterProducts<Product>((rb.results || []).map(normaliseProduct), budget, [effectiveCat], effectiveCat, excludeSympathy, dropFloral);
           const within = withinBudget(cb);
           if (within.length) products = within.slice(0, 8);

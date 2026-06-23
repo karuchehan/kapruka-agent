@@ -2244,3 +2244,28 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - Live-test the exact bug scenario (birthday cake) and confirm cards == named products.
 - Confirm MODE B clarifying-question turns now show ZERO cards (previously could show stale pool).
 - Watch for false-negative wipes on normal product turns; if seen, lower the fuzzy threshold or add a price-line fallback that keeps top-N pool items.
+
+## Session 067 — 2026-06-23
+### What We Did
+- Fixed the budget bug (within-budget products ignored / upsold / "nothing under Rs X" when products clearly exist) in `app/api/chat/route.ts` + `directives/system_prompt.md`.
+- ROOT CAUSE (found by empirically testing live MCP, not guessing): `kapruka_search_products` relevance-ranks PRICIER items first. Cheap in-budget products rank below `limit` (25) and never reach the client-side filter. Live proof: `"birthday cake"` with NO price arg → 22 results, min price **4050** (nothing under 4000); with `max_price: 4000` → 23 results, **170–3930**. The client-side soft filter could never show what MCP never returned.
+- KEY DISCOVERY: MCP honours `max_price` (verified). The keys `price_max`, `maxPrice`, `price_to` are all IGNORED → return 0 results. Use `max_price` ONLY.
+- Part 1 (route.ts):
+  - Added `budgetArg(budget)` helper → `{ max_price: budget }` when budget set, else `{}`.
+  - Wired into ALL 5 `callMCP("search_products", …)` sites: searchCategory, searchFlowersParallel, primary search, fallback retry, budget-broaden. So every search path constrains to in-budget at the source.
+  - Rewrote `pickForCards`: when budget set → return ONLY within-budget (`p.price <= budget`), in incoming MCP RELEVANCE order (removed the old price-asc sort — "best for budget, not cheapest"). Removed the old fallback that returned over-budget `candidates` when none fit → now returns `[]` so the agent stays honest and the broaden-retry fires. Never shows an over-budget card.
+- Part 2 (system_prompt.md): appended 4 rules to the "NEVER PUSH BUDGET — ABSOLUTE HARD RULE" block — honest-friend/no-upsell, "120,000 products so trust more exist", "try ≥2 queries before saying nothing", "sort by value not highest price". (User-authorized edit to the directive; not a DELIVERY-section change, so no autoresearch freeze conflict.)
+- Verified `npx tsc --noEmit` CLEAN (exit 0). Overflow checks N/A (API route + prompt, no CSS/layout).
+
+### Gaps Identified
+- `max_price` filters at MCP, but the docs/schema for kapruka_search_products are still unconfirmed beyond empirical test — if MCP changes behaviour, the client-side within-budget filter in `pickForCards` + `filterProducts` remains as backstop.
+- `pickForCards` now returns `[]` when nothing fits budget. Relies on the retry/broaden paths (which now also carry max_price) to find in-budget items; if MCP genuinely has none, cards are empty and the agent must say so (prompt rule covers this).
+- Did not add a hard min_price floor — a budget of "around Rs 500" still returns Rs 170 items, fine for now.
+
+### Mistakes & Lessons
+- Lesson: tested the MCP param against the live server BEFORE wiring it. `price_max`/`maxPrice` looked plausible but silently return 0 results — would have shipped a "no products" regression. Empirical check caught it; only `max_price` works.
+
+### Next Steps
+- Live-test "show me cakes under 4000" end-to-end and confirm cards are all ≤4000 and the cheap ones appear.
+- Confirm the agent no longer says "nothing under budget" when max_price returns results.
+- Consider whether to extend max_price to non-search paths if any other price-sensitive MCP calls are added.
