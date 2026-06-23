@@ -2269,3 +2269,42 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - Live-test "show me cakes under 4000" end-to-end and confirm cards are all ≤4000 and the cheap ones appear.
 - Confirm the agent no longer says "nothing under budget" when max_price returns results.
 - Consider whether to extend max_price to non-search paths if any other price-sensitive MCP calls are added.
+
+## Session 068 — 2026-06-23
+> This session spanned 3 distinct user requests. Logging ALL of them per Chehan's instruction — including the one that was NOT run.
+
+### Request A — Autoresearch loop resume (NOT RUN — pending spend confirmation)
+- User (via /remote-control) asked to resume the autoresearch loop: re-score the current baseline across all scenarios (excl scenario_002), update `execution/resources.md` with new baseline + the manual patches (delivery hard rules, language auto-detect, category-intent verification), then run the full 10 iterations autonomously via `node execution/orchestrator.js`.
+- Read the infra: `execution/orchestrator.js`, `execution/run_tests.js`, `execution/generate_challenger.js`, `execution/score_response.js`, `execution/resources.md`, `execution/challenger_notes.md`, `directives/system_prompt.md`, `execution/test_scenarios.json`.
+- Cost math: each `runTests` = 25 scenarios × (1 agent call + 1 judge call) = 50 Sonnet calls. Full plan = 1 baseline re-score (50) + 10 iterations × (score baseline 50 + gen challenger 1 + score challenger 50 = 101) = **~1,060 paid Anthropic calls**, ~$7–12, ~60–90 min. Model: `claude-sonnet-4-6` throughout. `CHALLENGER_VALIDATE=0` is set by the orchestrator so no extra regen-guard scoring.
+- **STOPPED for spend confirmation** per the API Key Confirmation hard rule (~1,060 paid calls). Presented the cost table and asked for explicit "go".
+- **User never confirmed — pivoted to a different task (Request B) instead.** The loop was NEVER run. resources.md was NOT updated. Baseline was NOT re-scored. STILL PENDING if Chehan wants it later.
+- Context learned: resources.md shows loop history through run #24, all BASELINE-holds since run #4; last promotion was iteration 4 (2026-06-10). scenario_002 (electronics) is structurally excluded. challenger_notes.md freezes the DELIVERY section — challengers kept regressing scenarios 009/010 by rewriting it.
+
+### Request B — Card/reply disconnect bug → SHIPPED as Session 066 (commit 984fab2)
+- (Full detail logged under Session 066 above.) Cards now reconcile to the products the agent actually names. `reconcileCards()` helper + wiring in route.ts. tsc clean, pushed.
+
+### Request C — Budget bug → SHIPPED as Session 067 (commit cab9a7f)
+- (Full detail logged under Session 067 above.) Root cause: MCP relevance-ranks pricier items first; `max_price` MCP arg surfaces cheap in-budget items. budgetArg() wired into all 5 search calls; pickForCards within-budget-only in relevance order; 4 prompt rules added. tsc clean, pushed.
+
+### Request D — Wallet "not a strong category" lie → DEBUG ONLY, NO CODE CHANGES
+- Bug shown in screenshots: agent told user "wallets aren't a strong category on Kapruka right now" and redirected to food hampers/fragrance, when the Kapruka site shows 82 wallets (214 items in WALLETS category). Earlier in same chat it also dismissed belt/watch/mug.
+- User asked: DEBUG ONLY — find whether MCP returns wallets, and what categories the prompt hardcodes as unavailable. No fixes yet.
+- Method: queried the LIVE MCP directly (scratchpad/wallets.mjs) instead of adding a temp console.log (no running server needed) + grepped `directives/system_prompt.md`.
+- **MCP RESULT — wallets exist, plentiful:** `wallets` → 23 results, `wallet` → 25, `leather wallet` → 25, `belt` → 25, `watch` → 22, `mug` → 23. All real products with prices. Cheap in-budget wallets exist (Classic Leather Wallet Dark Brown Rs 2,500; Premium Artificial Leather Bifold Rs 2,500; Luxe Layer Gents Wallet Rs 5,930). **MCP is NOT the problem.**
+- **PROMPT ROOT CAUSE (Possibility 1 confirmed — knowledge problem, not MCP):**
+  - No line literally says "wallets unavailable." The damage is a CLOSED-WORLD ALLOWLIST the agent treats as exhaustive.
+  - Line 31 "Reliably-stocked gift categories:" = flowers, cakes, chocolates, hampers, books, perfume & cosmetics, jewellery & accessories, toys. Wallets/belts/watches/mugs NOT explicitly named.
+  - Line 32 explicit NEVER list = gadgets, gaming, consumer electronics (phones/laptops/TVs/speakers), fitness gear. Wallets/belts/mugs are NOT on it.
+  - Line 33 "interest you cannot stock → silently map to the nearest in-stock category and steer there" — agent over-applies this to wallets/belts/watches/mugs even though they ARE stocked.
+  - Lines 175–185 demographic bias table steers males toward food/hampers/fragrance; fashion/accessories listed but de-emphasized.
+  - Mechanism: anything not on the line-31 allowlist → assumed not stocked → redirect (line 33). Agent invents unavailability for real categories. Only `watch` is genuinely fuzzy (smartwatch ≈ electronics).
+- **Recommended fix (NOT yet applied, awaiting go):** stop treating line 31 as exhaustive — make the injected AVAILABLE PRODUCTS list the ground truth, and only redirect the truly-unstocked set (electronics/gadgets/fitness). i.e. if MCP returned products for the requested category, NEVER claim it's "not a strong category."
+
+### Mistakes & Lessons
+- Reinforced: test the live MCP empirically before blaming code or prompt. Direct MCP query answered the wallet question in one shot, no server/console.log needed.
+- The closed-world allowlist pattern in the prompt is a recurring failure source (same shape as scenario_002 electronics). Allowlists of "what's stocked" go stale against a 120k-product catalog; ground-truth should be the live result set.
+
+### Next Steps
+- Decide on the wallet/category prompt fix (Request D) — invert the allowlist logic so live MCP results override the "reliably-stocked" assumption.
+- Autoresearch loop (Request A) still un-run — awaiting Chehan's spend go-ahead (~1,060 calls).
