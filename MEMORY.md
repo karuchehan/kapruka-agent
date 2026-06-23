@@ -2308,3 +2308,25 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Decide on the wallet/category prompt fix (Request D) — invert the allowlist logic so live MCP results override the "reliably-stocked" assumption.
 - Autoresearch loop (Request A) still un-run — awaiting Chehan's spend go-ahead (~1,060 calls).
+
+## Session 069 — 2026-06-23
+### What We Did
+- Applied the wallet/category prompt fix that Session 068 only logged as pending. `directives/system_prompt.md`, prompt-only (no code, no tsc).
+- STOCK CONSTRAINT block rewritten ("search first, let the MCP results be the ground truth"):
+  - Replaced the closed-world "Reliably-stocked gift categories" allowlist with: "Kapruka stocks over 120,000 products across hundreds of categories. Never assume a category is unavailable. Always search the MCP first and let the results be the ground truth." Added an explicit non-exhaustive examples line naming wallets/belts/watches/mugs/bags/fashion accessories/jewellery/etc as stocked, with "Do NOT treat any list as exhaustive."
+  - Replaced the line-33 "silently map to the nearest in-stock category and steer there" redirect with: "If MCP returns zero results for a category, only then tell the user honestly and offer alternatives. Never redirect away from a category before searching."
+  - KEPT the NEVER list, now scoped explicitly to the genuinely unstocked categories only: gadgets, gaming, consumer electronics (phones/laptops/TVs/speakers), fitness gear.
+- USER PROFILE demographic bias table REMOVED (the "Male 18–30 / Female 31–50 …" steering rows). Replaced with a preference-driven rule: name/age/gender are tone/light-context ONLY, the user's stated preference always drives, never substitute an assumed gender/age preference for an explicit request (e.g. don't steer a man to food hampers when he asked for a wallet). Kept the "anchor products to the person AND what they asked for" guidance; dropped the "male into food → cakes/hampers, NOT gadgets" line's bias framing.
+- This directly kills the bug from Session 068 Request D: agent saying "wallets aren't a strong category" and redirecting to food/fragrance while 23 real wallets sat in MCP.
+
+### Gaps Identified
+- RESIDUAL: `system_prompt.md` still has (~line 376, WHAT YOU NEVER DO) "Never suggest products that don't match the user's demographic (e.g. fitness trackers for a 45-year-old male browsing electronics with no fitness context)." Its example is electronics/fitness-scoped so it does NOT block wallets/belts/etc, but it's the same demographic-assumption family — left in place per the exact change scope. Revisit if demographic over-filtering resurfaces.
+- This is a PROMPT change only — there is no code-level guard forcing a search before the agent can claim unavailability. The route already always searches the detected category, so the prompt fix should suffice; verify in live testing.
+
+### Mistakes & Lessons
+- Caught/avoided: the fix was logged as "pending/recommended" in Session 068 but never actually applied to the file. Chehan flagged it. Lesson — when a fix is agreed, apply it in the same turn or make the pending state unmistakable; don't let a recommendation masquerade as done.
+
+### Next Steps
+- Live-test: "how about wallets" / "something like a belt or a watch or a mug" → agent must now search and show real products, never say "not a strong category."
+- Consider tightening/removing the residual line-376 demographic rule if it causes any over-filtering.
+- Autoresearch loop (Session 068 Request A) still un-run — awaiting spend go-ahead.
