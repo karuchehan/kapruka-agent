@@ -2221,3 +2221,26 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - Live-test: search "chocolates" and confirm any cake/pastry results are dropped (watch server console for `[filterByIntent]` lines).
 - Confirm the <3 safety valve doesn't silently neuter the filter on small result sets — may need to lower threshold or widen MCP_FETCH_LIMIT pool.
 - Decide whether to extend filterByIntent to the fallback/bundle paths.
+
+## Session 066 — 2026-06-23
+### What We Did
+- Fixed the card/reply disconnect bug in `app/api/chat/route.ts`: product cards in the UI panel were the raw MCP pool (≤8 from `pickForCards`), independent of which 2–4 products the agent actually NAMED in its text. Symptom: agent recommends "...Rosy Cradle Bento Ribbon Cake" while cards show vegetable packs / Fortnite kits (junk that passed the filter but the agent never mentioned).
+- Root cause: `products` (cards) and the agent's prose come from the SAME injected pool, but the agent only names a subset; cards were returned as the full pool with no reconciliation. Two outputs, one source, never synced down to the named subset.
+- Added `reconcileCards(prose, pool)` helper (after `truncateToSentences`): for each fetched product, match its name against the agent's prose — (1) exact normalized containment, then (2) token-overlap fuzzy (≥2 significant tokens at ≥60%, OR one distinctive ≥6-char token) for partial/paraphrased names. Returns matched products ordered by first appearance in the reply, deduped, capped at 8.
+- Wired into the handler right after `rawText`: compute `cleaned` (strip all hidden markers + leaked product dumps ONCE), run `reconcileCards(cleaned, products)`, then: if matches → `products = matches`; if no matches AND no price quoted (`Rs`/`LKR`) → agent asked a question → `products = []`; if prices quoted but matcher found nothing → keep pool (matcher-miss must not wipe a valid carousel).
+- Reconciliation runs BEFORE the ADD/REMOVE/BUNDLE blocks, so cart-add resolution, bundle items, and the returned carousel all use the same reconciled set — fully consistent.
+- DRY: the message `truncateToSentences(...)` now reuses `cleaned` instead of duplicating the 11-step strip chain.
+- Verified `npx tsc --noEmit` CLEAN (exit 0). Overflow checks N/A (API route, no CSS/layout touched).
+
+### Gaps Identified
+- Fuzzy matcher relies on the agent quoting product names closely (it's prompt-instructed to). A single short non-distinctive mention (e.g. only "Toblerone" when name is longer) could miss → falls back to keeping the pool only if a price was quoted, else empty cards.
+- `cleaned` is matched (not the 3-sentence truncated `message`), so a product named in a 4th sentence that gets truncated from display still shows a card. Acceptable (better than dropping); revisit if it surfaces.
+- Bundle path: items now reconciled to named products — verify a multi-item bundle still shows all intended items when the agent names them across the reply.
+
+### Mistakes & Lessons
+- None. Scoped to one file, tsc clean first try.
+
+### Next Steps
+- Live-test the exact bug scenario (birthday cake) and confirm cards == named products.
+- Confirm MODE B clarifying-question turns now show ZERO cards (previously could show stale pool).
+- Watch for false-negative wipes on normal product turns; if seen, lower the fuzzy threshold or add a price-line fallback that keeps top-N pool items.

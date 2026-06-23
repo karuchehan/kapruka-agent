@@ -655,6 +655,69 @@ function truncateToSentences(text: string, n = 2): string {
   return parts.slice(0, n).join(" ").trim();
 }
 
+// ── CARD ↔ REPLY RECONCILIATION ───────────────────────────────────────────────
+// The visible cards used to be the raw MCP pool (≤8), independent of which 2–4
+// products the agent chose to NAME in its reply — so the carousel showed items
+// the agent never recommended (vegetable packs / Fortnite kits beside a birthday
+// cake). This reconciles the cards to exactly what the agent said: match each
+// fetched product against the agent's prose, exact normalized containment first,
+// then a token-overlap fuzzy pass for paraphrased / partial names. Returns the
+// matched products ordered by where they first appear in the reply.
+function reconcileCards(prose: string, pool: Product[]): Product[] {
+  if (!pool.length || !prose.trim()) return [];
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  const M = norm(prose);
+  // Words too generic to anchor a fuzzy match on their own.
+  const GENERIC = new Set([
+    "the", "and", "for", "with", "gift", "set", "pack", "box", "mom", "dad",
+    "happy", "birthday", "kapruka", "premium", "special", "deluxe", "classic",
+  ]);
+
+  const scored: { p: Product; pos: number }[] = [];
+  for (const p of pool) {
+    const n = norm(p.name);
+    if (!n) continue;
+
+    let pos = -1;
+    // 1. Exact normalized containment — agent quoted the name as shown.
+    const idx = M.indexOf(n);
+    if (idx !== -1) {
+      pos = idx;
+    } else {
+      // 2. Fuzzy: significant-token overlap. A match needs either two
+      //    overlapping significant tokens (≥60% of the name's tokens), or one
+      //    distinctive long token (≥6 chars) — handles partial/paraphrased names.
+      const tokens = n.split(" ").filter((t) => t.length >= 4 && !GENERIC.has(t));
+      const positions = tokens
+        .map((t) => ({ t, i: M.search(new RegExp(`\\b${t}`)) }))
+        .filter((x) => x.i !== -1);
+      const strong = positions.filter((x) => x.t.length >= 6);
+      const enoughOverlap =
+        tokens.length >= 2 && positions.length >= 2 && positions.length / tokens.length >= 0.6;
+      const distinctive = positions.length >= 1 && strong.length >= 1;
+      if (enoughOverlap || distinctive) {
+        pos = Math.min(...positions.map((x) => x.i));
+      }
+    }
+
+    if (pos !== -1) scored.push({ p, pos });
+  }
+
+  scored.sort((a, b) => a.pos - b.pos);
+
+  // Dedupe by id/name, cap at the carousel max (8).
+  const seen = new Set<string>();
+  const out: Product[] = [];
+  for (const { p } of scored) {
+    const key = p.id || norm(p.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out.slice(0, 8);
+}
+
 // ── DELIVERY RESULT MAPPING ───────────────────────────────────────────────────
 
 interface DeliveryInfo { city: string; available: boolean; etaLabel: string; }
@@ -976,6 +1039,37 @@ export async function POST(req: Request) {
 
     const rawText = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
 
+    // Strip every hidden UI marker + any leaked product dump → the agent's
+    // natural prose. Used BOTH to reconcile the cards and (truncated) as the
+    // message shown to the user, so the two are derived from the same text.
+    const cleaned = rawText
+      .replace(/\[PRODUCTS\][\s\S]*?\[\/PRODUCTS\]/g, "")
+      .replace(CHECKOUT_RE, "")
+      .replace(OCCASION_RE, "")
+      .replace(GIFT_RE, "")
+      .replace(BUNDLE_RE, "")
+      .replace(ORDER_RE, "")
+      .replace(ADD_RE, "")
+      .replace(REMOVE_RE, "")
+      .replace(/AVAILABLE PRODUCTS[^\n]*\n[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
+      .replace(/\d+\.\s+[^\n]+(?:—|–)\s*LKR\s*[\d,]+[^\n]*/gi, "")
+      .replace(/LAST SHOWN PRODUCTS[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
+      .trim();
+
+    // Reconcile the visible cards to the products the agent actually named, so
+    // the carousel is a direct reflection of the reply — never a parallel pool.
+    // - If the agent named products we can match → cards = exactly those.
+    // - If it named none AND quoted no prices → it asked a question → no cards.
+    // - If it quoted prices but the matcher found nothing → keep the pool (a
+    //   matcher miss must not wipe a legitimate carousel).
+    const reconciledCards = reconcileCards(cleaned, products);
+    const agentNamedProducts = /\b(rs\.?|lkr)\s*[\d,]/i.test(cleaned);
+    if (reconciledCards.length) {
+      products = reconciledCards;
+    } else if (!agentNamedProducts) {
+      products = [];
+    }
+
     const cm = rawText.match(CHECKOUT_RE);
     if (cm) checkoutUrl = cm[1];
 
@@ -1041,26 +1135,9 @@ export async function POST(req: Request) {
       products = []; // render as a grouped bundle instead of a plain carousel
     }
 
-    message = truncateToSentences(
-      rawText
-        .replace(/\[PRODUCTS\][\s\S]*?\[\/PRODUCTS\]/g, "")
-        .replace(CHECKOUT_RE, "")
-        .replace(OCCASION_RE, "")
-        .replace(GIFT_RE, "")
-        .replace(BUNDLE_RE, "")
-        .replace(ORDER_RE, "")
-        .replace(ADD_RE, "")
-        .replace(REMOVE_RE, "")
-        // Hard safety net: strip any leaked system-prompt product dump. The model
-        // occasionally reproduces the injected "AVAILABLE PRODUCTS:" block as text
-        // instead of weaving products into a natural sentence — visible to users
-        // as a raw numbered list. Strip it before the message reaches the client.
-        .replace(/AVAILABLE PRODUCTS[^\n]*\n[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
-        .replace(/\d+\.\s+[^\n]+(?:—|–)\s*LKR\s*[\d,]+[^\n]*/gi, "")
-        .replace(/LAST SHOWN PRODUCTS[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
-        .trim(),
-      3
-    );
+    // `cleaned` already has every marker + leaked product dump stripped (computed
+    // above for card reconciliation) — just truncate it to the visible message.
+    message = truncateToSentences(cleaned, 3);
 
   } catch (err) {
     const status = (err as { status?: number }).status || 500;
