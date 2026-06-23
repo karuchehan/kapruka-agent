@@ -2320,7 +2320,7 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - This directly kills the bug from Session 068 Request D: agent saying "wallets aren't a strong category" and redirecting to food/fragrance while 23 real wallets sat in MCP.
 
 ### Gaps Identified
-- RESIDUAL: `system_prompt.md` still has (~line 376, WHAT YOU NEVER DO) "Never suggest products that don't match the user's demographic (e.g. fitness trackers for a 45-year-old male browsing electronics with no fitness context)." Its example is electronics/fitness-scoped so it does NOT block wallets/belts/etc, but it's the same demographic-assumption family — left in place per the exact change scope. Revisit if demographic over-filtering resurfaces.
+- RESIDUAL [RESOLVED — follow-up commit, same day]: the "Never suggest products that don't match the user's demographic" line (WHAT YOU NEVER DO) was removed in a follow-up commit at Chehan's request — same bias family, stated preference now drives everything. No demographic-assumption rule remains in the prompt.
 - This is a PROMPT change only — there is no code-level guard forcing a search before the agent can claim unavailability. The route already always searches the detected category, so the prompt fix should suffice; verify in live testing.
 
 ### Mistakes & Lessons
