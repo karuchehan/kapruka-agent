@@ -2330,3 +2330,21 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - Live-test: "how about wallets" / "something like a belt or a watch or a mug" → agent must now search and show real products, never say "not a strong category."
 - Consider tightening/removing the residual line-376 demographic rule if it causes any over-filtering.
 - Autoresearch loop (Session 068 Request A) still un-run — awaiting spend go-ahead.
+
+## Session 070 — 2026-06-24
+### What We Did
+- Added name sanitization to onboarding. `components/OnboardingScreen.tsx`.
+- New `sanitizeName(raw)` helper: takes first word, trims whitespace, strips leading/trailing punctuation (`' " , . !`), capitalizes first letter + lowercases rest. "ChehAn'" → "Chehan", "JOHN" → "John".
+- Wired at capture point (step 0 submit): replaced `val.split(" ")[0]` with `sanitizeName(val)`. Runs BEFORE `setProfile`, so raw input never reaches state, system prompt, or agent messages. obMessages line uses `finalProfile.name` (already sanitized) — no second fix needed.
+- `npx tsc --noEmit` → TS CLEAN.
+- Committed `70bc4ce`.
+
+### Gaps Identified
+- PUSH FAILED — `git push origin main` returned "remote: Repository not found" for `https://github.com/karuchehan/kapruka-agent.git`. Commit is local-only. Remote URL likely wrong/renamed or auth changed. Needs correct remote URL or gh auth fix, then `git push origin main`.
+
+### Mistakes & Lessons
+- Remote was stale/broken; push could not complete. Commit is safe locally at `70bc4ce`. Resolve remote before next push.
+
+### Next Steps
+- Fix git remote, push `70bc4ce`.
+- Live-test onboarding name with messy input (trailing apostrophe, ALL CAPS, leading spaces) → agent greets with clean name.
