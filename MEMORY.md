@@ -2337,14 +2337,19 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - New `sanitizeName(raw)` helper: takes first word, trims whitespace, strips leading/trailing punctuation (`' " , . !`), capitalizes first letter + lowercases rest. "ChehAn'" → "Chehan", "JOHN" → "John".
 - Wired at capture point (step 0 submit): replaced `val.split(" ")[0]` with `sanitizeName(val)`. Runs BEFORE `setProfile`, so raw input never reaches state, system prompt, or agent messages. obMessages line uses `finalProfile.name` (already sanitized) — no second fix needed.
 - `npx tsc --noEmit` → TS CLEAN.
-- Committed `70bc4ce`.
+- Committed `70bc4ce` (fix) + memory log commit.
+- PUSH RESOLVED: first push failed with "remote: Repository not found". Root cause = WRONG ACTIVE gh ACCOUNT, not a bad remote URL. `gh auth status` shows 3 accounts logged in (gtmkaru [was active], karuchehan, get-papol). Repo `karuchehan/kapruka-agent` is PRIVATE and owned by karuchehan, so gtmkaru's token couldn't see it → "not found". Fix: `gh auth switch --user karuchehan`, then `git push origin main` → `71307d5..217e994` pushed (both commits). Repo confirmed via `gh repo view karuchehan/kapruka-agent` (private, non-empty).
+- FAVICON LOGOS: Chehan uploaded 2 new logo files into `public/brand/logos/`. One had a malformed name with a leading space — `" favicon.svg"`. Renamed to `favicon.svg` before committing. Committed both (`favicon.svg` 64862 bytes + `favicon.png` 981056 bytes) and pushed. Working tree clean.
 
 ### Gaps Identified
-- PUSH FAILED — `git push origin main` returned "remote: Repository not found" for `https://github.com/karuchehan/kapruka-agent.git`. Commit is local-only. Remote URL likely wrong/renamed or auth changed. Needs correct remote URL or gh auth fix, then `git push origin main`.
+- favicon.png is ~981 KB — large for a favicon; may want optimizing/resizing if used as actual browser favicon.
+- Favicons NOT yet wired into `app/layout.tsx` metadata — files are in repo but unused. Offer pending.
 
 ### Mistakes & Lessons
-- Remote was stale/broken; push could not complete. Commit is safe locally at `70bc4ce`. Resolve remote before next push.
+- "Repository not found" on push ≠ bad remote URL. With multiple gh accounts, FIRST check `gh auth status` for the active account — a private repo is invisible to a token from a different account. Cost a detour into `git remote -v` / repo-listing before spotting the account mismatch.
+- Watch for malformed uploaded filenames (leading/trailing spaces). Caught `" favicon.svg"` and renamed before commit.
 
 ### Next Steps
-- Fix git remote, push `70bc4ce`.
+- Wire favicons into `app/layout.tsx` metadata (icons) if Chehan wants them live.
+- Consider compressing favicon.png.
 - Live-test onboarding name with messy input (trailing apostrophe, ALL CAPS, leading spaces) → agent greets with clean name.
