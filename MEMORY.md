@@ -4,6 +4,27 @@
 
 ---
 
+## Session 076 — 2026-06-24 (bugfix — strip leaked tool-call XML from chat response)
+
+### What We Did
+- Bug: raw Anthropic tool-call XML (`<function_calls>`, `<invoke name="mcp_kapruka_searchProducts">`, `<parameter name="query">…</parameter>`) leaked into the visible chat bubble instead of being processed silently. Confirmed via two screenshots.
+- Added `stripToolCallXml()` in `app/api/chat/route.ts` (above the sentence-truncation section).
+  - Strips well-formed blocks: `<function_calls>…</function_calls>`, `<invoke…>…</invoke>`, `<parameter…>…</parameter>` (nested-safe, non-greedy).
+  - Strips orphaned/unclosed tags left by truncated emissions.
+  - Collapses whitespace debris: `2+ spaces→1`, `3+ newlines→2`, trailing space before newline, trim.
+- Wrapped the existing `cleaned` marker-strip chain with `stripToolCallXml(...)`. Sanitized text flows into BOTH card reconciliation (`reconcileCards`) and the final `message` (`truncateToSentences`), so XML can never reach the frontend or pollute card matching.
+
+### Gaps Identified
+- Root cause is the model emitting tool-call XML as prose — a system-prompt issue. This fix is a server-side guardrail, not a prompt fix. Prompt could also be hardened later.
+
+### Mistakes & Lessons
+- None. tsc clean first try.
+
+### Next Steps
+- Watch for whether the model still tries to emit tool XML (indicates prompt confusion about tool availability); consider a directive note if frequent.
+
+---
+
 ## Session 075 — 2026-06-24 (branding — favicon metadata + header wordmark logo)
 
 ### What We Did
