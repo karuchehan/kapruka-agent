@@ -33,6 +33,13 @@ const fredoka = Fredoka({
 export const metadata: Metadata = {
   title: "Kapruka — Your Shopping Assistant",
   description: "AI-powered shopping assistant for Kapruka Sri Lanka",
+  icons: {
+    icon: [
+      { url: "/brand/logos/favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/logos/favicon.png", type: "image/png" },
+    ],
+    apple: "/brand/logos/favicon.png",
+  },
 };
 
 // maximumScale:1 prevents zoom jank during the mobile sheet drag; viewportFit

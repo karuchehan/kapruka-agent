@@ -675,6 +675,12 @@ html, body {
   gap: 9px;
 }
 
+.header-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+
 .header-brand-text {
   display: flex;
   flex-direction: column;

@@ -9,9 +9,12 @@ export function Header({ voiceEnabled, onVoiceToggle }: Props) {
   return (
     <header id="chat-header">
       <div className="header-brand">
-        <div className="brand-dot small" />
+        <img
+          className="header-logo"
+          src="/brand/logos/kapruka-main-cropped.svg"
+          alt="Kapruka"
+        />
         <div className="header-brand-text">
-          <span className="brand-name small">Kapruka</span>
           <span className="header-subtitle">Your personal shopping assistant</span>
         </div>
       </div>
