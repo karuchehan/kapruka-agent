@@ -4,6 +4,25 @@
 
 ---
 
+## Session 077 — 2026-06-24 (prompt — expand Singlish detection + add romanized Tamil)
+
+### What We Did
+- Problem: Singlish detection list in `directives/system_prompt.md` (line 151) too narrow — only machang/aiyo/neda/eka/karanna/mokuth/nadda/puluwanda. Clear Singlish like "upandine thiyenne meh sandunda", "therune na mokdda", "mokuth nadda" did NOT trigger a register switch until the user asked explicitly.
+- Expanded the Singlish trigger list into grouped categories: verbs (thiyenne, karanne, denne, yanne, enne, gananne, balanne, kiyanne, hadanne, liyanne, araganne, …), question words (mokdda, mokuth, koheda, kawdda, kkiyanna, hedda, wdda, nadda), connectors/particles (meh, neh, neda, eka, oya, meka, ona, hari, bari), expressions (aiyo, ado, aney, ahh, yako, machan, machang, nangi, aiya, putha, duwa), adjectives/states (lassanai, hodai, wadai, pissu, bohoma, tikak, godak, ganan), time/nouns/pronouns (upandine, dawase, nethuwa, ape, api, mama, oyaa, kohomada).
+- Added one-word rule: "If ANY of these words appear anywhere in the user's message, switch to Singlish immediately. Do not wait for multiple signals — one word is enough."
+- Added a NEW romanized-Tamil detection line (Tamil written in English letters): vanakkam, nandri, enna, epdi, irukinga, sollunga, vendam, sari, illa, aamaa, paaru, kudu → proactive Tamil switch. Previously only Tamil SCRIPT was detected.
+
+### Gaps Identified
+- Some trigger tokens are short/ambiguous (eka, oya, api, mama, hari, sari, illa, enna) and could false-positive on English or names. Accepted for now — bias toward switching is the intended behavior. Watch for over-switching.
+
+### Mistakes & Lessons
+- None. Prompt-only change, no code.
+
+### Next Steps
+- Monitor for false-positive switches from short ambiguous tokens; prune if it misfires on plain English.
+
+---
+
 ## Session 076 — 2026-06-24 (bugfix — strip leaked tool-call XML from chat response)
 
 ### What We Did
