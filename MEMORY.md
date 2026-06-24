@@ -4,6 +4,24 @@
 
 ---
 
+## Session 075 — 2026-06-24 (branding — favicon metadata + header wordmark logo)
+
+### What We Did
+- **Favicon** (`app/layout.tsx`): added `metadata.icons` → `/brand/logos/favicon.svg` (svg), `/brand/logos/favicon.png` (png fallback), apple = favicon.png. No root `public/favicon.ico` / `public/favicon.png` existed, so nothing was overriding — only the brand/logos copies are referenced.
+- **Header logo** (`components/Header.tsx`): replaced the `.brand-dot small` + `.brand-name small` "Kapruka" text with `<img class="header-logo" src="/brand/logos/kapruka-main-cropped.svg" alt="Kapruka">`. Kept `.header-subtitle` ("Your personal shopping assistant") below.
+- **Sizing** (`globals.css`): added `.header-logo { height: 30px; width: auto; display: block; }` — fits cleanly in 58px `--header-h`.
+
+### Mistakes & Lessons
+- None. Confirmed no root favicon override before pointing metadata at brand/logos.
+
+### Verification
+- All 4 mandatory checks passed. TS CLEAN. No overflow props touched on any messages ancestor. `#messages-container` still `overflow-y: auto`.
+
+### Next Steps
+- Visually confirm SVG favicon renders in browser tab; if not, the png fallback is already wired.
+
+---
+
 ## Session 074 — 2026-06-20 (onboarding — remove top-fade mask that dimmed the first line)
 
 ### What We Did
