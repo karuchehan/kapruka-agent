@@ -657,6 +657,29 @@ function normaliseProduct(p: Record<string, unknown>): Product {
   };
 }
 
+// ── XML TOOL-CALL LEAK SANITIZER ──────────────────────────────────────────────
+// The model occasionally emits raw Anthropic tool-call XML (<function_calls>…,
+// <invoke…>, <parameter…>) as literal prose instead of an actual tool call.
+// Without stripping, this XML renders verbatim in the chat bubble. Remove every
+// such block (and any orphaned/unclosed tag) from the final response before it
+// reaches the frontend. The user must NEVER see raw tool-call XML.
+function stripToolCallXml(text: string): string {
+  return text
+    // Whole well-formed blocks first (covers nested invoke/parameter inside).
+    .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, "")
+    .replace(/<invoke\b[\s\S]*?<\/invoke>/gi, "")
+    .replace(/<parameter\b[\s\S]*?<\/parameter>/gi, "")
+    // Orphaned / unclosed tags left by truncated or malformed emissions.
+    .replace(/<\/?function_calls>/gi, "")
+    .replace(/<\/?invoke\b[^>]*>/gi, "")
+    .replace(/<\/?parameter\b[^>]*>/gi, "")
+    // Collapse the whitespace/newline debris left behind.
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}
+
 // ── SERVER-SIDE SENTENCE TRUNCATION ──────────────────────────────────────────
 
 function truncateToSentences(text: string, n = 2): string {
@@ -1053,7 +1076,7 @@ export async function POST(req: Request) {
     // Strip every hidden UI marker + any leaked product dump → the agent's
     // natural prose. Used BOTH to reconcile the cards and (truncated) as the
     // message shown to the user, so the two are derived from the same text.
-    const cleaned = rawText
+    const cleaned = stripToolCallXml(rawText
       .replace(/\[PRODUCTS\][\s\S]*?\[\/PRODUCTS\]/g, "")
       .replace(CHECKOUT_RE, "")
       .replace(OCCASION_RE, "")
@@ -1065,7 +1088,7 @@ export async function POST(req: Request) {
       .replace(/AVAILABLE PRODUCTS[^\n]*\n[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
       .replace(/\d+\.\s+[^\n]+(?:—|–)\s*LKR\s*[\d,]+[^\n]*/gi, "")
       .replace(/LAST SHOWN PRODUCTS[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
-      .trim();
+      .trim());
 
     // Reconcile the visible cards to the products the agent actually named, so
     // the carousel is a direct reflection of the reply — never a parallel pool.
