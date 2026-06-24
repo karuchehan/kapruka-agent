@@ -21,6 +21,16 @@ interface Bubble {
 
 let bubbleId = 0;
 
+// Normalize a raw name input before it ever reaches state or the agent.
+// Takes the first word, strips leading/trailing whitespace + punctuation,
+// then capitalizes only the first letter. "ChehAn'" -> "Chehan", "JOHN" -> "John".
+function sanitizeName(raw: string): string {
+  const firstWord = raw.trim().split(/\s+/)[0] ?? "";
+  const stripped = firstWord.replace(/^[\s'",.!]+|[\s'",.!]+$/g, "");
+  if (!stripped) return "";
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1).toLowerCase();
+}
+
 export function OnboardingScreen({ onComplete }: Props) {
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -60,7 +70,7 @@ export function OnboardingScreen({ onComplete }: Props) {
     setInputValue("");
 
     if (step === 0) {
-      const name = val.split(" ")[0];
+      const name = sanitizeName(val);
       setProfile((p) => ({ ...p, name }));
       setStep(1);
       const msg = `Nice to meet you, ${name}! How old are you?`;
