@@ -4,6 +4,29 @@
 
 ---
 
+## Session 078 — 2026-06-25 (Fix 3 — externalize checkout state into [STATE] block)
+
+### What We Did
+- Problem: agent inferred cart contents, delivery city, and checkout stage purely from conversation history → lost track on long/ambiguous threads → delivery-address loop bug (kept asking for address after user said no).
+- Externalized state. Files touched: `lib/types.ts`, `hooks/useChat.ts`, `components/ChatScreen.tsx`, `app/api/chat/route.ts`, `directives/system_prompt.md`.
+- `lib/types.ts`: added `CheckoutStage` ("idle" | "collecting_address" | "address_confirmed" | "complete") and `ChatState` { cartItems[{name,price}], cartCount, deliveryCity, checkoutStage, budgetStated }.
+- `ChatScreen.tsx`: owns `deliveryCity` + `checkoutStage` via useState. `cartItems`/`cartCount` derive from cart; `budgetStated` via reused `extractBudget(apiMessages + outgoing text)`. `buildChatState(text, forceStage?)` computed SYNCHRONOUSLY per outgoing send so a negation (NEGATION_RE) drops stage to "idle" THIS turn (and persists via setState) — before async state lands. handleCheckout → "collecting_address". Cart-empty effect resets stage→idle, city→null.
+- `useChat.ts`: `sendMessage` opts gained `chatState`; injected into request body. Added constructor callbacks `onDeliveryCity` (server delivery.city → set city + stage address_confirmed) and `onOrderComplete` (orderConfirmed → stage complete). `sendSystemMessage` forwards chatState.
+- `route.ts`: reads `chatState` from body, `buildStateBlock()` renders `[STATE] Cart: N items. Delivery city: X. Checkout stage: Y. Budget: Z.` (+ cart contents). `buildSystemPrompt` gained `chatState` param; [STATE] pushed FIRST into dynamicParts so it's at the top of system context.
+- `system_prompt.md`: added "READ THE [STATE] BLOCK FIRST" hard rule under CRITICAL OUTPUT RULES — ground truth, don't contradict; if checkoutStage is "idle" do NOT ask for address or push checkout; only ask when "collecting_address"; trust [STATE] cart over history.
+
+### Gaps Identified
+- deliveryCity is only set from a SERVER delivery-check response (data.delivery.city), not from a client-side parse of the user typing a city. A user stating a city without triggering a delivery check won't set it client-side. Acceptable — server delivery.city is the authoritative "confirmed" signal — but could add a client city scan later if needed.
+- handleAddToCart manually +1's cartCount/cartItems in the outgoing state because the synchronous add lags one render. Slight duplication of cart logic.
+
+### Mistakes & Lessons
+- None. tsc clean first try; no CSS touched so overflow/scroll checks unchanged (messages-container overflow-y:auto intact at globals.css:137).
+
+### Next Steps
+- Live-test the address loop: add item → checkout → say "no" → confirm agent does NOT re-ask for address (stage should read idle in [STATE]).
+
+---
+
 ## Session 077 — 2026-06-24 (prompt — expand Singlish detection + add romanized Tamil)
 
 ### What We Did
