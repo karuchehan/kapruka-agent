@@ -557,14 +557,41 @@ async function callMCP(tool: string, args: Record<string, unknown>, timeoutMs = 
 interface UserProfile { name: string; age: number | null; gender: string; }
 interface RecipientProfile { age: number | null; gender: string; relationship: string; }
 
+// Externalized client state injected on every call. Mirrors lib/types ChatState.
+interface ChatState {
+  cartItems: { name: string; price: number }[];
+  cartCount: number;
+  deliveryCity: string | null;
+  checkoutStage: "idle" | "collecting_address" | "address_confirmed" | "complete";
+  budgetStated: number | null;
+}
+
+// Render the [STATE] ground-truth block the agent must read before replying.
+function buildStateBlock(s: ChatState | null): string {
+  if (!s) return "";
+  const city = s.deliveryCity || "unknown";
+  const budget = s.budgetStated != null ? `LKR ${s.budgetStated}` : "not stated";
+  let line = `[STATE] Cart: ${s.cartCount} items. Delivery city: ${city}. Checkout stage: ${s.checkoutStage}. Budget: ${budget}.`;
+  if (s.cartItems?.length) {
+    line += ` Cart contents: ${s.cartItems.map((i) => `${i.name} (LKR ${i.price})`).join(", ")}.`;
+  }
+  return line;
+}
+
 function buildSystemPrompt(
   userProfile: UserProfile | null,
   recipientProfile: RecipientProfile | null,
   liveProducts: Product[],
   trackingData: unknown,
-  lastShownProducts: Product[]
+  lastShownProducts: Product[],
+  chatState: ChatState | null
 ) {
   const dynamicParts: string[] = [];
+
+  // [STATE] is ground truth — put it FIRST so it sits at the top of the
+  // conversation context the agent reads (see the [STATE] rule in the prompt).
+  const stateBlock = buildStateBlock(chatState);
+  if (stateBlock) dynamicParts.push(stateBlock);
 
   // Current date so the agent can resolve relative dates ("Friday", "tomorrow")
   // into the absolute YYYY-MM-DD required by the [OCCASION_DATE] marker.
@@ -817,8 +844,9 @@ export async function POST(req: Request) {
     return Response.json({ error: `Server config error: ${PROMPT_LOAD_ERROR}` }, { status: 500 });
   }
 
-  const { messages, userProfile, recipientProfile, lastShownProducts, sessionId } = await req.json();
+  const { messages, userProfile, recipientProfile, lastShownProducts, sessionId, chatState } = await req.json();
   const sid = String(sessionId || "");
+  const clientState: ChatState | null = chatState && typeof chatState === "object" ? chatState as ChatState : null;
 
   if (!messages || !Array.isArray(messages)) {
     return Response.json({ error: "messages array required" }, { status: 400 });
@@ -1049,7 +1077,7 @@ export async function POST(req: Request) {
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, trackingData, priorProducts);
+    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, trackingData, priorProducts, clientState);
 
     const response = await client.messages.create(
       {

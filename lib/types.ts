@@ -28,6 +28,20 @@ export interface CartItem {
   quantity: number;
 }
 
+// Externalized checkout/session state. Tracked on the client and injected into
+// EVERY API call as a [STATE] block so the agent never has to infer cart,
+// delivery, or checkout progress from conversation history alone (which broke
+// down on long/ambiguous threads — the delivery-address loop bug).
+export type CheckoutStage = "idle" | "collecting_address" | "address_confirmed" | "complete";
+
+export interface ChatState {
+  cartItems: { name: string; price: number }[]; // current cart contents
+  cartCount: number;                             // total items in cart
+  deliveryCity: string | null;                   // city confirmed by user, null if unknown
+  checkoutStage: CheckoutStage;
+  budgetStated: number | null;                   // budget the user mentioned, null if none
+}
+
 export interface DeliveryInfo {
   city: string;
   available: boolean;

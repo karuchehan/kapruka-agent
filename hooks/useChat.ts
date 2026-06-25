@@ -1,11 +1,19 @@
 "use client";
 import { useState, useRef } from "react";
-import type { ChatItem, ApiMessage, UserProfile, RecipientProfile, Product } from "@/lib/types";
+import type { ChatItem, ApiMessage, UserProfile, RecipientProfile, Product, ChatState } from "@/lib/types";
 
 let _id = 0;
 const uid = () => `ci-${++_id}`;
 
-export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (product: Product) => void) {
+export function useChat(
+  onCartAdd?: (product: Product) => void,
+  onCartRemove?: (product: Product) => void,
+  // Response-driven state syncs back to the owner (ChatScreen): a delivery check
+  // confirms a city, an order confirmation completes checkout. Keeps the
+  // externalized ChatState in step with what the server actually resolved.
+  onDeliveryCity?: (city: string) => void,
+  onOrderComplete?: () => void,
+) {
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -53,9 +61,9 @@ export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (
     userProfile: UserProfile,
     recipientProfile: RecipientProfile,
     cartProducts: Product[] = [],
-    opts: { showUserBubble?: boolean } = {}
+    opts: { showUserBubble?: boolean; chatState?: ChatState | null } = {}
   ) {
-    const { showUserBubble = true } = opts;
+    const { showUserBubble = true, chatState = null } = opts;
     if (!text.trim() || isSendingRef.current) return;
     isSendingRef.current = true;
     setIsSending(true);
@@ -91,6 +99,7 @@ export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (
           recipientProfile,
           lastShownProducts: lastShownProducts.current,
           sessionId: sessionId.current,
+          chatState,
         }),
       });
       clearTimeout(clientTimeout);
@@ -203,6 +212,11 @@ export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (
         return [...base, ...additions];
       });
 
+      // Sync externalized ChatState from what the server resolved this turn:
+      // a delivery check confirms the city; an order confirmation completes checkout.
+      if (data.delivery?.city && onDeliveryCity) onDeliveryCity(data.delivery.city);
+      if (data.orderConfirmed && onOrderComplete) onOrderComplete();
+
       // Agent confirmed adding items → sync them into the cart (dock + checkout).
       // Runs once per response (not in a setState updater) so it's StrictMode-safe.
       if (onCartAdd && Array.isArray(data.addedProducts)) {
@@ -236,9 +250,10 @@ export function useChat(onCartAdd?: (product: Product) => void, onCartRemove?: (
     text: string,
     userProfile: UserProfile,
     recipientProfile: RecipientProfile,
-    cartProducts: Product[] = []
+    cartProducts: Product[] = [],
+    chatState: ChatState | null = null
   ) {
-    return sendMessage(text, userProfile, recipientProfile, cartProducts, { showUserBubble: false });
+    return sendMessage(text, userProfile, recipientProfile, cartProducts, { showUserBubble: false, chatState });
   }
 
   return { chatItems, apiMessages, isSending, sendMessage, sendSystemMessage, initWithOnboarding };

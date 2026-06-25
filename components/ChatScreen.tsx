@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./Header";
 import { MessageList } from "./MessageList";
 import { InputArea } from "./InputArea";
@@ -10,7 +10,14 @@ import { useChat } from "@/hooks/useChat";
 import { useCart } from "@/hooks/useCart";
 import { useVoiceOutput } from "@/hooks/useVoiceOutput";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import type { UserProfile, RecipientProfile, ApiMessage, Product } from "@/lib/types";
+import { extractBudget } from "@/lib/productFilter";
+import type { UserProfile, RecipientProfile, ApiMessage, Product, ChatState, CheckoutStage } from "@/lib/types";
+
+// User negations that mean "drop out of the checkout flow" — mirrors the
+// negation set in system_prompt.md. When the user says any of these while we are
+// collecting an address, checkoutStage resets to "idle" so the agent stops
+// asking for the delivery address (the loop bug this fix targets).
+const NEGATION_RE = /\b(no|nope|cancel|never\s*mind|nevermind|forget it|don'?t worry|nothing|that'?s fine|leave it|not now|stop)\b/i;
 
 interface Props {
   userProfile: UserProfile;
@@ -27,9 +34,21 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // [ADD_TO_CART] round-trip from double-counting.
   // Marker-driven removes use removeFromCartByKey keyed by id||name — handles
   // MCP products whose id field is empty (would never match a removeFromCart call).
+  // ── EXTERNALIZED CHAT STATE ────────────────────────────────────────────────
+  // Tracked explicitly here (not inferred from history) and injected into every
+  // API call as a [STATE] block. cartItems/cartCount derive from the cart;
+  // deliveryCity + checkoutStage are driven by user actions and server responses;
+  // budgetStated is parsed from the conversation.
+  const [deliveryCity, setDeliveryCity] = useState<string | null>(null);
+  const [checkoutStage, setCheckoutStage] = useState<CheckoutStage>("idle");
+
   const { chatItems, apiMessages, isSending, sendMessage, sendSystemMessage, initWithOnboarding } = useChat(
     addToCartUnique,
-    (product) => removeFromCartByKey(product.id || product.name)
+    (product) => removeFromCartByKey(product.id || product.name),
+    // Server confirmed a delivery city → record it and mark address as confirmed.
+    (city) => { setDeliveryCity(city); setCheckoutStage((s) => (s === "complete" ? s : "address_confirmed")); },
+    // Order confirmed → checkout is complete.
+    () => setCheckoutStage("complete"),
   );
   const { voiceEnabled, speak, toggleVoice, speakingId } = useVoiceOutput();
   const isMobile = useMediaQuery("(max-width: 720px)");
@@ -40,6 +59,30 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // Snapshot of the products in the cart, passed to sendMessage so the API turn
   // that confirms the order can build the checkout card from real cart items.
   const cartProducts = useMemo(() => cart.map((i) => i.product), [cart]);
+
+  // Build the [STATE] payload for the OUTGOING message. Computed synchronously
+  // (not from a memo) so this turn reflects the message being sent right now:
+  // budget includes the current text, and a negation drops checkoutStage to
+  // "idle" THIS turn — so the agent stops asking for the address immediately,
+  // before the async setState lands. The negation side-effect persists it too.
+  function buildChatState(outgoingText: string, forceStage?: CheckoutStage): ChatState {
+    let stage: CheckoutStage = forceStage ?? checkoutStage;
+    if (!forceStage && stage !== "complete" && NEGATION_RE.test(outgoingText)) {
+      stage = "idle";
+      setCheckoutStage("idle");
+    }
+    const budgetStated = extractBudget([
+      ...apiMessages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: outgoingText },
+    ]);
+    return {
+      cartItems: cart.map((i) => ({ name: i.product.name, price: i.product.price })),
+      cartCount,
+      deliveryCity,
+      checkoutStage: stage,
+      budgetStated,
+    };
+  }
 
   // Keys of products in the cart (id || name — same key the cart dedupes on).
   // Drives each stage card's permanent "Added ✓" state from real cart membership
@@ -60,7 +103,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     if (initialSent.current || !initialQuery) return;
     if (apiMessages.length === 0) return;
     initialSent.current = true;
-    sendMessage(initialQuery, userProfile, recipientProfile);
+    sendMessage(initialQuery, userProfile, recipientProfile, cartProducts, { chatState: buildChatState(initialQuery) });
   }, [apiMessages, initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cart-empty detection: when cart drops from non-zero to zero, inject a hidden
@@ -69,11 +112,16 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     const prev = prevCartCount.current;
     prevCartCount.current = cartCount;
     if (prev > 0 && cartCount === 0) {
+      // Cart emptied → reset checkout flow state so the agent can't keep
+      // collecting an address for an order that no longer has items.
+      setCheckoutStage("idle");
+      setDeliveryCity(null);
       sendSystemMessage(
         "[SYSTEM] The user has removed all items from the cart. The cart is now empty. Exit any active checkout flow immediately. Acknowledge naturally in one warm sentence and ask what they would like to look for next.",
         userProfile,
         recipientProfile,
-        []
+        [],
+        { cartItems: [], cartCount: 0, deliveryCity: null, checkoutStage: "idle", budgetStated: null }
       );
     }
   }, [cartCount]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -141,28 +189,38 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   }, [isMobile, stageProducts.length]);
 
   function handleSend(text: string) {
-    sendMessage(text, userProfile, recipientProfile, cartProducts);
+    sendMessage(text, userProfile, recipientProfile, cartProducts, { chatState: buildChatState(text) });
   }
 
   function handleAddToCart(product: Product) {
     addToCart(product);
     if (!isSending) {
-      sendMessage(`I'd like to add the ${product.name} to my cart.`, userProfile, recipientProfile, cartProducts);
+      const msg = `I'd like to add the ${product.name} to my cart.`;
+      // cartCount in buildChatState lags this synchronous add by one render, so
+      // bump it explicitly for the outgoing state.
+      const st = buildChatState(msg);
+      sendMessage(msg, userProfile, recipientProfile, cartProducts, {
+        chatState: { ...st, cartCount: st.cartCount + 1, cartItems: [...st.cartItems, { name: product.name, price: product.price }] },
+      });
     }
   }
 
   function handleGiftSubmit(text: string) {
-    sendMessage(`Please add this gift message to my order: "${text}"`, userProfile, recipientProfile, cartProducts);
+    const msg = `Please add this gift message to my order: "${text}"`;
+    sendMessage(msg, userProfile, recipientProfile, cartProducts, { chatState: buildChatState(msg) });
   }
 
   function handleCheckout() {
+    // Entering checkout → start collecting the delivery address.
+    setCheckoutStage((s) => (s === "complete" ? s : "collecting_address"));
     // Prefer a real Kapruka product page from the cart; fall back to asking the
     // agent to place the order (which will then emit [ORDER_CONFIRMED]).
     const url = cart.find((i) => i.product.url)?.product.url;
     if (url) {
       window.open(url, "_blank", "noopener,noreferrer");
     } else {
-      handleSend("I'm ready to checkout. Please place the order.");
+      const msg = "I'm ready to checkout. Please place the order.";
+      sendMessage(msg, userProfile, recipientProfile, cartProducts, { chatState: buildChatState(msg, "collecting_address") });
     }
   }
 
