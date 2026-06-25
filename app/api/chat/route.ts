@@ -943,13 +943,17 @@ export async function POST(req: Request) {
       // dedupes, and sorts price-asc when a budget is set. Uses effectiveCat (not
       // categoryHint) so "show me cakes" after flowers correctly triggers cake search.
       if (effectiveCat === "flower") {
+        // Same intent verification the primary non-flower path runs — drop
+        // adjacent-category results (cakes/chocolates/perfume) from the pooled
+        // flower candidates before the visible cards are picked.
+        const flowerType = `${effectiveCat ?? ""} ${baseQuery}`.trim();
         const cached = sid ? cacheGet(cacheKey) : null;
         if (cached) {
-          products = pickForCards(cached, budget);
+          products = pickForCards(filterByIntent(flowerType, cached), budget);
         } else {
           const flowerPool = await searchFlowersParallel(convText, budget, excludeSympathy);
           if (sid && flowerPool.length) cacheSet(cacheKey, flowerPool);
-          products = pickForCards(flowerPool, budget);
+          products = pickForCards(filterByIntent(flowerType, flowerPool), budget);
         }
       } else {
       // Enrich the MCP query in a book flow. A bare genre word ("adventure")
@@ -1017,7 +1021,8 @@ export async function POST(req: Request) {
                   : enrichGenericQuery(fallbackQ, recipientProfile, convText);
             const r2 = await callMCP("search_products", { q: fallbackSearchQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance", ...budgetArg(budget) });
             const c2 = filterProducts<Product>((r2.results || []).map(normaliseProduct), budget, fallbackKws, effectiveCat, excludeSympathy, dropFloral);
-            const pick2 = pickForCards(c2, budget);
+            const v2 = filterByIntent(`${effectiveCat ?? ""} ${baseQuery}`.trim(), c2);
+            const pick2 = pickForCards(v2, budget);
             // Prefer the retry only if it gives more cards OR more within-budget cards.
             if (pick2.length > products.length || withinBudget(pick2).length > withinBudget(products).length) {
               products = pick2;
@@ -1034,7 +1039,8 @@ export async function POST(req: Request) {
           const broadQ = categoryQuery(effectiveCat, ""); // bare category term, no narrowing
           const rb = await callMCP("search_products", { q: broadQ, limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance", ...budgetArg(budget) });
           const cb = filterProducts<Product>((rb.results || []).map(normaliseProduct), budget, [effectiveCat], effectiveCat, excludeSympathy, dropFloral);
-          const within = withinBudget(cb);
+          const vb = filterByIntent(`${effectiveCat ?? ""} ${baseQuery}`.trim(), cb);
+          const within = withinBudget(vb);
           if (within.length) products = within.slice(0, 8);
         } catch { /* best-effort */ }
       }
