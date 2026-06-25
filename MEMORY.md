@@ -2434,3 +2434,26 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - Wire favicons into `app/layout.tsx` metadata (icons) if Chehan wants them live.
 - Consider compressing favicon.png.
 - Live-test onboarding name with messy input (trailing apostrophe, ALL CAPS, leading spaces) → agent greets with clean name.
+
+## Session 079 — 2026-06-25
+### What We Did
+- Wired `filterByIntent()` into the 3 search paths that bypassed it. `app/api/chat/route.ts`.
+- Before: `filterByIntent()` only ran on the primary non-flower path (line ~997). Flower parallel search, thin-results fallback retry, and budget-broaden search all skipped it → adjacent-category results (cakes/chocolates/perfume) could reach visible cards.
+- Fix 1 — flower branch (`effectiveCat === "flower"`): added `flowerType = `${effectiveCat ?? ""} ${baseQuery}`.trim()`, then `filterByIntent(flowerType, …)` on BOTH the cached pool and the fresh `flowerPool` before `pickForCards`.
+- Fix 2 — fallback retry: `c2` → `filterByIntent(`${effectiveCat ?? ""} ${baseQuery}`.trim(), c2)` → `v2` → `pickForCards`.
+- Fix 3 — budget-broaden: `cb` → `filterByIntent(…)` → `vb` → `withinBudget(vb)` → slice. (This path uses `withinBudget().slice(0,8)`, not `pickForCards`, so filter inserted before `withinBudget`.)
+- requestedType derived identically to primary path in all 3: `${effectiveCat ?? ""} ${baseQuery}`.trim()`. `baseQuery` is in scope (defined line ~933, all paths inside the same `intent.type === "search" && query` block).
+- `filterByIntent()` itself UNCHANGED per instruction.
+- `npx tsc --noEmit` → TS CLEAN. No CSS/layout changes, so the 4-check layout rule N/A (TS check is the relevant gate).
+- Committed `7bf0742` (code fix).
+
+### Gaps Identified
+- MEMORY.md body gap: file content ends at Session 070, but commit messages reference up to Session 078 — bodies for Sessions 071–078 were never appended to the file. Logged this session as 079 to continue the commit-message sequence. The 071–078 detail is lost from the file (only in commit messages).
+- Multi-category bundle path (`msgCats.length >= 2`, line ~917) uses `searchCategory()` which does NOT route through `filterByIntent` — only `filterProducts` category-gating. Not in scope of this task; flag if cross-category bleed shows up in bundles.
+
+### Mistakes & Lessons
+- Budget-broaden path does not use `pickForCards` (uses `withinBudget().slice`), so "run filterByIntent before pickForCards" had to be adapted — inserted before `withinBudget` instead. Read each path's actual downstream call rather than assuming all three share the same pick step.
+
+### Next Steps
+- Live-test: ask for flowers near a chocolate/cake query, confirm no cakes leak into flower cards.
+- Consider routing `searchCategory()` (bundle path) through `filterByIntent` if bundle cross-category bleed appears.
