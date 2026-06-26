@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./Header";
 import { MessageList } from "./MessageList";
-import { InputArea } from "./InputArea";
+import { VoiceTextInput } from "./VoiceTextInput";
 import { ProductStage } from "./ProductStage";
 import { ProductSheet } from "./ProductSheet";
 import { CartDock } from "./CartDock";
@@ -229,7 +229,9 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
       <div className="chat-panel">
         <Header voiceEnabled={voiceEnabled} onVoiceToggle={toggleVoice} />
         <MessageList chatItems={chatItems} speakingId={speakingId} onAddToCart={handleAddToCart} onGiftSubmit={handleGiftSubmit} />
-        <InputArea onSend={handleSend} isSending={isSending} />
+        <div id="input-area">
+          <VoiceTextInput onSend={handleSend} />
+        </div>
       </div>
 
       {isMobile ? (
