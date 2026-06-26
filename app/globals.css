@@ -1722,7 +1722,7 @@ html, body {
   /* Messages fill between header and the input bar; pad so the last bubble clears
      the whole bottom cluster (peek + dock + input + gaps). */
   #messages-container {
-    padding: 16px 14px calc(var(--m-peek) + var(--m-dock-h) + var(--m-input-h) + 4 * var(--m-gap) + var(--m-safe));
+    padding: 16px 14px calc(var(--m-peek) + var(--m-dock-h) + var(--m-input-h) + 5 * var(--m-gap) + var(--m-safe));
   }
 
   /* Input bar — fixed, ALWAYS visible, sits just above the cart dock. Highest z
@@ -1731,7 +1731,10 @@ html, body {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(var(--m-peek) + var(--m-dock-h) + 2 * var(--m-gap) + var(--m-safe));
+    /* 3 * gap (was 2 *) lifts the input bar one extra gap above the cart dock +
+       product sheet, so the card cluster sits lower with breathing room instead
+       of crammed against the input. Drop back toward 2 * to pull it up later. */
+    bottom: calc(var(--m-peek) + var(--m-dock-h) + 3 * var(--m-gap) + var(--m-safe));
     z-index: 90;
     padding: 8px 14px;
     background: var(--bg-primary);

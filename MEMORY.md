@@ -2553,6 +2553,21 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.
 
+## Session 088 — 2026-06-26
+### What We Did
+- Mobile (≤720px) bottom cluster felt crammed — input bar sat only one `--m-gap` (12px) above the cart dock + product sheet peek. Added breathing room:
+  - `#input-area` bottom: `2 * var(--m-gap)` → `3 * var(--m-gap)` (lifts input one extra gap above the card cluster).
+  - `#messages-container` padding: `4 *` → `5 * var(--m-gap)` to match (last bubble still clears the cluster).
+- Token-driven, no magic numbers. To pull the card section back up later, lower `3 *` toward `2 *`.
+- 4 mandatory layout checks pass: tsc EXIT=0; no overflow added; `#messages-container` overflow-y:auto (L767) intact.
+- Committed + pushed to `karuchehan/kapruka-agent` main (gh switched to karuchehan for push, restored to gtmkaru after). NOT redeployed (user asked commit+push only).
+
+### Gaps Identified
+- Change is mobile-only; not visually verified here (desktop dev). Verify in device view / phone.
+
+### Next Steps
+- Optional: redeploy to Vercel to push the mobile spacing live (`unset VERCEL_TOKEN; vercel --prod --yes --scope chehan-6978s-projects`).
+
 ## Session 087 — 2026-06-26
 ### What We Did
 - Final Machan offset: `.machan-floating bottom: calc(100% - 10px)` (7px still showed a gap; 10px closes it). tsc clean.
