@@ -2627,3 +2627,66 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 
 ### Next Steps
 - Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.
+
+## Session 089 — 2026-06-26
+### What We Did
+- Built `components/VoiceTextInput.tsx` — self-contained, reusable web port of an RN voice-input spec.
+- Three modes (collapsed/text/voice) via one `mode` state. GSAP for pill width 0→100% (650ms power2.inOut, right-anchored), mic 360° rotate + mic↔check crossfade (480ms, 45% windows), content stagger fade-in at tl pos 0.15. CSS `@keyframes vtiWave` for 3 wave dots. Fixed inset:0 overlay (zIndex 1, below bar z2) for outside-tap collapse. styled-jsx for self-containment.
+- Visual only — no speech recognition wired.
+- Committed 5fa3e7c, pushed to main → Vercel auto-deploy.
+### Decisions Made
+- Asked user up front: repo is Next.js web but spec was React Native → user chose web port. Avoided building dead RN code.
+- Used styled-jsx (zero-config in Next) instead of globals.css to keep component standalone, per user "self-contained and reusable" ask.
+### Mistakes & Lessons
+- Session numbering: `grep tail -1` returned 085 (file not strictly ordered); actual max was 088. Always `grep "^## Session" | sort` or scan last 4, don't trust tail -1.
+### Gaps / Open Questions
+- Not integrated into live `InputArea.tsx` (has Machan float + textarea autoresize). Integration needs care.
+- User testing the standalone component, will report back.
+### Next Steps
+- On user feedback: tune timings/colors, then decide whether to swap into InputArea.
+
+## Session 090 — 2026-06-26
+### What We Did
+- Caught critical miss from S089: VoiceTextInput committed but NEVER imported → rendered nowhere, live URL unchanged. User (rightly) frustrated.
+- Wired VoiceTextInput into ChatScreen.tsx inside #input-area (replaced InputArea). Pushed 01ea199.
+### Mistakes & Lessons
+- BUILDING A COMPONENT ≠ SHIPPING IT. Always grep for imports of a new component before claiming it's testable/deployed. "Standalone" must not mean "orphaned" when the user expects to see it on the live URL.
+- Should have wired it in S089 or made the not-integrated caveat the headline, not a footnote.
+### Gaps / Open Questions
+- Temporary swap drops Machan + send button + autoresize (Enter to send now).
+### Next Steps
+- On user approval of the pill feel: integrate animation into real InputArea, restore Machan + send button, revert ChatScreen swap.
+
+## Session 091 — 2026-06-26
+### What We Did
+- Color refinements to VoiceTextInput voice pill per user screenshot feedback. Pill bg → gold #FFCC00; mic + checkmark → white; dots → purple #6d28d9; X + Listening label → dark plum #1a1025 for contrast. Pushed 83ecbed.
+### Decisions Made
+- User specified bg gold / mic ("birds") white / tick white / dots purple. Did not specify X or label color → chose dark plum for readability on gold.
+- Flagged white-on-gold low contrast for mic/check; will swap to dark if it washes out.
+### Next Steps
+- On approval: integrate pill into real InputArea, restore Machan + send button.
+
+## Session 092 — 2026-06-26
+### What We Did
+- VoiceTextInput round 2 per user feedback (screenshot temp path, unreadable — went off text).
+- Wired real Web Speech API via existing useVoiceInput hook: mic tap starts listening, onResult types transcript live into input, recognition end / X / checkmark collapses pill. X discards transcript, checkmark keeps. Auto-collapse effect watches isListening true→false.
+- Restored MachanAvatar floating over input bar in ChatScreen (.machan-floating) — was lost when VoiceTextInput replaced InputArea in S090.
+- Colors: checkmark + Listening label + X → purple #6d28d9 (matches dots). Mic icon stays white (.vti-icon-layer:last-child = check purple). Pill bg gold from S091.
+- Pushed 09762ca.
+### Decisions Made
+- No auto-send: voice types text, user reviews + hits Enter (onAutoSubmit = noop). Flagged option to auto-send if wanted.
+### Gaps / Open Questions
+- Web Speech API = Chrome/Safari only, needs mic permission. Won't work in Firefox.
+### Next Steps
+- On approval: consider folding pill into real InputArea vs keeping VoiceTextInput as the input. Currently VoiceTextInput IS the live input + Machan re-added around it.
+
+## Session 093 — 2026-06-26
+### What We Did
+- Added permanent gold send button to VoiceTextInput per user request. Restructured bar into [.vti-field (input + mic + pill)] [.vti-send gold]. Pill now expands within .vti-field only (right:0, width 0→100% of field) so send button (sibling outside field) stays visible during the listening animation.
+- Mic stays always-present, triggers same pill animation. Dropped the old X-swap-in-text-mode behavior (mic always mic now). Removed bar overflow:hidden (pill clipped within field, has own overflow:hidden).
+- Send submits (disabled when empty), Enter still works. Rewrote whole component file.
+- Pushed 5b33070.
+### Notes
+- User screenshots keep landing as /var temp paths (NSIRD_screencaptureui) — unreadable by Read tool. Worked from text descriptions each time.
+### Next Steps
+- Awaiting user feel-check on send button + animation coexistence.
