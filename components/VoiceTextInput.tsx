@@ -244,7 +244,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           width: 0;
           overflow: hidden;
           align-self: flex-end;
-          background: #241f1b;
+          background: #FFCC00;
           border-radius: 14px;
           z-index: 3;
           display: flex;
@@ -271,11 +271,11 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           background: transparent;
           cursor: pointer;
         }
-        .vti-pill-cancel { color: #a09080; }
-        .vti-pill-cancel:hover { color: #f5f0ec; }
+        .vti-pill-cancel { color: #1a1025; }
+        .vti-pill-cancel:hover { color: #000; }
 
         .vti-listening {
-          color: #f5f0ec;
+          color: #1a1025;
           font-size: 14px;
           font-weight: 500;
           letter-spacing: 0.2px;
@@ -290,7 +290,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
         }
         .vti-pill-confirm {
           position: relative;
-          color: #FFCC00;
+          color: #ffffff;
         }
         .vti-icon-layer {
           position: absolute;
@@ -309,7 +309,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #FFCC00;
+          background: #6d28d9;
           opacity: 0.2;
           animation: vtiWave 0.7s ease-in-out infinite;
         }
