@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState, useCallback } from "react";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { MachanAvatar } from "./MachanAvatar";
 
 interface Props {
   onSend: (text: string) => void;
@@ -46,6 +47,11 @@ export function InputArea({ onSend, isSending }: Props) {
 
   return (
     <div id="input-area">
+      {/* Machan stands flush on top of the input bar, anchored over the mic +
+          send buttons on the right. pointer-events:none so he never blocks them. */}
+      <div className="machan-floating" aria-hidden="true">
+        <MachanAvatar state={isSending ? "thinking" : "idle"} size={80} />
+      </div>
       <div className="input-inner">
         <textarea
           ref={textareaRef}

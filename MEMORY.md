@@ -2478,3 +2478,103 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - (New chat) Decide whether machan_idle/thinking get wired into UI (idle/thinking mascot states) and whether to relocate to `animations/`.
 - Optional: define a `--brand-purple` CSS variable if purple needs to be reused as a token.
+
+## Session 081 — 2026-06-26
+### What We Did
+- Built `components/MachanAvatar.tsx` — mascot avatar. Prop `state: 'idle' | 'thinking'`. Stacks both frames with `position: absolute`, cross-fades opacity (idle frame opacity 1 / thinking 0, swapped on thinking), 500ms ease-in-out on opacity + transform. Subtle scale settle: idle `scale(1)`, thinking `scale(0.97)`. Images 80px wide, auto height, `object-fit: contain`. Wrapper `position: relative` 80×80 to contain both. Styling inline in component (self-contained), not globals.css.
+- Asset path correction: task said `public/machan-idle.png` (hyphens, root) but actual files are `public/brand/logos/machan_idle.png` + `machan_thinking.png` (underscores, in logos/). Used real paths `/brand/logos/machan_*.png`.
+- `components/Header.tsx` — imported MachanAvatar, added `isThinking: boolean` prop, replaced `.header-subtitle` "Your personal shopping assistant" span with `<MachanAvatar state={isThinking ? 'thinking' : 'idle'} />` inside existing `.header-brand-text`. Header layout/gradient untouched.
+- `components/ChatScreen.tsx` — Header now receives `isThinking={isSending}`. `isSending` from `useChat` already flips true on submit / false on response, so no new state needed.
+
+### Gaps Identified
+- `.header-subtitle` CSS (globals.css ~691) now unused — left in place, harmless. Remove if cleaning up.
+- Mascot PNGs still in `public/brand/logos/` (mascot, not logo) — convention says `animations/`. Left as-is; not requested.
+
+### Mistakes & Lessons
+- Prompt's stated asset filenames/path were wrong (hyphens + root vs actual underscores + brand/logos/). Verified on disk with `find` before coding instead of trusting the prompt.
+
+### Next Steps
+- Optional: drop unused `.header-subtitle` rule from globals.css.
+- Optional: relocate machan PNGs to `public/brand/animations/` if treated as animation frames.
+
+## Session 082 — 2026-06-26
+### What We Did
+- Replaced Kapruka logo in header with MachanAvatar, sized to header height. Screenshot showed prior 80px avatar overflowing the 58px header (mascot spilled below the bar).
+- `--header-h` = 58px (globals.css L24). MachanAvatar now takes optional `size?: number` prop (default 80). Header passes `size={58}`.
+- `components/MachanAvatar.tsx` rewrite: wrapper `height/width = size`; images `position:absolute; bottom:0; left:0; height:100%; width:auto; objectFit:contain; transformOrigin:bottom center`. Bottom-anchored + height-fill = chest-up PNG looks like he's standing in the bar. Kept 500ms opacity/scale cross-fade.
+- `components/Header.tsx`: removed `<img className="header-logo">` (kapruka-main-cropped.svg) and the `.header-brand-text` wrapper entirely. MachanAvatar now sits directly in `.header-brand`. Voice toggle button on right unchanged. No header bg/height/styling changed.
+- Did NOT touch globals.css (header height/bg unchanged per task).
+
+### Gaps Identified
+- `.header-logo` CSS rule (globals.css ~678) now unused. `.header-brand-text`/`.header-subtitle` also unused. Harmless; left for optional cleanup.
+- Avatar wrapper is square (58×58) but img width is auto — if mascot PNG is wider than tall it overflows wrapper width slightly. No clip (space-between layout), looked fine; revisit if it crowds.
+
+### Mistakes & Lessons
+- Ran all 4 mandatory layout self-checks: tsc EXIT=0; no new overflow rules (globals.css untouched); `#messages-container` overflow-y:auto (L767) intact.
+
+### Next Steps
+- Optional: remove dead `.header-logo` / `.header-brand-text` / `.header-subtitle` rules from globals.css.
+
+## Session 083 — 2026-06-26
+### What We Did
+- Moved Machan from header to floating above the input bar.
+- `Header.tsx`: reverted — restored `<img className="header-logo" src="/brand/logos/kapruka-main-cropped.svg">`, removed MachanAvatar + `isThinking` prop. Voice button unchanged.
+- `ChatScreen.tsx`: removed `isThinking` from `<Header>`. Added `MachanAvatar` import. Rendered inside `.chat-panel` (between MessageList and InputArea) wrapped in `<div className="machan-floating" aria-hidden>` with `state={isSending ? "thinking" : "idle"} size={80}`. State logic unchanged (isSending drives thinking/idle, 500ms cross-fade lives in MachanAvatar).
+- `globals.css`: added `position: relative` to `.chat-panel` (anchor). New `.machan-floating` rule: `position:absolute; bottom: calc(var(--input-h) - 20px); left:50%; transform:translateX(-50%); z-index:10; pointer-events:none`. `--input-h` = 72px, so bottom=52px → Machan dips ~20px into input bar top edge. `pointer-events:none` so he never blocks mic/send buttons.
+
+### Gaps Identified
+- Anchored to `.chat-panel` not `#input-area` (input-area isn't position:relative and is content-height, not fixed). chat-panel anchor + bottom from `--input-h` achieves the same "above input bar" placement and is stable.
+- `--input-h` (72px) is a design token; actual `#input-area` rendered height (padding 12/16 + content) is close but not pinned to it. Looked right; revisit offset if input grows multi-line.
+
+### Mistakes & Lessons
+- All 4 mandatory layout checks pass: tsc EXIT=0; no `overflow:hidden`/`overflow-x:hidden` added (only `position:relative` on chat-panel); `#messages-container` overflow-y:auto (L767) intact.
+
+### Next Steps
+- Optional: still-dead `.header-brand-text` / `.header-subtitle` rules in globals.css (logo restored, so `.header-logo` is live again).
+
+## Session 084 — 2026-06-26
+### What We Did
+- Repositioned Machan: from centered-above-input to flush on top of the right-side mic/send buttons.
+- `ChatScreen.tsx`: removed the `.machan-floating` div + `MachanAvatar` import (moved into InputArea).
+- `InputArea.tsx`: imported `MachanAvatar`; rendered `<div className="machan-floating" aria-hidden>` with `state={isSending ? "thinking" : "idle"} size={80}` as first child of `#input-area`, before `.input-inner`.
+- `globals.css`:
+  - `#input-area` → added `position: relative` (anchor).
+  - `.machan-floating` rewritten: `position:absolute; right:30px; bottom:100%; z-index:20; pointer-events:none`. `bottom:100%` = wrapper sits flush on top edge of input bar, zero gap. `right:30px` = aligns with send-btn right edge (input-area pad 20 + input-inner pad 10). 80px wrapper extends left to cover both 38px buttons.
+  - Reverted `.chat-panel` `position:relative` from Session 083 (anchor moved to #input-area).
+- Buttons measured: `#mic-btn`/`#send-btn` both 38×38, gap 10 (input-inner), cluster ends 30px from right.
+
+### Gaps Identified
+- MachanAvatar still height-driven (wrapper 80×80, images height:100% width:auto). Task asked "width:80 height:auto" but absolute-stacked frames need a sized wrapper; height-driven 80px renders ~80px Machan, visually equivalent. Not changed.
+- `right:30px` aligns his right edge with send button; 80px width covers most of the mic+send cluster but not perfectly centered over the pair. Looked right; nudge `right` if off.
+
+### Mistakes & Lessons
+- All 4 mandatory layout checks pass: tsc EXIT=0; no `overflow:hidden`/`overflow-x:hidden` added; `#messages-container` overflow-y:auto (L767) intact.
+
+### Next Steps
+- Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.
+
+## Session 086 — 2026-06-26
+### What We Did
+- `bottom: calc(100% - 14px)` overlapped Machan onto the typing bar (14px too much). Reduced to `calc(100% - 7px)` so feet rest exactly on top — no gap, no overlap. tsc clean.
+
+### Gaps Identified
+- 7px is the eyeballed midpoint (0px gap @ 100%, overlap @ 14px). Fine-tune by ±2px if still slightly off.
+
+### Mistakes & Lessons
+- Last session over-corrected (14px). The PNG's bottom transparent padding is ~7px, not 14.
+
+### Next Steps
+- Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.
+
+## Session 085 — 2026-06-26
+### What We Did
+- Closed gap between Machan's feet and input bar top. Single CSS change in `.machan-floating` (globals.css): `bottom: 100%` → `bottom: calc(100% - 14px)`. Lowers wrapper 14px so feet overlap the bar top edge, cancelling the ~14px transparent padding below the character in the PNG. Nothing else changed.
+
+### Gaps Identified
+- 14px is eyeballed to the PNG's bottom transparent padding. If asset is re-exported tight-cropped, revert toward `bottom:100%`.
+
+### Mistakes & Lessons
+- Root cause was transparent padding in the PNG file (not a CSS offset error) — `bottom:100%` already put the wrapper flush; the empty pixels below his feet read as a gap. Fixed by overlapping, not by re-anchoring.
+
+### Next Steps
+- Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.

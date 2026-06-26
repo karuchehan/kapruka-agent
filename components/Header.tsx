@@ -14,9 +14,6 @@ export function Header({ voiceEnabled, onVoiceToggle }: Props) {
           src="/brand/logos/kapruka-main-cropped.svg"
           alt="Kapruka"
         />
-        <div className="header-brand-text">
-          <span className="header-subtitle">Your personal shopping assistant</span>
-        </div>
       </div>
       <div className="header-actions">
         <button id="voice-toggle" aria-label="Toggle voice" onClick={onVoiceToggle}>

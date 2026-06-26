@@ -1384,10 +1384,25 @@ html, body {
 
 /* ── INPUT AREA ── */
 #input-area {
+  position: relative;           /* anchor for .machan-floating */
   padding: 12px 20px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.10);
   background: transparent;
   flex-shrink: 0;
+}
+
+/* Machan stands flush on top of the input bar (bottom:100% = zero gap), anchored
+   over the mic + send buttons on the right (right:30px = send-btn right edge).
+   pointer-events:none keeps the buttons clickable. */
+.machan-floating {
+  position: absolute;
+  right: 30px;
+  /* 100% = wrapper bottom at input-bar top edge. The PNG has a few px of
+     transparent padding below his feet; drop the wrapper just enough to cancel
+     it so his feet rest exactly on the bar — no gap, no overlap. */
+  bottom: calc(100% - 10px);
+  z-index: 20;
+  pointer-events: none;
 }
 
 .input-inner {
