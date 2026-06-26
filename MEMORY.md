@@ -2553,9 +2553,26 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.
 
+## Session 087 — 2026-06-26
+### What We Did
+- Final Machan offset: `.machan-floating bottom: calc(100% - 10px)` (7px still showed a gap; 10px closes it). tsc clean.
+- Committed all Machan work as `0806a90` "feat(machan): add MachanAvatar mascot floating above input bar". Pushed to `karuchehan/kapruka-agent` main.
+- Deployed to Vercel production. Live: **https://kapruka-agent-liard.vercel.app** (alias) / project `chehan-6978s-projects/kapruka-agent`.
+
+### Gaps Identified / Gotchas (IMPORTANT for next deploy)
+- **git push**: remote is `karuchehan/kapruka-agent`. Active gh was `gtmkaru` → 403 (no write). Fix: `gh auth switch --user karuchehan` to push. (User later asked to keep `gtmkaru` active for gh — switch to karuchehan only for the push.)
+- **Vercel**: `VERCEL_TOKEN` env var in shell profile is STALE/invalid — every `vercel` call must be prefixed `unset VERCEL_TOKEN;` or it errors "token not valid".
+- **Vercel scope**: non-interactive needs `--scope chehan-6978s-projects` explicitly.
+- **Stale link**: old `.vercel/project.json` pointed to a deleted project (prj_KfNV…). Removed `.vercel`, re-linked fresh: `vercel link --yes --scope chehan-6978s-projects --project kapruka-agent`. GitHub auto-connect step fails (Vercel GitHub app lacks repo access) — harmless, deploy via CLI instead of git integration.
+- **Env**: fresh project had no env vars. Chat route needs only `ANTHROPIC_API_KEY` — pushed from local `.env.local` via `vercel env add … production`, then redeployed. Homepage returns 200. Chat route NOT smoke-tested (would burn a paid Anthropic call — needs user confirmation).
+
+### Next Steps
+- Optional: reconnect GitHub→Vercel auto-deploy once repo access sorted (so pushes auto-deploy).
+- Optional: smoke-test the live chat flow (paid API call — confirm first).
+
 ## Session 086 — 2026-06-26
 ### What We Did
-- `bottom: calc(100% - 14px)` overlapped Machan onto the typing bar (14px too much). Reduced to `calc(100% - 7px)` so feet rest exactly on top — no gap, no overlap. tsc clean.
+- `bottom: calc(100% - 14px)` overlapped Machan onto the typing bar (14px too much). Reduced to `calc(100% - 7px)` then `10px` final — feet rest on top, no gap. tsc clean.
 
 ### Gaps Identified
 - 7px is the eyeballed midpoint (0px gap @ 100%, overlap @ 14px). Fine-tune by ±2px if still slightly off.
