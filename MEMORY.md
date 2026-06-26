@@ -2553,6 +2553,12 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.
 
+## Session 090 — 2026-06-26
+### What We Did
+- Added drop-shadow to Machan so he looks grounded/present. `MachanAvatar` imgStyle `filter`: `drop-shadow(0 6px 9px rgba(0,0,0,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.35))` — follows PNG alpha silhouette (not a box), soft depth + tight contact shadow.
+- STANDING PREFERENCE (user, emphatic): commit + push after EVERY change automatically. Don't ask each time. Push with karuchehan gh → auto-deploys on chehan-ks-projects.
+- tsc EXIT=0. Committed + pushed to karuchehan/kapruka-agent main.
+
 ## Session 089 — 2026-06-26
 ### What We Did
 - Mobile: Machan was oversized (80px dominated narrow screen) and off-centre over the buttons. Refined:

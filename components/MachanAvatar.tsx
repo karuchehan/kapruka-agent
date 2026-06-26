@@ -20,6 +20,10 @@ export function MachanAvatar({ state, size = 80 }: Props) {
     height: "100%",
     width: "auto",
     objectFit: "contain",
+    // drop-shadow follows the PNG's alpha cutout (box-shadow would just box him),
+    // so this casts a soft shadow off his actual silhouette — grounds him on the
+    // bar and gives a subtle sense of depth/presence.
+    filter: "drop-shadow(0 6px 9px rgba(0, 0, 0, 0.45)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35))",
     transition: "opacity 500ms ease-in-out, transform 500ms ease-in-out",
     transformOrigin: "bottom center",
   };
