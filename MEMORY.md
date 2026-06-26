@@ -2457,3 +2457,24 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Live-test: ask for flowers near a chocolate/cake query, confirm no cakes leak into flower cards.
 - Consider routing `searchCategory()` (bundle path) through `filterByIntent` if bundle cross-category bleed appears.
+
+## Session 080 — 2026-06-26
+### What We Did
+- Answered brand-purple question. No named `--purple` CSS var exists. Purple lives in backgrounds + gradients in `app/globals.css`:
+  - `--bg-primary: #1a1025` (commented "deep purple") — core brand purple.
+  - Hero gradient stops (line ~55): `#0d0820` → `#1a0f3a` → `#2d1b5e` → `#3b1f7a` → `#4a2490`.
+  - Button text purple `#412973` (line ~223).
+  - Accent token is YELLOW `#FFCC00` (`--accent`), not purple.
+- Committed 2 new brand assets dropped into `public/brand/logos/`: `machan_idle.png`, `machan_thinking.png` (character/mascot states). Committed where uploaded (logos/) per "commit everything" — NOT moved to `animations/` (no reorg requested).
+- Code from Session 079 (filterByIntent wiring, commit `a546ead`) already pushed before this session — working tree had only the 2 untracked assets.
+
+### Gaps Identified
+- `machan_idle.png` / `machan_thinking.png` are in `public/brand/logos/` but are mascot animation states — per CLAUDE.md asset convention they arguably belong in `public/brand/animations/`. Left in logos/ for now; move if they get wired as animation frames.
+- No canonical "brand purple" design token. If a reusable purple is wanted, add e.g. `--brand-purple: #1a1025` (or a chosen stop) to `:root` in globals.css.
+
+### Mistakes & Lessons
+- None this session.
+
+### Next Steps
+- (New chat) Decide whether machan_idle/thinking get wired into UI (idle/thinking mascot states) and whether to relocate to `animations/`.
+- Optional: define a `--brand-purple` CSS variable if purple needs to be reused as a token.
