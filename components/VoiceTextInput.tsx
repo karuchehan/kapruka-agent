@@ -7,23 +7,25 @@ import { useVoiceInput } from "@/hooks/useVoiceInput";
 type Mode = "collapsed" | "text" | "voice";
 
 interface Props {
-  /** Fired when the user submits typed text (Enter / send). Optional. */
+  /** Fired when the user submits text (Enter / send button). */
   onSend?: (text: string) => void;
   /** Placeholder shown in the resting input. */
   placeholder?: string;
 }
 
 /**
- * Self-contained text input with a mic that morphs into a voice "listening" pill.
+ * Text input with an always-present mic + gold send button.
  *
- * Three mutually exclusive modes, one state var:
- *   - collapsed: resting input + mic on the right
- *   - text:      input focused, X clears/collapses, outside tap snaps back
- *   - voice:     dark pill expands leftward from the mic, mic→checkmark morph
+ * Modes (one state var):
+ *   - collapsed: resting input, mic + send on the right
+ *   - text:      input focused, outside tap snaps back
+ *   - voice:     gold pill expands leftward across the field from the mic; mic
+ *                rotates 360° and crossfades to a purple checkmark
  *
- * Animation is GSAP (pill width / 360° rotate / mic↔check crossfade) plus a CSS
- * wave for the dots. Voice mode drives the Web Speech API via useVoiceInput —
- * the live transcript types into the input; recognition end collapses the pill.
+ * The send button lives OUTSIDE the field, so it stays visible even while the
+ * voice pill is expanded. Voice mode drives the Web Speech API via
+ * useVoiceInput — the live transcript types into the input; recognition end
+ * (or X / checkmark) collapses the pill. Animation is GSAP + a CSS dot wave.
  */
 export function VoiceTextInput({ onSend, placeholder = "What are you looking for today?" }: Props) {
   const [mode, setMode] = useState<Mode>("collapsed");
@@ -44,13 +46,14 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
   const noop = useCallback(() => {}, []);
   const { isListening, toggle: toggleRecognition } = useVoiceInput({
     onResult: handleResult,   // live transcript types into the input
-    onAutoSubmit: noop,       // no auto-send — user reviews then hits Enter
+    onAutoSubmit: noop,       // no auto-send — user reviews then hits Enter / send
   });
 
   // ---- voice enter -------------------------------------------------------
   const enterVoice = useCallback(() => {
     if (animating.current || mode === "voice") return;
     animating.current = true;
+    inputRef.current?.blur();
     setMode("voice");
     if (!isListening) toggleRecognition();   // start actually listening
 
@@ -64,7 +67,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
         .set(micIconRef.current, { opacity: 1 })
         .set(checkIconRef.current, { opacity: 0 })
         .set(contentRef.current, { opacity: 0 })
-        // 1. width expansion — deliberate, leftward (right-anchored)
+        // 1. width expansion — deliberate, leftward (right-anchored within field)
         .to(pillRef.current, { width: "100%", duration: 0.65, ease: "power2.inOut" }, 0)
         // 2. mic rotates 360°, crossfades to checkmark
         .to(micWrapRef.current, { rotation: 360, duration: 0.48, ease: "power2.inOut" }, 0)
@@ -77,7 +80,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
     });
   }, [mode, isListening, toggleRecognition]);
 
-  // ---- voice exit (X or checkmark) --------------------------------------
+  // ---- voice exit (X / checkmark / recognition end) ----------------------
   const exitVoice = useCallback(() => {
     if (animating.current && tlRef.current?.isActive()) return;
     animating.current = true;
@@ -140,6 +143,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
   useEffect(() => () => { tlRef.current?.kill(); }, []);
 
   const showPlaceholder = value.length === 0;
+  const canSend = value.trim().length > 0;
 
   return (
     <div className="vti-root">
@@ -150,59 +154,71 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
       )}
 
       <div className="vti-bar" data-mode={mode}>
-        {/* Custom placeholder — faded (not native) so it transitions smoothly. */}
-        <span className="vti-placeholder" style={{ opacity: showPlaceholder ? 1 : 0 }}>
-          {placeholder}
-        </span>
+        {/* Field = input + mic + the voice pill. Pill expands within THIS region
+            only, so the send button (a sibling, below) is never covered. */}
+        <div className="vti-field">
+          <span className="vti-placeholder" style={{ opacity: showPlaceholder ? 1 : 0 }}>
+            {placeholder}
+          </span>
 
-        <input
-          ref={inputRef}
-          className="vti-input"
-          type="text"
-          value={value}
-          aria-label="Message input"
-          autoComplete="off"
-          onChange={(e) => setValue(e.target.value)}
-          onFocus={() => mode === "collapsed" && setMode("text")}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); submit(); }
-            if (e.key === "Escape") collapseFromText();
-          }}
-        />
+          <input
+            ref={inputRef}
+            className="vti-input"
+            type="text"
+            value={value}
+            aria-label="Message input"
+            autoComplete="off"
+            onChange={(e) => setValue(e.target.value)}
+            onFocus={() => mode === "collapsed" && setMode("text")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); submit(); }
+              if (e.key === "Escape") collapseFromText();
+            }}
+          />
 
-        {/* Right action button — mic (collapsed) / X (text). Hidden under pill in voice. */}
-        <button
-          type="button"
-          className="vti-action"
-          aria-label={mode === "text" ? "Clear" : "Voice input"}
-          onClick={() => {
-            if (mode === "text") { setValue(""); collapseFromText(); }
-            else enterVoice();
-          }}
-        >
-          {mode === "text" ? <XIcon /> : <MicIcon />}
-        </button>
+          {/* Mic — always present, triggers the voice pill. Hidden under the
+              pill while voice is active. */}
+          <button
+            type="button"
+            className="vti-mic"
+            aria-label="Voice input"
+            onClick={enterVoice}
+          >
+            <MicIcon />
+          </button>
 
-        {/* Voice pill — always mounted, width driven by GSAP. Grows leftward. */}
-        <div className="vti-pill" ref={pillRef} aria-hidden={mode !== "voice"}>
-          <div className="vti-pill-content" ref={contentRef}>
-            <button type="button" className="vti-pill-cancel" aria-label="Cancel" onClick={cancelVoice}>
-              <XIcon />
-            </button>
-            <div className="vti-dots" aria-hidden="true">
-              <span /><span /><span />
+          {/* Voice pill — always mounted, width driven by GSAP. Grows leftward. */}
+          <div className="vti-pill" ref={pillRef} aria-hidden={mode !== "voice"}>
+            <div className="vti-pill-content" ref={contentRef}>
+              <button type="button" className="vti-pill-cancel" aria-label="Cancel" onClick={cancelVoice}>
+                <XIcon />
+              </button>
+              <div className="vti-dots" aria-hidden="true">
+                <span /><span /><span />
+              </div>
+              <span className="vti-listening">Listening…</span>
             </div>
-            <span className="vti-listening">Listening…</span>
-          </div>
 
-          {/* mic ↔ check, anchored right, rotates as the pill opens */}
-          <div className="vti-mic-wrap" ref={micWrapRef}>
-            <button type="button" className="vti-pill-confirm" aria-label="Confirm" onClick={confirmVoice}>
-              <span className="vti-icon-layer" ref={micIconRef}><MicIcon /></span>
-              <span className="vti-icon-layer" ref={checkIconRef} style={{ opacity: 0 }}><CheckIcon /></span>
-            </button>
+            {/* mic ↔ check, anchored right, rotates as the pill opens */}
+            <div className="vti-mic-wrap" ref={micWrapRef}>
+              <button type="button" className="vti-pill-confirm" aria-label="Confirm" onClick={confirmVoice}>
+                <span className="vti-icon-layer" ref={micIconRef}><MicIcon /></span>
+                <span className="vti-icon-layer" ref={checkIconRef} style={{ opacity: 0 }}><CheckIcon /></span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Gold send button — always visible, outside the field. */}
+        <button
+          type="button"
+          className="vti-send"
+          aria-label="Send message"
+          disabled={!canSend}
+          onClick={submit}
+        >
+          <SendIcon />
+        </button>
       </div>
 
       <style jsx>{`
@@ -228,13 +244,22 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           border: 1px solid rgba(255, 255, 255, 0.14);
           border-radius: 14px;
           transition: border-color 0.22s ease;
-          overflow: hidden; /* clips the pill to the bar's rounded shape */
         }
         .vti-bar[data-mode="text"] { border-color: rgba(255, 204, 0, 0.5); }
 
+        /* Field holds input + mic + pill; pill is clipped to this region. */
+        .vti-field {
+          position: relative;
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .vti-placeholder {
           position: absolute;
-          left: 18px;
+          left: 0;
           top: 50%;
           transform: translateY(-50%);
           color: #6b5a50;
@@ -252,7 +277,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           font-size: 15px;
           font-family: inherit;
         }
-        .vti-action {
+        .vti-mic {
           flex-shrink: 0;
           width: 38px;
           height: 38px;
@@ -265,7 +290,25 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           cursor: pointer;
           transition: background 0.18s ease, color 0.18s ease;
         }
-        .vti-action:hover { background: rgba(255, 204, 0, 0.14); color: #FFCC00; }
+        .vti-mic:hover { background: rgba(255, 204, 0, 0.14); color: #FFCC00; }
+
+        /* Gold send button — always visible, sits outside the pill's reach. */
+        .vti-send {
+          flex-shrink: 0;
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border: none;
+          border-radius: 10px;
+          background: #FFCC00;
+          color: #1a1025;
+          cursor: pointer;
+          transition: background 0.18s ease, opacity 0.18s ease, transform 0.12s ease;
+        }
+        .vti-send:hover:not(:disabled) { background: #FFD84D; }
+        .vti-send:active:not(:disabled) { transform: scale(0.92); }
+        .vti-send:disabled { opacity: 0.4; cursor: default; }
 
         /* ---- voice pill ---- */
         .vti-pill {
@@ -275,9 +318,8 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           height: 100%;
           width: 0;
           overflow: hidden;
-          align-self: flex-end;
           background: #FFCC00;
-          border-radius: 14px;
+          border-radius: 12px;
           z-index: 3;
           display: flex;
           align-items: center;
@@ -288,7 +330,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           gap: 12px;
           width: 100%;
           height: 100%;
-          padding: 0 56px 0 8px; /* right pad clears the anchored mic/check */
+          padding: 0 50px 0 4px; /* right pad clears the anchored mic/check */
           white-space: nowrap;
         }
         .vti-pill-cancel,
@@ -309,20 +351,20 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
         .vti-listening {
           color: #6d28d9;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 600;
           letter-spacing: 0.2px;
         }
 
         /* mic/check anchored to the right edge of the pill */
         .vti-mic-wrap {
           position: absolute;
-          right: 9px;
+          right: 6px;
           top: 50%;
           transform: translateY(-50%);
         }
         .vti-pill-confirm {
           position: relative;
-          color: #ffffff;
+          color: #ffffff; /* mic stays white */
         }
         .vti-icon-layer {
           position: absolute;
@@ -330,7 +372,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           display: grid;
           place-items: center;
         }
-        /* mic stays white (confirm color); checkmark is purple like the dots */
+        /* checkmark is purple like the dots */
         .vti-icon-layer:last-child { color: #6d28d9; }
 
         /* ---- wave dots ---- */
@@ -382,6 +424,14 @@ function XIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+function SendIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
   );
 }
