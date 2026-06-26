@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { gsap } from "gsap";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 
 type Mode = "collapsed" | "text" | "voice";
 
@@ -21,7 +22,8 @@ interface Props {
  *   - voice:     dark pill expands leftward from the mic, mic→checkmark morph
  *
  * Animation is GSAP (pill width / 360° rotate / mic↔check crossfade) plus a CSS
- * wave for the dots. No real speech recognition — visual only.
+ * wave for the dots. Voice mode drives the Web Speech API via useVoiceInput —
+ * the live transcript types into the input; recognition end collapses the pill.
  */
 export function VoiceTextInput({ onSend, placeholder = "What are you looking for today?" }: Props) {
   const [mode, setMode] = useState<Mode>("collapsed");
@@ -35,12 +37,22 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
   const checkIconRef = useRef<HTMLSpanElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);   // X + dots + label, fades in
   const tlRef = useRef<gsap.core.Timeline | null>(null);
+  const wasListening = useRef(false);
+
+  // ---- speech recognition (Web Speech API via shared hook) ---------------
+  const handleResult = useCallback((t: string) => setValue(t), []);
+  const noop = useCallback(() => {}, []);
+  const { isListening, toggle: toggleRecognition } = useVoiceInput({
+    onResult: handleResult,   // live transcript types into the input
+    onAutoSubmit: noop,       // no auto-send — user reviews then hits Enter
+  });
 
   // ---- voice enter -------------------------------------------------------
   const enterVoice = useCallback(() => {
     if (animating.current || mode === "voice") return;
     animating.current = true;
     setMode("voice");
+    if (!isListening) toggleRecognition();   // start actually listening
 
     // pill is always mounted; run on next frame so layout is settled.
     requestAnimationFrame(() => {
@@ -63,7 +75,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
 
       tlRef.current = tl;
     });
-  }, [mode]);
+  }, [mode, isListening, toggleRecognition]);
 
   // ---- voice exit (X or checkmark) --------------------------------------
   const exitVoice = useCallback(() => {
@@ -89,6 +101,26 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
 
     tlRef.current = tl;
   }, []);
+
+  // X: stop listening, discard transcript, collapse.
+  const cancelVoice = useCallback(() => {
+    setValue("");
+    if (isListening) toggleRecognition();   // onend → effect collapses
+    else exitVoice();
+  }, [isListening, toggleRecognition, exitVoice]);
+
+  // Checkmark: stop listening, keep transcript, collapse.
+  const confirmVoice = useCallback(() => {
+    if (isListening) toggleRecognition();
+    else exitVoice();
+  }, [isListening, toggleRecognition, exitVoice]);
+
+  // When recognition ends (naturally or via stop), collapse the pill but keep
+  // whatever was transcribed in the input.
+  useEffect(() => {
+    if (wasListening.current && !isListening && mode === "voice") exitVoice();
+    wasListening.current = isListening;
+  }, [isListening, mode, exitVoice]);
 
   // ---- text mode ---------------------------------------------------------
   const collapseFromText = useCallback(() => {
@@ -154,7 +186,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
         {/* Voice pill — always mounted, width driven by GSAP. Grows leftward. */}
         <div className="vti-pill" ref={pillRef} aria-hidden={mode !== "voice"}>
           <div className="vti-pill-content" ref={contentRef}>
-            <button type="button" className="vti-pill-cancel" aria-label="Cancel" onClick={exitVoice}>
+            <button type="button" className="vti-pill-cancel" aria-label="Cancel" onClick={cancelVoice}>
               <XIcon />
             </button>
             <div className="vti-dots" aria-hidden="true">
@@ -165,7 +197,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
 
           {/* mic ↔ check, anchored right, rotates as the pill opens */}
           <div className="vti-mic-wrap" ref={micWrapRef}>
-            <button type="button" className="vti-pill-confirm" aria-label="Confirm" onClick={exitVoice}>
+            <button type="button" className="vti-pill-confirm" aria-label="Confirm" onClick={confirmVoice}>
               <span className="vti-icon-layer" ref={micIconRef}><MicIcon /></span>
               <span className="vti-icon-layer" ref={checkIconRef} style={{ opacity: 0 }}><CheckIcon /></span>
             </button>
@@ -271,11 +303,11 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           background: transparent;
           cursor: pointer;
         }
-        .vti-pill-cancel { color: #1a1025; }
-        .vti-pill-cancel:hover { color: #000; }
+        .vti-pill-cancel { color: #6d28d9; }
+        .vti-pill-cancel:hover { color: #5b21b6; }
 
         .vti-listening {
-          color: #1a1025;
+          color: #6d28d9;
           font-size: 14px;
           font-weight: 500;
           letter-spacing: 0.2px;
@@ -298,6 +330,8 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           display: grid;
           place-items: center;
         }
+        /* mic stays white (confirm color); checkmark is purple like the dots */
+        .vti-icon-layer:last-child { color: #6d28d9; }
 
         /* ---- wave dots ---- */
         .vti-dots {

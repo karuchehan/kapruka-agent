@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "./Header";
 import { MessageList } from "./MessageList";
 import { VoiceTextInput } from "./VoiceTextInput";
+import { MachanAvatar } from "./MachanAvatar";
 import { ProductStage } from "./ProductStage";
 import { ProductSheet } from "./ProductSheet";
 import { CartDock } from "./CartDock";
@@ -230,6 +231,11 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
         <Header voiceEnabled={voiceEnabled} onVoiceToggle={toggleVoice} />
         <MessageList chatItems={chatItems} speakingId={speakingId} onAddToCart={handleAddToCart} onGiftSubmit={handleGiftSubmit} />
         <div id="input-area">
+          {/* Machan stands flush on top of the input bar, anchored over the mic.
+              pointer-events:none so he never blocks the input. */}
+          <div className="machan-floating" aria-hidden="true">
+            <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} />
+          </div>
           <VoiceTextInput onSend={handleSend} />
         </div>
       </div>
