@@ -1,18 +1,35 @@
 "use client";
 
+import { useRef, useState, useEffect } from "react";
+
 interface Props {
   state: "idle" | "thinking";
   /** Wrapper height in px; images fill it (height 100%, width auto). */
   size?: number;
 }
 
-// Two mascot frames stacked absolutely; we cross-fade opacity between them and
+// Three mascot frames stacked absolutely; we cross-fade opacity between them and
 // add a subtle scale settle so the "thinking" frame feels like it leans in.
 // Images are sized to the wrapper height so Machan fits the header exactly —
 // the PNG is chest-up, so filling the height makes him look like he's standing
 // inside the bar.
+//
+// Tapping Machan fires a transient "laughing" frame for ~1s, then he fades back
+// to his current default (idle, or thinking if the agent is busy) — same
+// cross-fade used for idle↔thinking, so it feels of a piece.
 export function MachanAvatar({ state, size = 80 }: Props) {
   const thinking = state === "thinking";
+  const [laughing, setLaughing] = useState(false);
+  const laughTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (laughTimer.current) clearTimeout(laughTimer.current); }, []);
+
+  function handleTap() {
+    if (laughing) return; // already laughing — ignore re-taps until it settles
+    setLaughing(true);
+    laughTimer.current = setTimeout(() => setLaughing(false), 1000);
+  }
+
   const imgStyle: React.CSSProperties = {
     position: "absolute",
     bottom: 0,
@@ -27,21 +44,31 @@ export function MachanAvatar({ state, size = 80 }: Props) {
     transition: "opacity 500ms ease-in-out, transform 500ms ease-in-out",
     transformOrigin: "bottom center",
   };
+  const settle = thinking ? "scale(0.97)" : "scale(1)";
+
   return (
     <div
       className="machan-avatar"
-      style={{ position: "relative", height: size, width: size }}
+      // Parent .machan-floating is pointer-events:none so it never blocks the
+      // mic/send buttons; opt this child back in so the tap-to-laugh lands here.
+      style={{ position: "relative", height: size, width: size, pointerEvents: "auto", cursor: "pointer" }}
       aria-hidden="true"
+      onClick={handleTap}
     >
       <img
         src="/brand/logos/machan_idle.png"
         alt=""
-        style={{ ...imgStyle, opacity: thinking ? 0 : 1, transform: thinking ? "scale(0.97)" : "scale(1)" }}
+        style={{ ...imgStyle, opacity: !thinking && !laughing ? 1 : 0, transform: settle }}
       />
       <img
         src="/brand/logos/machan_thinking.png"
         alt=""
-        style={{ ...imgStyle, opacity: thinking ? 1 : 0, transform: thinking ? "scale(0.97)" : "scale(1)" }}
+        style={{ ...imgStyle, opacity: thinking && !laughing ? 1 : 0, transform: settle }}
+      />
+      <img
+        src="/brand/logos/laughing.png"
+        alt=""
+        style={{ ...imgStyle, opacity: laughing ? 1 : 0, transform: laughing ? "scale(1)" : settle }}
       />
     </div>
   );
