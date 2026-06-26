@@ -1739,6 +1739,14 @@ html, body {
     padding: 8px 14px;
     background: var(--bg-primary);
   }
+  /* Mobile Machan: smaller (56px via prop) and centered over the mic+send cluster.
+     Cluster ends 24px from the right (input pad 14 + inner pad 10), is 86px wide
+     (38 + 10 + 38), so its centre is 67px from the right → right:39px centres the
+     56px avatar over it. Bottom offset scales to ~7px of PNG foot-padding at 56px. */
+  .machan-floating {
+    right: 39px;
+    bottom: calc(100% - 7px);
+  }
   /* Sheet open → dock hides, so drop the input to the very bottom where it floats
      under the product grid (which is padded to clear it). */
   :root.sheet-open #input-area { bottom: calc(var(--m-gap) + var(--m-safe)); }

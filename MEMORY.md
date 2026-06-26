@@ -2553,6 +2553,17 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - Optional: dead `.header-brand-text` / `.header-subtitle` rules in globals.css.
 
+## Session 089 — 2026-06-26
+### What We Did
+- Mobile: Machan was oversized (80px dominated narrow screen) and off-centre over the buttons. Refined:
+  - `InputArea.tsx`: imported `useMediaQuery`, `isMobile = useMediaQuery("(max-width: 720px)")`, passes `size={isMobile ? 56 : 80}` to MachanAvatar (responsive).
+  - `globals.css` mobile block: `.machan-floating { right: 39px; bottom: calc(100% - 7px) }` — centres the 56px avatar over the mic+send cluster (cluster centre 67px from right; 56px wide → right:39px) and tunes foot-padding for the smaller frame. Desktop unchanged (right:30px, bottom calc(100%-10px), 80px).
+- tsc EXIT=0; overflow intact.
+- Committed + pushed to `karuchehan/kapruka-agent` main (gh→karuchehan for push, restored gtmkaru). Not redeployed.
+
+### Next Steps
+- Optional: redeploy to verify on live mobile URL.
+
 ## Session 088 — 2026-06-26
 ### What We Did
 - Mobile (≤720px) bottom cluster felt crammed — input bar sat only one `--m-gap` (12px) above the cart dock + product sheet peek. Added breathing room:

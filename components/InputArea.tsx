@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState, useCallback } from "react";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { MachanAvatar } from "./MachanAvatar";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 export function InputArea({ onSend, isSending }: Props) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = useMediaQuery("(max-width: 720px)");
 
   function autoResize() {
     const el = textareaRef.current;
@@ -50,7 +52,7 @@ export function InputArea({ onSend, isSending }: Props) {
       {/* Machan stands flush on top of the input bar, anchored over the mic +
           send buttons on the right. pointer-events:none so he never blocks them. */}
       <div className="machan-floating" aria-hidden="true">
-        <MachanAvatar state={isSending ? "thinking" : "idle"} size={80} />
+        <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} />
       </div>
       <div className="input-inner">
         <textarea
