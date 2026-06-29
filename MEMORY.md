@@ -2690,3 +2690,22 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - User screenshots keep landing as /var temp paths (NSIRD_screencaptureui) — unreadable by Read tool. Worked from text descriptions each time.
 ### Next Steps
 - Awaiting user feel-check on send button + animation coexistence.
+
+## Session 094 — 2026-06-26
+### What We Did
+- Tap-to-laugh on MachanAvatar. Added 3rd stacked frame laughing.png; onClick → setLaughing(true) + 1000ms setTimeout revert. Opacity precedence: laughing wins over thinking/idle. Reused existing 500ms cross-fade.
+- Re-enabled pointer-events:auto + cursor:pointer on .machan-avatar child only (parent .machan-floating stays pointer-events:none) so mic/send buttons under him still click. No globals.css change, no prop signature change — ChatScreen/InputArea call sites untouched.
+- Planned in plan mode (approved), single file components/MachanAvatar.tsx. Pushed 9d4513c.
+### Notes
+- gh account flips to gtmkaru sometimes → push 403. Fix: gh auth switch --user karuchehan. Standing rule: always push as karuchehan.
+- User screenshots arrive as /var TemporaryItems temp paths, unreadable by Read tool.
+### Next Steps
+- User feel-check on tap-to-laugh timing (1s hold).
+
+## Session 095 — 2026-06-26
+### What We Did
+- Fixed tap-to-laugh "vanish" bug. Root cause: laughing.png was untracked (git ??) — S094 committed only MachanAvatar.tsx, not the image. On Vercel it 404'd → blank frame for 1s. Committed + pushed asset (5195f27).
+### Mistakes & Lessons
+- When code references a NEW asset (user-uploaded png), commit the asset in the SAME push as the code. git add the file, don't assume it's tracked. Check git status for ?? before claiming done.
+### Next Steps
+- User confirm laugh frame now shows.
