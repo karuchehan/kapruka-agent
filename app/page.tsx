@@ -1,53 +1,28 @@
 "use client";
-import { useState, useRef } from "react";
-import gsap from "gsap";
-import { OnboardingScreen } from "@/components/OnboardingScreen";
 import { ChatScreen } from "@/components/ChatScreen";
 import type { UserProfile, RecipientProfile, ApiMessage } from "@/lib/types";
 
+// No pre-chat onboarding gate. The user lands directly in the chat. We seed a
+// single hardcoded assistant greeting as the conversation's first turn: it is
+// shown instantly as the welcome bubble (no API call needed on load) AND seeded
+// into apiMessages so the agent knows it has already greeted and won't repeat it.
+// The greeting leads with a Sri Lankan personality beat and invites
+// self-shopping — no gift framing, no demographic questions up front. Name, age,
+// and gender are gathered conversationally later (see directives/system_prompt.md).
 const DEFAULT_PROFILE: UserProfile = { name: "", age: null, gender: "" };
 const DEFAULT_RECIPIENT: RecipientProfile = { age: null, gender: "", relationship: "" };
 
+const GREETING = "Ayubowan! What are we shopping for today?";
+
 export default function Home() {
-  const [phase, setPhase] = useState<"onboarding" | "chat">("onboarding");
-  const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
-  const [obMessages, setObMessages] = useState<ApiMessage[]>([]);
-  const [initialQuery, setInitialQuery] = useState("");
-  const obRef = useRef<HTMLDivElement>(null);
-
-  function handleOnboardingComplete(profile: UserProfile, messages: ApiMessage[], query: string) {
-    setUserProfile(profile);
-    setObMessages(messages);
-    setInitialQuery(query);
-
-    // Fade out onboarding, then switch
-    if (obRef.current) {
-      gsap.to(obRef.current, {
-        opacity: 0,
-        duration: 0.5,
-        ease: "power2.in",
-        onComplete: () => setPhase("chat"),
-      });
-    } else {
-      setPhase("chat");
-    }
-  }
+  const obMessages: ApiMessage[] = [{ role: "assistant", content: GREETING }];
 
   return (
-    <>
-      {phase === "onboarding" && (
-        <div ref={obRef}>
-          <OnboardingScreen onComplete={handleOnboardingComplete} />
-        </div>
-      )}
-      {phase === "chat" && (
-        <ChatScreen
-          userProfile={userProfile}
-          recipientProfile={DEFAULT_RECIPIENT}
-          obMessages={obMessages}
-          initialQuery={initialQuery}
-        />
-      )}
-    </>
+    <ChatScreen
+      userProfile={DEFAULT_PROFILE}
+      recipientProfile={DEFAULT_RECIPIENT}
+      obMessages={obMessages}
+      initialQuery=""
+    />
   );
 }
