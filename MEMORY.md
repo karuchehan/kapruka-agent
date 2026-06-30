@@ -2741,3 +2741,33 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 ### Next Steps
 - After next `/clear`: run `/session-handoff` to confirm it resolves live.
 - Deferred per user: `/roast` (run before onboarding redesign) and sub-agents/`/goal` (autoresearch loop when credits available) — hold for now.
+
+## Session 098 — 2026-06-30
+### What We Did
+- Post-`/clear` verification of the two S097 installs. Both PASS.
+- Check 1 — `/session-handoff` resolves live as a recognized skill (no "unknown command"). Skill body loaded; the 7-section chat-only template is intact (Where it started / Decisions locked + what shipped / Key files / Running state / Verification / Deferred + open questions / Pick up here). Confirms S097 note — skill registry loads at session start, so it only became runnable after this `/clear`.
+- Check 2 — `## MANDATORY SMOKE-TEST RULE` present in CLAUDE.md at line 110, sitting between the 4-check self-verification block (ends ~L106 + `---` L108) and `## Hard Rules` (L132). Structure matches: numbered `### Smoke Test — <feature>` list, concrete actions + observable results, happy path + edge case, human-run, explicitly separate from tsc/overflow.
+### Verification
+- No fixes needed — neither check failed. No code changes this session.
+
+### `/roast` — 5-persona council on Machan (competition entry)
+- Ran `/roast` on the whole agent. Council read the real codebase (route.ts 1359 lines, system_prompt.md ~420 lines) first, not just the description.
+- Scores: **Contrarian 3 · Expansionist 9 · Logician 4 · Researcher 8 · Buyer 6.5**.
+- **VERDICT: RESHAPE (high confidence).** Engine is strong + rubric-aligned; the first 60 seconds is what loses. Pivot is subtractive (delete + reorder), ~5 days, mostly not new features.
+- Three removable flaws all four critical personas converged on:
+  1. **Forced onboarding gate (name/age/GENDER) before any value.** Reads creepy/slow on a self-shop platform; gender signal is so bias-prone the prompt has a whole paragraph (system_prompt.md L190) defending against misusing it — the tell it shouldn't be collected.
+  2. **Gifting-default vs self-shop reality.** Organizers explicitly said most Kapruka users shop for THEMSELVES. Codebase is gift-centric (MODE B qualification, recipient profiles, gift messages, bundles, occasion dates); MODE A (self-shop) is the fallback. Inverted priority at the entry point.
+  3. **Cold-start / live-MCP timeout risk on judging day.** Every turn = MCP init + tool call + Anthropic call serially in one 60s Vercel Hobby fn, cross-region, no fallback. One cold-start timeout in front of judges = dead demo. (Code comments already flag this.)
+- Reshape steps: (1) rip the gate — land straight in live chat, name optional mid-convo, never gender up front; (2) flip default to self-shop, gifting becomes a branch offered only on signal ("it's for my amma"); (3) engineer ONE screenshot-worthy Lankan moment in msg 1 (register code-switch + opinionated honest-friend line like "yako, get this one, the other's overpriced") — that's where the 35 personality/creativity points live; (4) guarantee cold-start checkout (pre-warm/keep-alive + graceful MCP-stall fallback + rehearse one flawless end-to-end on live catalogue).
+- Cheapest 48h test (no code first): open live URL incognito + hand to 3-5 Sri Lankans with one instruction "buy yourself something", watch first 60s only — (a) do they hit a form? (b) does it steer into gift-mode? (c) first query fast, no timeout? Validates riskiest assumption before touching code.
+
+### Source verification (user asked for real sources, not paraphrase)
+- **Kapruka rubric VERIFIED verbatim** from https://www.kapruka.com/contactUs/agentChallenge.html (I fetched live myself): Experience & polish **30** ("Does it look and feel genuinely amazing?") · Visual richness **20** ("Products shown beautifully — not a wall of text.") · Personality **15** ("An agent people actually enjoy talking to.") · Usefulness **15** · End-to-end completeness **15** ("Discovery all the way through to a working checkout.") · Creativity **5** ("Show us something we didn't see coming."). Total 100. Feel/visuals/personality = 30+20+15 = **65/100** (my arithmetic on verified numbers; page doesn't print "65").
+- Multilingual, verbatim: *"Sinhala especially — it fits Kapruka's market perfectly and 'almost no one will attempt it'. Pull it off and you'll stand out instantly."* Bonus list includes Tanglish + Sinhala support.
+- **Multi-entry claim PARTIALLY verified.** Both news pages (Sunday Times 10-1151941; Lanka Business News) return **HTTP 403** to WebFetch — could not read raw article. WebSearch index rendering of the Kapruka press release says: *"working demos are coming in, including full-screen chat shopping experiences, several of them able to converse in Sinhala and Tanglish and take a customer from a first request through to checkout"* and *"The Kapruka MCP connects to live products, live delivery quotes and live guest checkout."* This is a Kapruka press release (one self-reported source), NOT independent reporting — treat as a single promotional signal.
+- **Honesty note:** the Researcher was a subagent; I did not witness its searches. Re-verified personally: rubric = hard fact; "several entries" line = corroborated-but-promotional.
+
+### Next Steps
+- Decide: sequence the RESHAPE into a 5-day plan, or start step 1 now (rip the gate, flip default to self-shop).
+- Run the 48h cold-open test before/alongside code changes.
+- Treat the 65/100 feel/visuals/personality split as the scoring target; field already has multilingual+checkout entries, so cold-open texture (the 35 personality+creativity+polish-top points) is the separator.
