@@ -2725,3 +2725,19 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - Doc schema lied about `amount` (string vs object) and not-found behaviour (throw vs isError:false text). Always probe the live tool, never trust the docstring shape.
 ### Next Steps
 - End-to-end check on live deploy (judges' env): type "where's my order VPAY827982BA" and confirm the warm one-liner + TrackingCard render together. Needs the live LLM — confirm before any local Anthropic test run.
+
+## Session 097 — 2026-06-30
+### What We Did
+- Installed `session-handoff` skill verbatim at `.claude/skills/session-handoff/SKILL.md` (created the skills dir; byte-for-byte copy of ~/Downloads/session-handoff-SKILL.md, 79 lines, `diff` clean). Replaces the inconsistent manual MEMORY.md handoff approach with a 7-section chat-only template (Where it started / Decisions locked / Key files / Running state / Verification / Deferred / Pick up here).
+- Added `## MANDATORY SMOKE-TEST RULE` to CLAUDE.md, between the 4-check self-verification block and Hard Rules. After every ship: a numbered `### Smoke Test — <feature>` list of concrete user actions + observable results on the live URL (kapruka-agent-liard.vercel.app), happy path + ≥1 edge case. Explicitly separate from tsc/overflow checks — the "does it work in production" check. Human runs it, not Claude.
+- Ran the handoff template manually and confirmed all 7 sections render correctly.
+- Committed + pushed 8ee9795 → auto-deploys Vercel.
+### Verification
+- `diff` of installed skill vs Download → no output (verbatim).
+- `grep "MANDATORY SMOKE-TEST RULE" CLAUDE.md` → 1 hit.
+- Handoff output produced this session contained all 7 required sections.
+### Mistakes & Lessons
+- A skill created mid-session is NOT runnable via the Skill tool that same session — the registry loads at session start. `/session-handoff` resolves only after the next `/clear` or restart. Verified the template by producing it manually instead.
+### Next Steps
+- After next `/clear`: run `/session-handoff` to confirm it resolves live.
+- Deferred per user: `/roast` (run before onboarding redesign) and sub-agents/`/goal` (autoresearch loop when credits available) — hold for now.
