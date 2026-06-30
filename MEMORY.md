@@ -2771,3 +2771,22 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - Decide: sequence the RESHAPE into a 5-day plan, or start step 1 now (rip the gate, flip default to self-shop).
 - Run the 48h cold-open test before/alongside code changes.
 - Treat the 65/100 feel/visuals/personality split as the scoring target; field already has multilingual+checkout entries, so cold-open texture (the 35 personality+creativity+polish-top points) is the separator.
+
+## Session 099 — 2026-06-30
+### What We Did
+- **Onboarding redesign — executed RESHAPE steps 1 & 2 from S098.** Ripped the pre-chat onboarding gate; chat is now the landing experience. Done on branch `onboarding-trial`, tested locally, merged `--no-ff` to main, pushed.
+- `app/page.tsx`: deleted `OnboardingScreen` mount + gsap fade transition + `phase` state. Now mounts `ChatScreen` directly with a single seeded assistant greeting passed as `obMessages` (`[{role:"assistant", content: GREETING}]`). Existing `initWithOnboarding` already shows the last assistant msg as the welcome bubble AND seeds it into `apiMessages` so the agent knows it greeted — zero new machinery. `initialQuery=""` so no auto-send; user types first.
+  - Greeting iterated twice: started as a paragraph pitch, user wanted shorter/no-em-dash → final = `"Ayubowan! What are we shopping for today?"` (const `GREETING` in page.tsx).
+- `directives/system_prompt.md`: added **FIRST CONTACT** section at top (before CRITICAL OUTPUT RULES). Self-shopping is the DEFAULT; gifting is a branch only on signal ("for my amma", named recipient). Softened the 3 mandatory "use the user's name every response" rules → "once you know it, never invent one" (name is empty on load now). Reframed VAGUE REQUESTS + SHOPPING-FOR-SELF-VS-GIFTING to self-default.
+- **NAME CAPTURE rule (the key fix this session):** first FIRST CONTACT draft was too vague — in live 5-turn testing the agent NEVER asked name/age/gender. Rewrote as a HARD TRIGGERED rule: on the FIRST turn that shows products OR confirms a cart add AND name still unknown, append ONE short name question as the LAST sentence of that same reply (does not count vs the 2-sentence limit). Ask once; if ignored, drop forever. Age/gender optional/secondary. Added register-specific inline examples (English + Singlish). Concreteness is what made Sonnet follow it.
+### Verification
+- `tsc --noEmit` clean (run before commit + before merge). No CSS touched, so the 4 overflow checks are unaffected (chat layout structurally identical — same ChatScreen/MessageList).
+- **Live local API test (port 3001, fresh server restart to reload system_prompt.md — it's read once via readFileSync at module init, so editing it does NOT hot-reload):**
+  - Turn 1 (`"show me some perfumes under 6000"`, name empty) → products shown + reply ended with `"...all within your budget! What's your name, by the way?"`. Trigger fired, shopping not blocked.
+  - Turn 2 (`"Im Chehan. actually need a gift for my amma birthday, some flowers"`) → `"Happy birthday to your amma, Chehan! ..."` + flower bouquets. Name adopted, NOT re-asked, gift branch triggered on "amma birthday". 
+### Mistakes & Lessons
+- Vague prompt instructions silently fail on Sonnet. The first FIRST CONTACT wording ("spread across the first one or two replies, as a warm aside AFTER you've been useful") never fired because it had no observable trigger and competed with the hard 2-sentence limit. Fix pattern: bind the behaviour to a concrete event ("first turn you show products or confirm a cart add"), state it rides along in the existing reply, exempt it from the limit, give an inline example. 
+- `system_prompt.md` is loaded at module init (`BASE_SYSTEM_PROMPT`), not per-request — must RESTART the dev server after editing it; Next hot-reload won't pick it up because the .md isn't an imported module.
+### Next Steps
+- RESHAPE step 3 (the screenshot-worthy Lankan personality moment in msg 1 — opinionated honest-friend code-switch) and step 4 (cold-start/MCP-timeout guarantee for judging day) still open.
+- Smoke-test the redesign on the live URL once deployed (Vercel auto-deploys this push): confirm landing-straight-to-chat + name-capture fire in production, not just local.
