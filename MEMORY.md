@@ -2709,3 +2709,19 @@ Added `CHECKOUT EXIT — HARD RULE` after CHECKOUT NUDGE:
 - When code references a NEW asset (user-uploaded png), commit the asset in the SAME push as the code. git add the file, don't assume it's tracked. Check git status for ?? before claiming done.
 ### Next Steps
 - User confirm laugh frame now shows.
+
+## Session 096 — 2026-06-30
+### What We Did
+- Built order tracking (post-sale "where's my order"). Wiring already existed: `track_order→kapruka_track_order` in TOOL_MAP, a basic track branch in detectIntent, trackingData injected as raw JSON into prompt. Replaced raw-JSON approach with a clean mapped object + visual card.
+- Probed live MCP first (no guessing schema). `kapruka_track_order` real response for VPAY827982BA: status `delivered`, stage 3, 11-step `progress`, recipient, `amount` is `{value,currency}` (doc said string — doc wrong), `recipient.phone` has `<BR` HTML junk. Invalid order returns `isError:false` with text `"Error (order_not_found): ..."` (does NOT throw — callMCP returns `{raw}`).
+- route.ts: rewrote detectIntent track block — multilingual triggers (EN/Singlish/Tamil), noun-vs-verb "order" disambiguation (`verbOrder` excludes "want to order flowers"), order-number token as strong signal, asks for number when missing. Added `mapTracking`/`notFoundTracking`/`statusToStage`/`formatTrackAmount`/`cleanText` helpers. Track branch maps to `TrackingInfo`, returns `tracking` in JSON response. Prompt now gets a 1-sentence summary cue (found) or not-found cue, never raw JSON.
+- New `TrackingInfo`/`TrackingStep` types; new `components/TrackingCard.tsx` (status badge + 4-step horizontal stepper + key facts + latest note + not-found variant); CSS `.tracking-*` in globals.css; `useChat` adds `tracking` chat item; `MessageList` renders it.
+- directives/system_prompt.md: added ORDER TRACKING section (additive — feature was explicitly requested).
+### Verification
+- tsc clean. Overflow checks pass (no overflow:hidden added on scroll ancestors; #messages-container stays overflow-y:auto).
+- Live-tested the FULL data path minus the LLM sentence (LLM call needs API-key OK per hard rule): mapTracking on real VPAY827982BA → correct TrackingInfo (LKR 26,060, Polgasowita, phone junk dropped). Invalid order → graceful found:false. 14/14 intent cases pass incl. Singlish/Tamil + the verb-order false-positive fix.
+- Committed + pushed 2f1d5c6 → auto-deploys Vercel.
+### Mistakes & Lessons
+- Doc schema lied about `amount` (string vs object) and not-found behaviour (throw vs isError:false text). Always probe the live tool, never trust the docstring shape.
+### Next Steps
+- End-to-end check on live deploy (judges' env): type "where's my order VPAY827982BA" and confirm the warm one-liner + TrackingCard render together. Needs the live LLM — confirm before any local Anthropic test run.
