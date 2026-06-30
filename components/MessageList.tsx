@@ -3,6 +3,7 @@ import { useRef, useEffect } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { DeliveryStatusCard } from "./DeliveryStatusCard";
+import { TrackingCard } from "./TrackingCard";
 import { OccasionCountdown } from "./OccasionCountdown";
 import { GiftMessageCard } from "./GiftMessageCard";
 import { BundleHamperView } from "./BundleHamperView";
@@ -54,6 +55,8 @@ export function MessageList({ chatItems, speakingId, onAddToCart, onGiftSubmit }
             return null;
           case "delivery":
             return <DeliveryStatusCard key={item.id} delivery={item.delivery!} />;
+          case "tracking":
+            return <TrackingCard key={item.id} tracking={item.tracking!} />;
           case "occasion":
             return <OccasionCountdown key={item.id} occasion={item.occasion!} />;
           case "giftMessage":

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { extractBudget, filterProducts } from "@/lib/productFilter";
+import type { TrackingInfo } from "@/lib/types";
 
 // Load the system prompt from directives/system_prompt.md. On Vercel,
 // process.cwd() is not guaranteed to be the project root, so a single
@@ -448,10 +449,38 @@ function detectIntent(messages: ApiMessage[]) {
   const text  = lastUser.content;
   const lower = text.toLowerCase();
 
-  if (/\b(track|tracking|order status|where.*order|order.*where)\b/.test(lower)) {
-    const match = text.match(/\b([A-Z]{2,6}\d{4,12}[A-Z0-9]*)\b/);
-    if (match) return { type: "track", orderNumber: match[1] };
-    return { type: "track", orderNumber: null };
+  // ORDER TRACKING — post-sale "where's my order". Multilingual triggers
+  // (English / Singlish / Tamil). A Kapruka order number looks like VPAY827982BA
+  // (2–6 letters, 4–12 digits, optional trailing alphanumerics); match it
+  // case-insensitively and upper-case it for the MCP call (MCP is case-sensitive).
+  // An order-number-shaped token (e.g. VPAY827982BA) is itself a strong tracking
+  // signal — nobody types one while shopping.
+  const hasOrderNo = /\b[A-Za-z]{2,6}\d{4,12}[A-Za-z0-9]*\b/.test(text);
+  const orderWord =
+    /\b(order|parcel|package|shipment|consignment)\b/.test(lower) ||
+    /ඇණවුම|ඕඩර|ඔර්ඩර|ආර්ඩර|ஆர்டர்|பார்சல்/.test(text);
+  const trackWord =
+    /\b(track|tracking|status|where(?:'?s| is| are)?|arrived?|shipped|dispatched|delivered|coming|update|reach(?:ed)?)\b/.test(lower) ||
+    /\b(koheda|kohedha|kohomada|awada|aawada|enwada|awathuda|enga|engae|vandhucha|vanthucha)\b/.test(lower) ||
+    /කොහෙද|ආවද|எங்கே|வந்த/.test(text);
+  // "order" as a VERB ("I want to order flowers") is shopping, not tracking —
+  // exclude it so a shopping+delivery message isn't mistaken for a track request.
+  const verbOrder =
+    /\b(to|wanna|gonna|will|i'?ll|can i|could i|may i|like to|want to|need to|place an?|placing an?|put in an?)\s+order\b/.test(lower);
+  // "order" as a NOUN ("my order", "the parcel", "order number", Singlish
+  // "mage order eka", Tamil "en order") is the tracking sense.
+  const orderNoun =
+    /\b(my|the|this|that|your)\s+(order|parcel|package|shipment|consignment)\b/.test(lower) ||
+    /\border\s*(number|no\.?|#|id|status)\b/.test(lower) ||
+    /\b(parcel|consignment|shipment)\b/.test(lower) ||
+    /\b(mage|maage|ape|oyage|oyaage|umbe|en|ente|enathu|namma)\b[\s\w]{0,6}order/.test(lower) ||
+    /order\s+eka/.test(lower);
+  const explicitTrack =
+    /\btrack\b[\s\S]*\border\b|\border\b[\s\S]*\btrack\b|order status|track my|where(?:'?s| is) my (?:order|parcel|package|delivery|shipment)/.test(lower);
+
+  if (explicitTrack || (hasOrderNo && (orderWord || trackWord)) || (orderNoun && trackWord && !verbOrder)) {
+    const match = text.match(/\b([A-Za-z]{2,6}\d{4,12}[A-Za-z0-9]*)\b/);
+    return { type: "track", orderNumber: match ? match[1].toUpperCase() : null };
   }
 
   if (/\b(deliver|delivery|ship|arrive|arrives|arrival)\b/.test(lower) && /\b(to|in|at)\b/.test(lower)) {
@@ -582,7 +611,7 @@ function buildSystemPrompt(
   userProfile: UserProfile | null,
   recipientProfile: RecipientProfile | null,
   liveProducts: Product[],
-  trackingData: unknown,
+  tracking: TrackingInfo | null,
   lastShownProducts: Product[],
   chatState: ChatState | null
 ) {
@@ -635,8 +664,23 @@ function buildSystemPrompt(
     );
   }
 
-  if (trackingData) {
-    dynamicParts.push(`Order tracking result:\n${JSON.stringify(trackingData, null, 2)}`);
+  // Order tracking → a rich TrackingCard with the full status + timeline renders
+  // in the UI automatically. The agent's job is ONE warm conversational sentence,
+  // never the raw fields or the step-by-step timeline (the card shows those).
+  if (tracking) {
+    if (tracking.found) {
+      const bits = [`Order ${tracking.orderNumber} — status: ${tracking.statusDisplay}`];
+      if (tracking.deliveryDate) bits.push(`delivery date ${tracking.deliveryDate}`);
+      if (tracking.recipientCity) bits.push(`going to ${tracking.recipientCity}`);
+      if (tracking.latestStep) bits.push(`latest update: ${tracking.latestStep}`);
+      dynamicParts.push(
+        `ORDER TRACKING RESULT (a card with the full timeline is already shown to the user — do NOT reproduce the timeline, fields, or raw JSON; reply with ONE warm sentence that states the status and the single most relevant detail):\n${bits.join(". ")}.`
+      );
+    } else {
+      dynamicParts.push(
+        `ORDER TRACKING RESULT: No order was found for "${tracking.orderNumber}". In ONE warm sentence, apologise that you couldn't find that order and ask the user to double-check the order number from their Kapruka confirmation email. Do NOT invent a status.`
+      );
+    }
   }
 
   const blocks: Anthropic.MessageParam["content"] = [];
@@ -836,6 +880,94 @@ function mapDelivery(city: string, res: Record<string, unknown> | null): Deliver
   return { city: titleCase(city), available, etaLabel };
 }
 
+// ── ORDER TRACKING MAPPING ────────────────────────────────────────────────────
+// Map the kapruka_track_order JSON into the clean, display-ready TrackingInfo.
+// The live response differs from the docstring schema in two ways we must handle
+// defensively: `amount` comes back as { value, currency } (not a plain string),
+// and `recipient.phone` carries an HTML artefact ("077-...<BR") — so we never
+// surface the phone, only name + city.
+
+// Canonical 4-step stepper index from the raw status token. -1 = cancelled.
+function statusToStage(status: string): number {
+  const s = status.toLowerCase();
+  if (/cancel|refund|fail/.test(s)) return -1;
+  if (/deliver(ed|y\s*complete)/.test(s)) return 3;
+  if (/ship|out.?for.?deliver|dispatch|transit|on.?the.?way/.test(s)) return 2;
+  if (/confirm|prepar|process|pack|received\s+to/.test(s)) return 1;
+  return 0; // received / pending / awaiting
+}
+
+function formatTrackAmount(a: unknown): string | undefined {
+  if (a == null) return undefined;
+  let value: string | number | undefined;
+  let currency = "LKR";
+  if (typeof a === "object") {
+    const o = a as { value?: string | number; amount?: string | number; currency?: string };
+    value = o.value ?? o.amount;
+    if (o.currency) currency = o.currency;
+  } else {
+    value = a as string | number;
+  }
+  if (value == null || value === "") return undefined;
+  const n = Number(String(value).replace(/[^0-9.]/g, ""));
+  if (isNaN(n) || n <= 0) return undefined;
+  return `${currency} ${n.toLocaleString("en-US")}`;
+}
+
+function cleanText(s: unknown): string {
+  // Strip HTML artefacts ("<BR", "<br/>") and collapse whitespace.
+  return String(s ?? "").replace(/<\s*br\s*\/?\s*>?/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+// Build the graceful "no such order" result.
+function notFoundTracking(orderNumber: string): TrackingInfo {
+  return {
+    found: false,
+    orderNumber,
+    status: "not_found",
+    statusDisplay: "Not found",
+    stage: 0,
+    progress: [],
+  };
+}
+
+function mapTracking(orderNumber: string, res: Record<string, unknown> | null): TrackingInfo {
+  // callMCP returns { raw } when the payload isn't JSON, or an object with an
+  // `error`-ish text — treat anything without a usable status as not-found.
+  if (!res || typeof res !== "object" || (!res.status && !res.status_display)) {
+    return notFoundTracking(orderNumber);
+  }
+  const r = res as Record<string, unknown>;
+  const status = String(r.status || "");
+  const statusDisplay = cleanText(r.status_display) || titleCase(status.replace(/[-_]/g, " ")) || "Processing";
+
+  const rawProgress = Array.isArray(r.progress) ? (r.progress as Record<string, unknown>[]) : [];
+  const progress = rawProgress
+    .map((p) => ({ step: cleanText(p.step), timestamp: cleanText(p.timestamp) }))
+    .filter((p) => p.step)
+    .slice(-6); // keep the most recent few — the card shows a compact timeline
+
+  const recipient = (r.recipient && typeof r.recipient === "object" ? r.recipient : {}) as Record<string, unknown>;
+  // Prefer the order `comments` as the latest note (e.g. "Delivery successfully
+  // completed."), else the final progress step.
+  const latestStep = cleanText(r.comments) || (progress.length ? progress[progress.length - 1].step : "");
+
+  return {
+    found: true,
+    orderNumber: cleanText(r.order_number) || orderNumber,
+    status,
+    statusDisplay,
+    stage: statusToStage(status || statusDisplay),
+    orderDate: cleanText(r.order_date) || undefined,
+    deliveryDate: cleanText(r.delivery_date) || undefined,
+    amount: formatTrackAmount(r.amount),
+    recipientName: cleanText(recipient.name) || undefined,
+    recipientCity: titleCase(cleanText(recipient.city).toLowerCase()) || undefined,
+    latestStep: latestStep || undefined,
+    progress,
+  };
+}
+
 // ── ROUTE HANDLER ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -906,7 +1038,7 @@ export async function POST(req: Request) {
   const excludeSympathy = celebratory && !sympathyCtx;
 
   let products: Product[] = [];
-  let trackingData = null;
+  let tracking: TrackingInfo | null = null;
   let delivery: DeliveryInfo | null = null;
 
   try {
@@ -1050,7 +1182,17 @@ export async function POST(req: Request) {
       } // end cache-miss block
       } // end non-flower branch
     } else if (intent.type === "track" && (intent as { orderNumber?: string }).orderNumber) {
-      trackingData = await callMCP("track_order", { order_number: (intent as { orderNumber: string }).orderNumber });
+      const orderNumber = (intent as { orderNumber: string }).orderNumber;
+      // Inner try/catch so a thrown "order not found" becomes a graceful
+      // found:false card + prompt cue, instead of being swallowed into null
+      // (which would leave the agent with no signal at all).
+      try {
+        const res = await callMCP("track_order", { order_number: orderNumber });
+        tracking = mapTracking(orderNumber, res as Record<string, unknown>);
+      } catch (e) {
+        console.error("track_order error:", (e as Error).message);
+        tracking = notFoundTracking(orderNumber);
+      }
     } else if (intent.type === "delivery" && (intent as { city?: string | null }).city) {
       const city = (intent as { city: string }).city;
       const res = await callMCP("check_delivery", { city });
@@ -1083,7 +1225,7 @@ export async function POST(req: Request) {
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, trackingData, priorProducts, clientState);
+    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, tracking, priorProducts, clientState);
 
     const response = await client.messages.create(
       {
@@ -1212,5 +1354,5 @@ export async function POST(req: Request) {
     return Response.json({ error: (err as Error).message || "Internal server error" }, { status });
   }
 
-  return Response.json({ message, products, checkoutUrl, delivery, occasion, giftMessage, bundle, orderConfirmed, addedProducts, removedProducts });
+  return Response.json({ message, products, checkoutUrl, delivery, tracking, occasion, giftMessage, bundle, orderConfirmed, addedProducts, removedProducts });
 }

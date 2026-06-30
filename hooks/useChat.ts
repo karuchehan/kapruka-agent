@@ -190,6 +190,11 @@ export function useChat(
         if (data.delivery?.city) {
           additions.push({ id: uid(), type: "delivery", delivery: data.delivery });
         }
+        // Order tracking result → render a TrackingCard (status + timeline, or
+        // the graceful not-found state).
+        if (data.tracking?.orderNumber) {
+          additions.push({ id: uid(), type: "tracking", tracking: data.tracking });
+        }
         // Detected occasion/deadline → render a live countdown chip, but only
         // the first time per session (see showOccasion above).
         if (showOccasion) {
