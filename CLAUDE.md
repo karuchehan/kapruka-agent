@@ -107,6 +107,28 @@ Never report "TS clean" as the final verification for layout changes. All 4 must
 
 ---
 
+## MANDATORY SMOKE-TEST RULE
+
+`tsc` clean + the 4 overflow checks prove the code compiles and the layout won't break. They do NOT prove the feature actually works in production. After ANY feature is shipped (committed + pushed), you MUST list the exact manual smoke-test steps a human runs on the live URL (`kapruka-agent-liard.vercel.app`) to confirm the feature works end-to-end.
+
+Rules:
+- This is SEPARATE from `tsc` and the overflow checks — it is the "does it actually work in production" check.
+- Format: a numbered list under a `### Smoke Test — <feature name>` heading.
+- Each step is a concrete user action + the exact observable result expected (what the user should see/hear), not a vague "check it works".
+- Cover the happy path plus at least one edge case the feature introduced.
+- Wait for Vercel to finish deploying before telling the user to run it.
+- You cannot run these yourself — they are for the human. State that plainly.
+
+Example:
+```
+### Smoke Test — Order Tracking
+1. Open kapruka-agent-liard.vercel.app → type "where's my order VPAY827982BA" → expect a rich tracking card with status + timeline, and one warm sentence naming the status.
+2. Type "track my order" with no number → expect agent to ask for the order number in one sentence, no card.
+3. Type a fake number → expect "couldn't find an order" apology, no invented status.
+```
+
+---
+
 ## Hard Rules
 
 ### API Key Confirmation
