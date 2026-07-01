@@ -760,6 +760,10 @@ function buildSystemPrompt(
       dynamicParts.push(
         `ORDER TRACKING RESULT (a card with the full timeline is already shown to the user — do NOT reproduce the timeline, fields, or raw JSON; reply with ONE warm sentence that states the status and the single most relevant detail):\n${bits.join(". ")}.`
       );
+    } else if (tracking.serviceError) {
+      dynamicParts.push(
+        `ORDER TRACKING RESULT: The tracking service is temporarily unreachable for "${tracking.orderNumber}" (this is a system hiccup, NOT a bad order number). In ONE warm sentence, apologise that you couldn't reach tracking right now and ask the user to try again in a moment. Do NOT tell them their number is wrong or ask them to double-check it. Do NOT invent a status.`
+      );
     } else {
       dynamicParts.push(
         `ORDER TRACKING RESULT: No order was found for "${tracking.orderNumber}". In ONE warm sentence, apologise that you couldn't find that order and ask the user to double-check the order number from their Kapruka confirmation email. Do NOT invent a status.`
@@ -1003,7 +1007,7 @@ function cleanText(s: unknown): string {
   return String(s ?? "").replace(/<\s*br\s*\/?\s*>?/gi, " ").replace(/\s+/g, " ").trim();
 }
 
-// Build the graceful "no such order" result.
+// Build the graceful "no such order" result — the number really doesn't exist.
 function notFoundTracking(orderNumber: string): TrackingInfo {
   return {
     found: false,
@@ -1015,11 +1019,30 @@ function notFoundTracking(orderNumber: string): TrackingInfo {
   };
 }
 
+// Build the "tracking service is temporarily unreachable" result. Distinct from
+// not-found: the number may be perfectly valid — MCP just timed out / 5xx'd. We
+// must NOT tell the user their number is wrong in this case.
+function serviceErrorTracking(orderNumber: string): TrackingInfo {
+  return {
+    found: false,
+    serviceError: true,
+    orderNumber,
+    status: "service_error",
+    statusDisplay: "Temporarily unavailable",
+    stage: 0,
+    progress: [],
+  };
+}
+
 function mapTracking(orderNumber: string, res: Record<string, unknown> | null): TrackingInfo {
-  // callMCP returns { raw } when the payload isn't JSON, or an object with an
-  // `error`-ish text — treat anything without a usable status as not-found.
+  // callMCP returns { raw } when the payload isn't JSON. A genuine "no such
+  // order" comes back as raw text like "Error (order_not_found): ..." — that IS
+  // a real not-found. Anything else without a usable status (null, an unexpected
+  // error string) is a service problem, NOT proof the number is wrong.
   if (!res || typeof res !== "object" || (!res.status && !res.status_display)) {
-    return notFoundTracking(orderNumber);
+    const rawText = res && typeof res === "object" ? String((res as { raw?: unknown }).raw ?? "") : "";
+    const genuineNotFound = /order_not_found|no order (?:exists|found)|not\s*found/i.test(rawText);
+    return genuineNotFound ? notFoundTracking(orderNumber) : serviceErrorTracking(orderNumber);
   }
   const r = res as Record<string, unknown>;
   const status = String(r.status || "");
@@ -1420,15 +1443,17 @@ export async function POST(req: Request) {
       } // end non-flower branch
     } else if (intent.type === "track" && (intent as { orderNumber?: string }).orderNumber) {
       const orderNumber = (intent as { orderNumber: string }).orderNumber;
-      // Inner try/catch so a thrown "order not found" becomes a graceful
-      // found:false card + prompt cue, instead of being swallowed into null
-      // (which would leave the agent with no signal at all).
+      // Inner try/catch so a thrown MCP failure becomes a graceful card + prompt
+      // cue instead of being swallowed into null. A thrown error here is a
+      // TRANSIENT MCP problem (timeout / 5xx / empty) — NOT proof the number is
+      // wrong — so it maps to serviceError, not not-found. The delivered payload
+      // is large and MCP can be slow to warm, so give tracking a longer timeout.
       try {
-        const res = await callMCP("track_order", { order_number: orderNumber });
+        const res = await callMCP("track_order", { order_number: orderNumber }, 12000);
         tracking = mapTracking(orderNumber, res as Record<string, unknown>);
       } catch (e) {
         console.error("track_order error:", (e as Error).message);
-        tracking = notFoundTracking(orderNumber);
+        tracking = serviceErrorTracking(orderNumber);
       }
     } else if (intent.type === "delivery" && (intent as { city?: string | null }).city) {
       const city = (intent as { city: string }).city;

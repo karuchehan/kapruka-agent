@@ -107,6 +107,10 @@ export interface TrackingStep {
 
 export interface TrackingInfo {
   found: boolean;
+  // true when tracking failed for a TRANSIENT reason (MCP timeout / 5xx / empty)
+  // rather than a genuine "no such order". Keeps us from telling a user with a
+  // valid number that their number is wrong. found is false in both cases.
+  serviceError?: boolean;
   orderNumber: string;
   status: string;            // raw status token (delivered | shipped | ...)
   statusDisplay: string;     // human label

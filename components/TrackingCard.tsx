@@ -25,8 +25,12 @@ export function TrackingCard({ tracking }: Props) {
     }
   }, []);
 
-  // Graceful "no such order" state — no timeline, just a clear not-found note.
+  // Graceful failure states — no timeline. Two distinct cases:
+  //  • serviceError: tracking is temporarily unreachable (valid number, MCP hiccup)
+  //  • not-found: the order number genuinely doesn't exist
   if (!tracking.found) {
+    const isServiceError = tracking.serviceError;
+    const title = isServiceError ? "Tracking unavailable" : "No order found";
     return (
       <div ref={ref} className="tracking-card tracking-card--notfound" role="status">
         <div className="tracking-head">
@@ -38,8 +42,10 @@ export function TrackingCard({ tracking }: Props) {
             </svg>
           </span>
           <div className="tracking-headtext">
-            <span className="tracking-title">No order found</span>
-            <span className="tracking-order">{tracking.orderNumber}</span>
+            <span className="tracking-title">{title}</span>
+            <span className="tracking-order">
+              {isServiceError ? "Please try again in a moment" : tracking.orderNumber}
+            </span>
           </div>
         </div>
       </div>
