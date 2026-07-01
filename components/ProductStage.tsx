@@ -46,11 +46,11 @@ export function ProductStage({ products, isLoading, onAddToCart, addedIds }: Pro
   return (
     <section className="product-stage" aria-label="Product results">
       {!hasProducts && !isLoading && (
-        // Minimalist empty state: just the word "Wish." (slow opacity pulse) and
-        // one inviting line. No icon, rings, or orbs.
+        // Minimalist empty state: just the title (slow opacity pulse) and one
+        // inviting line. No icon, rings, or orbs.
         <div className="stage-empty" aria-hidden="true">
-          <p className="stage-empty-title">Wish.</p>
-          <p className="stage-empty-sub">Tell me what you&apos;re looking for.</p>
+          <p className="stage-empty-title">All the Joys.</p>
+          <p className="stage-empty-sub">One Cart.</p>
         </div>
       )}
 
