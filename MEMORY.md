@@ -3202,3 +3202,15 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Profanity matching is settled. If another SL term ever collides with a legit word, give it the same `\b…\b` treatment (pull from the substring list, add a dedicated boundary regex).
+
+## Session Recap — 2026-07-01→02 (Sessions 109–117, commits b209383 → 5b76f79)
+One continuous working session. Full arc in order:
+1. **Name ask → own bubble** (`15622a2`, S109): `[NAME_ASK:]` marker renders the name question as a SEPARATE agent bubble; sender name auto-fills from profile (verified already wired). Later CONFIRMED GOOD by Chehan via screenshot → saved as persistent auto-memory `feedback_name_ask_separate_bubble.md`. Preserve; never re-bury.
+2. **Empty-cart checkout shake** (`110fd7b`, S111): Machan does a 0.4s left-right shake when checkout is attempted with an empty cart (reuses idle + CSS, no sad asset). Wired from route's `empty_cart` guard → `onEmptyCartCheckout` → MachanAvatar `shake` prop.
+3. **Profanity guard** (`007ead6`, S112): pre-API zero-token redirect on latest user message; SL substring + EN leet regex; register-matched replies.
+4. **Avatar saga** (S113–114, `4f259ab`→`58189d6`): mistakenly overwrote the user's uploaded Dulith renders with old cartoon Machan (misread a "must be 3D illustrated" instruction) → user pushed back → restored the Dulith uploads from git. LESSON: never overwrite a user-created/uploaded artifact on a conflicting instruction without confirming; user's upload is source of truth. Avatar settled as the Dulith semi-realistic render — do not swap without explicit instruction.
+5. **Empty-state copy + look** (`3999d8c`,`323adfb`,`34caccb`, S115): "Wish."→"All the Joys.", sub→"One Cart."; restyled to one line white+gold bold sans; opacity pulse → per-letter left→right GLOW SWEEP (`EmptyStateGlow`, staggered `animation-delay` across the whole phrase, `currentColor` bloom).
+6. **Profanity always-on + gift-note gate** (`f577117`, S116): removed the S113 mid-checkout bypass (it let "Kariya" through as a delivery name) — guard now fires everywhere, slurs never saved as order details; GIFT GATE added so self-purchases are NEVER asked for a note.
+7. **kariya word-boundary** (`4e94a7a`, S117): "kariya" → `\bkariya\b` so standalone flags but surname "Kariyawasam" doesn't; other SL terms stay substring.
+
+Net: name-ask polished + confirmed-good; empty-state finalized (All the Joys. One Cart + glow sweep); Machan gained an empty-cart shake; profanity guard hardened (always-on, register-matched, boundary-safe for kariya); gift note gated to gifts; avatar settled as Dulith. Every code change tsc-clean; CSS changes also passed the 4 overflow checks. All pushed to main; Vercel auto-deploys. Working tree clean and in sync with origin/main at session end.
