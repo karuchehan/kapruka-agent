@@ -3132,3 +3132,18 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Smoke test after deploy (live URL, human runs — I cannot): see the Smoke Test block in chat.
+
+## Session 113 — 2026-07-01
+### What We Did
+- Committed `4f259ab` (pushed `fbbd1d2..4f259ab`, Vercel auto-deploys). 5 files: route.ts + 4 avatar PNGs. Two fixes.
+- **Fix 1 — profanity guard bypassed mid-checkout.** A recipient/self name, street, or city the user types during checkout (e.g. "Kariya" as a name) was being flagged by the profanity guard. Added `inCheckoutFieldCollection(clientState, messages)` (route.ts ~536) — returns true (→ skip profanity check) when ANY of: `checkoutStage !== "idle"`; any `checkoutData` field already captured; or the last ASSISTANT message matched `CHECKOUT_FIELD_ASK_RE` (name/phone/number/contact/address/street/delivery/city/town/postal/gift card/recipient/"who's it for"). Guard block now computes `midCheckout` and only calls `profanityRedirect` when `!midCheckout`. Bias intentionally toward bypassing: worst case of over-bypass = a profane message reaches the LLM (costs a few tokens); the bug being fixed = a real customer's name getting rejected at checkout.
+- **Fix 2 — restored 3D cartoon Machan assets.** Discovered the current `public/brand/logos/dulith_{idle,thinking,laughing,celebrate}.png` were PHOTO-REALISTIC human renders (bald man, purple Kapruka tee) — user had uploaded these across S110–111. Confirmed by viewing them. The original 3D ILLUSTRATED character (purple cap + U logo, cartoon proportions) lived in the old `machan_*.png`, deleted in `9c95199`; blobs still in git at `9c95199~1` (= af3d2d1). Restored all 4 via `git show 9c95199~1:public/brand/logos/machan_<s>.png > public/brand/logos/dulith_<s>.png` — kept the `dulith_*` filenames (code unchanged, only imagery fixed). Verified the in-place idle is now the cartoon. NOTE: `public/brand/machan/` (path the user referenced) does not exist — assets are and always were under `public/brand/logos/`.
+- Verification: `tsc --noEmit` exit 0. route.ts logic only + binary asset swaps — no CSS/layout, overflow checks N/A.
+
+### Gaps Identified
+- `CHECKOUT_FIELD_ASK_RE` is broad (matches any assistant message containing "delivery"/"name"/etc.), so a non-checkout assistant reply mentioning those words would also bypass the profanity check that turn. Low harm (profanity just reaches the LLM instead of the canned redirect) and the checkoutStage/checkoutData signals are the primary gate; accepted the trade-off to guarantee real field values are never flagged.
+- Filenames still say `dulith_*` but the imagery + component (`MachanAvatar`) + class (`.machan-floating`) are "Machan" — naming is now three-way inconsistent (Machan component / dulith files / Machan character). Purely cosmetic; deferred. If the brand name is settled, do a single rename pass.
+- If the user re-uploads photo-realistic images to these filenames again, this will silently regress — the fix is the image bytes, not enforced anywhere.
+
+### Next Steps
+- Smoke test after deploy: (1) checkout flow → when agent asks "what name?", reply "Kariya" → expect it accepted as the name, NO profanity redirect, checkout continues; (2) normal shopping → type a slur → still redirected; (3) load app → avatar is the 3D cartoon (cap + U logo), not a photo of a person, across idle/thinking/laughing/celebrate.
