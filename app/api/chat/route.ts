@@ -652,8 +652,16 @@ interface ChatState {
 
 // The fields kapruka_create_order requires before it can build an order. City is
 // derivable from the confirmed delivery city, so the four the agent must actively
-// collect are name, phone, address, city. Date defaults server-side; sender too.
-function missingCheckoutFields(s: ChatState | null): string[] {
+// collect are name, phone, address, city. Date defaults server-side.
+//
+// GIFTS need a FIFTH field: the SENDER's name (the user). The gift card otherwise
+// prints a blank/placeholder sender ("you") because the user's name is never
+// captured — mid-chat name capture is droppable and never persists into
+// userProfile. A gift is detected by a collected gift message (the reliable
+// server-side signal); when one exists and no sender name is resolvable (neither
+// [CO_SENDER] nor the user's profile name), "sender name" is reported missing so
+// the agent collects it before the order is placed.
+function missingCheckoutFields(s: ChatState | null, opts: { userName?: string } = {}): string[] {
   const d = s?.checkoutData || {};
   const city = d.city || s?.deliveryCity || "";
   const need: [string, string][] = [
@@ -662,7 +670,11 @@ function missingCheckoutFields(s: ChatState | null): string[] {
     ["address", d.address || ""],
     ["city", city],
   ];
-  return need.filter(([, v]) => !String(v).trim()).map(([k]) => k);
+  const missing = need.filter(([, v]) => !String(v).trim()).map(([k]) => k);
+  const isGift = !!(d.giftMessage && d.giftMessage.trim());
+  const senderResolved = (d.senderName || opts.userName || "").trim();
+  if (isGift && !senderResolved) missing.push("sender name");
+  return missing;
 }
 
 // Render the [STATE] ground-truth block the agent must read before replying.
@@ -682,9 +694,10 @@ function buildStateBlock(s: ChatState | null): string {
     const d = s.checkoutData || {};
     const shown = (v?: string) => (v && v.trim() ? v.trim() : "✗");
     const missing = missingCheckoutFields(s);
-    line += `\n[CHECKOUT] Collected — name: ${shown(d.recipientName)}, phone: ${shown(d.phone)}, address: ${shown(d.address)}, city: ${shown(d.city || (s.deliveryCity ?? ""))}, date: ${shown(d.date) === "✗" ? "(will default)" : shown(d.date)}.`;
+    const isGift = !!(d.giftMessage && d.giftMessage.trim());
+    line += `\n[CHECKOUT] Collected — name: ${shown(d.recipientName)}, phone: ${shown(d.phone)}, address: ${shown(d.address)}, city: ${shown(d.city || (s.deliveryCity ?? ""))}, date: ${shown(d.date) === "✗" ? "(will default)" : shown(d.date)}${isGift ? `, sender (gift card from): ${shown(d.senderName)}` : ""}.`;
     line += missing.length
-      ? ` Still MISSING: ${missing.join(", ")}. Ask the user for ONLY the next missing field, one at a time, in their register, and when they give it emit the matching marker ([CO_NAME:…], [CO_PHONE:…], [CO_ADDR:…], [CO_CITY:…]). Do NOT emit [ORDER_CONFIRMED] yet — fields are incomplete.`
+      ? ` Still MISSING: ${missing.join(", ")}. Ask the user for ONLY the next missing field, one at a time, in their register, and when they give it emit the matching marker ([CO_NAME:…], [CO_PHONE:…], [CO_ADDR:…], [CO_CITY:…], [CO_SENDER:…] for the gift-card sender name). Do NOT emit [ORDER_CONFIRMED] yet — fields are incomplete.`
       : ` All required fields collected — once the user confirms the order, emit [ORDER_CONFIRMED: true].`;
   }
   return line;
@@ -1600,7 +1613,13 @@ export async function POST(req: Request) {
     if (orderConfirmed) {
       const merged: CheckoutData = { ...(clientState?.checkoutData || {}), ...checkoutFields };
       if (!merged.city && clientState?.deliveryCity) merged.city = clientState.deliveryCity;
-      const missing = missingCheckoutFields({ ...(clientState as ChatState), checkoutData: merged, deliveryCity: clientState?.deliveryCity ?? null });
+      // Pass the user's profile name so the gift sender-name gate can be satisfied
+      // by a known name without re-asking (it's empty in practice today, so a gift
+      // with a note will require [CO_SENDER] before the order is placed).
+      const missing = missingCheckoutFields(
+        { ...(clientState as ChatState), checkoutData: merged, deliveryCity: clientState?.deliveryCity ?? null },
+        { userName: (userProfile?.name || "").trim() },
+      );
       if (!cartForOrder.length) {
         orderConfirmed = false;
         checkoutError = "empty_cart";
@@ -1700,8 +1719,15 @@ export async function POST(req: Request) {
       } else if (checkoutError === "empty_cart") {
         message = "Your cart looks empty — add an item and I'll get the order ready for you.";
       } else if (checkoutError.startsWith("missing:")) {
-        const fields = checkoutError.slice(8).replace(/,/g, ", ");
-        message = `I just need a couple more details before I can place it — could you share your ${fields}?`;
+        const raw = checkoutError.slice(8);
+        // A gift missing ONLY the sender name gets a dedicated, natural ask —
+        // "share your sender name" reads awkwardly.
+        if (raw === "sender name") {
+          message = "Before I place it — what name should the gift card be from?";
+        } else {
+          const fields = raw.replace(/,/g, ", ");
+          message = `I just need a couple more details before I can place it — could you share your ${fields}?`;
+        }
       } else {
         message = "Something hiccuped while placing the order just now — want me to try that again?";
       }

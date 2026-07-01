@@ -2918,3 +2918,22 @@ Three stacked fixes shipped as one commit. Prompt-only for #1/#2, code for #3.
 - The track comment at route.ts:471 ALREADY claimed "a bare order number is a strong tracking signal" but the code never acted on it alone — a stale comment describing intended behaviour that was never wired. Lesson: comments asserting behaviour ≠ behaviour; verify the condition actually implements the claim.
 ### Next Steps
 - Production smoke test on live URL once deployed (see chat for numbered steps covering all three fixes).
+
+## Session 106 — 2026-07-01
+### What We Did
+Tester feedback (live URL, 3 screenshots) after S105 push. Two real issues + one confirm-working.
+1. **Gift sender name blank ("Sending name is you" on pay page)** — REAL BUG, fixed. Root cause: `userProfile.name` is empty since onboarding removal (S099) and a mid-chat captured name NEVER persists into it (no setUserProfile anywhere). `createOrder` sender = `d.senderName || userName || "Kapruka Customer"`; userName always "". `[CO_SENDER]` only fires if agent knows the name, and the casual name-capture is a droppable one-shot — user ignored it, agent dropped it, gift order placed with no sender.
+   - Fix (prompt): new SENDER NAME — HARD RULE in CHECKOUT DETAIL COLLECTION. For gifts the sender name (the user) is a REQUIRED, non-droppable checkout field. If unknown, agent must ask "what name should the gift card be from?" and emit [CO_SENDER: name] before [ORDER_CONFIRMED]. Never confirm a gift order with unknown sender.
+   - Fix (server, route.ts): `missingCheckoutFields(s, {userName})` now appends "sender name" when a gift message is present AND no sender resolvable (d.senderName || userName). Gift detected server-side by a collected gift message (reliable signal). [CHECKOUT] readiness line shows `sender (gift card from): ✗` for gifts. False-success guard gives a dedicated ask for the sender-only-missing case ("what name should the gift card be from?").
+2. **Upsell asked twice / loops after checkout confirm** — tester clarified: ONE "anything else?" is GOOD (salesy, keep it); only a SECOND ask, especially AFTER the user says checkout, is the bug. S105's CHECKOUT CONFIRMED rule already targets no-re-ask-after-confirm; added a positive line — "ONE upsell is GOOD, TWICE is the bug" — so the model keeps one offer but caps it. Likely the looping screenshot was pre-deploy timing.
+3. **Order tracking** — tester confirmed WORKING on live (bare VPAY827982BA now returns the card). S105 fix verified in production. No action.
+### Verification
+- `tsc --noEmit` clean. No CSS/layout/overflow touched (route.ts logic + system_prompt.md) → overflow checks N/A.
+- Could not view the 3 screenshots (temp-file paths, not attached) — worked from tester's text descriptions + code trace.
+### Push
+- `gh auth switch --user karuchehan && gh auth setup-git` first (S103 lesson). Committed + pushed to origin/main. Vercel auto-deploys.
+### Mistakes & Lessons
+- Onboarding removal (S099) left a latent gap: NOTHING persists a captured name into userProfile, so every server path reading userProfile.name (sender, greeting personalization) silently gets "". Any feature needing the user's name at checkout MUST collect it as a real field, not rely on userProfile. Consider persisting captured name client-side later.
+### Next Steps
+- Live re-test the GIFT sender flow: gift + note + never state your name → expect agent to ask "what name should the gift card be from?" before placing, and the Kapruka pay page sender = that name (not "you"/blank).
+- Consider persisting mid-chat captured name into userProfile so sender/greeting fill automatically.
