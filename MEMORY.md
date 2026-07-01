@@ -3003,3 +3003,27 @@ Two surgical fixes + shipped the stacked S107 checkout-language work in one push
 
 ### Next Steps
 - Smoke test on live URL after Vercel deploy: (1) desktop load shows 4 featured cards instantly; (2) a search replaces them cleanly; (3) add-to-cart via button flashes Machan laugh ~1.5s; (4) conversational add flashes it too; (5) onboarding→chat seam has no hard purple band.
+
+## Session 107 — 2026-07-01
+### What We Did
+- Committed `f1caa55` (pushed to main, Vercel auto-deploys). Stack of three:
+  1. **Removed STATIC_FEATURED** — reverted `ProductStage.tsx` to empty-state-on-mount. No hardcoded products before a search. Logic back to `!hasProducts && !isLoading` → empty; `hasProducts || isLoading` → grid; skeletons `hasProducts ? 2 : 6`.
+  2. **Empty-state redesign** (`ProductStage.tsx` markup + `globals.css`) — atmospheric composition for the 65% panel: soft radial `::before` bloom (purple core + accent kiss, `stage-bloom` 7s), 3 expanding `stage-ring` beacons (`stage-pulse`), bobbing gift medallion (lucide gift icon, `stage-bob`), 4 drifting `stage-orb` motes (`stage-float`). Brand colors only (#FFD000 + purple family). Copy is an invitation ("Let's find something lovely"). `.stage-empty` gets `overflow:hidden` to clip its own motion. `prefers-reduced-motion` guard holds a static version. Pure CSS, no JS.
+  3. **Checkout confetti + Machan celebration**:
+     - `MachanAvatar.tsx` — added 4th frame `machan_celebrate.png` + `checkoutCelebrate?: number` prop. On bump: fists-up celebrate frame 3s (outranks laugh/thinking), then idle. Separate timers/refs from the cart-add laugh so they never clobber.
+     - `Confetti.tsx` (NEW) — fires on `fireKey` change: 28 pieces, #FFD000 + #402970 only, arc-up-then-fall via one `confetti-fly` keyframe (transform-only, custom props `--cx/--cpy/--cey/--crot`), self-clears after 2s. Rendered inside `.machan-floating`.
+     - `ChatScreen.tsx` — `checkoutCelebrate` state bumped in the existing ref-guarded checkout-open effect (once per placed order, valid checkoutUrl = success signal). Passed to MachanAvatar + Confetti.
+     - `globals.css` — `.confetti-origin` (zero-size absolute anchor) + `.confetti-piece` + `confetti-fly` keyframe.
+- **Bug fixed in passing**: MachanAvatar referenced `/brand/logos/laughing.png` but the asset had been renamed to `machan_laughing.png` — the laugh frame was 404ing. Fixed the path; all 4 mascot refs now match real files (`machan_idle/thinking/laughing/celebrate.png`).
+- Verification: `tsc --noEmit` exit 0 (final pre-push). All 4 overflow checks pass — new `overflow:hidden` only on `.stage-empty` (not a messages ancestor); confetti adds NO overflow rules; `#messages-container` overflow-y:auto intact. Confetti/empty-state motion is transform-only and `#chat-screen` is `fixed; inset:0`, so nothing can create scroll.
+
+### Gaps Identified
+- Confetti/celebration was NOT in the tree when the "push" instruction arrived — commit message claimed it. Flagged via AskUserQuestion; user chose to build it this session (and supplied `machan_celebrate.png`). Now the message is accurate. Lesson: always `grep` the tree for the feature named in a commit message before committing — don't trust the message.
+- Asset naming drift: `laughing.png` → `machan_laughing.png` happened outside code, silently breaking the ref. Consider a check that all `/brand/**` src paths in components resolve to real files.
+
+### Mistakes & Lessons
+- `.stage-empty` overflow:hidden is safe ONLY because it's not a messages ancestor — confirmed against the 4-check rule. Same reasoning for `.confetti-origin` (it adds no clip and lives in input-area).
+- Custom CSS props passed from React need a `String` index cast (`["--cx" as string]`) inside a `React.CSSProperties` object literal to satisfy tsc.
+
+### Next Steps
+- Smoke test on live URL after deploy (full list handed to user this session): confetti/Machan checkout cheer, empty-state redesign, cart-add laugh regression.
