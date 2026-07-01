@@ -2847,3 +2847,21 @@ Two features, both stacked on `main`, NOT committed, NOT pushed (user: hold for 
 - Eyeball CheckoutCard on localhost:3001 (I had no browser — render was derived, not screenshotted).
 - End-of-day: push S100 + S101 together; then append the push + run production smoke tests on kapruka-agent-liard.vercel.app: (1) cold-open → first message latency (pre-warm), (2) full checkout flow → real pay-link + totals in CheckoutCard, (3) EN/Singlish/Tamil personality (S100).
 - Open edges: gift-context `[CO_SENDER]` unexercised; failure-message register English-only; `order_ref`→track still post-payment only (by design, unchanged).
+
+## Session 102 — 2026-07-01
+### What We Did
+- **User ran S101 checkout live on kapruka-agent-liard.vercel.app — full flow WORKED end to end and reached the real Kapruka securePayment.jsp page** (correct summary: recipient, address, Colombo 04, phone, Rs.1,550, product chocolates001947). Screenshots confirmed. BUT the live pay-page summary exposed two gift-path bugs (the edges flagged in S101):
+  1. **Gift message dropped** — user added "Happy Birthday!" (UI card said "Added ✓") but Kapruka showed "Personal Message: NA". Cause: `createOrder` never put `gift_message` in the payload.
+  2. **Sender = recipient** — summary showed "Sender Name: GIMHAN" (Gimhan is the RECIPIENT). Cause: `senderName` defaulted to `recipientName`; no `[CO_SENDER]` emitted; user's name lives only in chat (userProfile.name stays "").
+- **Fixes (types.ts, app/api/chat/route.ts, directives/system_prompt.md — NO css/layout):**
+  - New `[CO_GIFTMSG: text]` marker → captured into `checkoutData.giftMessage` → passed as `gift_message` (≤300 chars) in the create_order payload. Separate from `[GIFT_MESSAGE: true]` (which only opens the note UI).
+  - `createOrder` now takes the user's name as a 4th arg; senderName priority = `[CO_SENDER]` → `userProfile.name` → "Kapruka Customer" (never recipient). Prompt: in ANY gift context emit `[CO_SENDER]` = the user's own name.
+### Verification
+- `tsc --noEmit` clean. Overflow checks N/A (no globals.css/layout touched).
+- **Gift-flow driver (local :3001)**: user "Karu" → gift for "Gimhan" → note "Happy Birthday!" → collected fields. Final checkoutData had senderName:"Karu" (distinct from recipientName:"Gimhan") + giftMessage:"Happy Birthday!" + create_order fired (6330+300=6630).
+- **Payload-level proof**: direct create_order probe with distinctive tokens (SENDERKARU / RECIPGIMHAN / GIFTNOTE) → fetched the continue_order.jsp pay page HTML → all three FOUND. Gift note + correct sender now reach Kapruka's order summary.
+### Push
+- Committed + pushed to `origin/main` (`ba35f3c`, karuchehan gh) — `f21f40c..ba35f3c`. Vercel auto-deploys.
+### Next Steps
+- Production re-test the GIFT path on the live URL once deployed: add a note + send to a named recipient → open the pay-link → confirm the Kapruka summary now shows the note under "Personal Message" and the Sender = the user (not the recipient).
+- Remaining edges unchanged: failure-message register English-only; order_ref→track still post-payment only.
