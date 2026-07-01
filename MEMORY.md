@@ -2937,3 +2937,25 @@ Tester feedback (live URL, 3 screenshots) after S105 push. Two real issues + one
 ### Next Steps
 - Live re-test the GIFT sender flow: gift + note + never state your name → expect agent to ask "what name should the gift card be from?" before placing, and the Kapruka pay page sender = that name (not "you"/blank).
 - Consider persisting mid-chat captured name into userProfile so sender/greeting fill automatically.
+
+## Session 107 — 2026-07-01
+### What We Did
+Fixed checkout-error language-register bug. Two files: `app/api/chat/route.ts` + `directives/system_prompt.md`.
+- **Bug:** the checkout FALSE-SUCCESS override (route.ts, was ~line 1716) hardcoded English strings that REPLACE the model's reply wholesale. Model normally answers in-register on the happy path, but this safety-net path flipped a Singlish/Tamil user to English whenever checkout failed (delivery-to-city failed, empty cart, missing field, sender name, generic fail).
+- **Fix (route.ts):**
+  1. Added `type Register = "english"|"singlish"|"tamil"` + `detectRegister(messages)` (placed after `extractCity`, ~line 458). Mirrors the LANGUAGE signals in system_prompt.md. Buckets: `tamil` = Tamil script `[஀-௿]` + romanized Tamil tokens; `singlish` = Sinhala script `[඀-෿]` + romanized Sinhala tokens; else `english`. Scans user messages NEWEST-FIRST for the first language signal — so a bare mid-checkout field answer ("0771234567", "yes") with no signal falls back to the session register. Shared slang `machan/machang` deliberately EXCLUDED from both deciding sets so it never mis-buckets one register as the other.
+  2. Added `checkoutErrorMessage(kind, register, fields?)` — localized copy table for all 5 branches (city / empty / sender / missing / generic). Product names, prices, and field words (name/phone/address/city) stay English — same code-switch convention as the prompt.
+  3. Override block now computes `register` and picks the register-matched string instead of the hardcoded English.
+- **Fix (system_prompt.md):** added a LANGUAGE hard rule in CHECKOUT DETAIL COLLECTION — every checkout reply (field asks, confirmations, AND error/retry messages) follows the session register; an English error reply to a Singlish/Tamil user is a match FAILURE even though it's a "system" message.
+### Design decision / tradeoff
+- Script-input users (Tamil/Sinhala script) get a ROMANIZED fallback from these hardcoded strings, NOT full script. Rationale: still the correct language (not an English flip = the bug's intent), and hardcoding permanent full-script strings risks wrong characters (the prompt itself warns of Korean/Japanese contamination in Sinhala). Model's own happy-path replies still go full-script. Flagged to user; can switch to script fallbacks if they prefer.
+### Verification
+- `tsc --noEmit` clean (exit 0).
+- No CSS/layout/overflow touched (route.ts logic + system_prompt.md) → overflow checks 2–4 N/A.
+### Push
+- NOT committed, NOT pushed — user said "Do not push yet." Working tree left dirty for review. (Deviates from auto-commit rule by explicit instruction.)
+### Mistakes & Lessons
+- Hardcoded safety-net strings that REPLACE model output are a hidden language-match hole: the model gets the register right, but any server-side override that swaps the whole message must replicate the register logic or it silently regresses. Audit other full-message overrides (mcpSearchFailed hiccup line, tracking not-found/service-error dynamicParts) — those are fed to the MODEL as directives so it writes them in-register, which is the safer pattern; the checkout override was the one that bypassed the model.
+### Next Steps
+- User to review, then commit + push (gh auth switch --user karuchehan first — S103 lesson).
+- Post-deploy smoke test (see chat): Singlish/Tamil/English sessions each hitting a checkout error; bare-phone-number edge case holds session register.

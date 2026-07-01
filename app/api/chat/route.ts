@@ -457,6 +457,80 @@ function extractCity(lower: string): string | null {
   return null;
 }
 
+// ── LANGUAGE REGISTER DETECTION (server-side) ──────────────────────────────────
+// The model already matches the user's register on the happy path. But a few
+// hardcoded SAFETY-NET strings (the checkout false-success override below) replace
+// the model's reply entirely — and were English-only, so a Singlish/Tamil user who
+// hit a checkout error got flipped to English mid-session. This mirrors the LANGUAGE
+// rules in system_prompt.md just enough to pick the register for those fallback
+// strings. Buckets: "tamil" (Tamil script + romanized Tamil), "singlish" (Sinhala
+// script + romanized Sinhala), else "english". Script-input users get a romanized
+// reply here — still the correct language (not an English flip), which is the point.
+type Register = "english" | "singlish" | "tamil";
+
+const TAMIL_SCRIPT_RE   = /[஀-௿]/;
+const SINHALA_SCRIPT_RE = /[඀-෿]/;
+// Distinctive romanized tokens only. "machan/machang" is shared Sri Lankan slang —
+// left out of the deciding sets so it never mis-buckets one register as the other.
+const TAMIL_ROMAN_RE = /\b(vanakkam|nandri|enna|epdi|eppadi|irukinga|irukku|iruku|sollunga|sollureenga|vendam|venum|vendum|aamaa|paaru|pannunga|pannalaama|pannuren|panren|konjam|enga|engae|semma|nalla|thaan|thaane|marupadiyum|udane|ungaloda|kaaliya)\b/i;
+const SINGLISH_ROMAN_RE = /\b(thiyenne|karanne|denne|yanne|enne|balanne|kiyanne|hadanne|liyanne|araganne|karanna|puluwan|puluwanda|mokdda|mokada|mokakda|koheda|kohomada|kawda|neda|meka|oyaa|ona|hari|bari|aiyo|ado|aney|yako|machang|nangi|aiya|putha|duwa|lassana|lassanai|hodai|bohoma|tikak|godak|ganan|nethnam|apahu|daanna|daddi)\b/i;
+
+// Return the register of the most recent user message that carries a language
+// signal (scan newest-first). A bare field answer mid-checkout ("0771234567",
+// "yes") has no signal, so we look back to the last message that does — that is
+// the register the session is in.
+function detectRegister(messages: ApiMessage[]): Register {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "user") continue;
+    const t = m.content;
+    if (TAMIL_SCRIPT_RE.test(t)) return "tamil";
+    if (SINHALA_SCRIPT_RE.test(t)) return "singlish";
+    if (TAMIL_ROMAN_RE.test(t)) return "tamil";
+    if (SINGLISH_ROMAN_RE.test(t)) return "singlish";
+  }
+  return "english";
+}
+
+// Localized copy for the hardcoded checkout false-success override. Product names,
+// prices, and the missing-field words (name/phone/address/city) stay English — same
+// code-switching convention the prompt uses. `fields` is the comma-joined missing
+// field list for the "missing" case.
+function checkoutErrorMessage(
+  kind: "city" | "empty" | "sender" | "missing" | "generic",
+  register: Register,
+  fields = "",
+): string {
+  const copy: Record<typeof kind, Record<Register, string>> = {
+    city: {
+      english:  "Hmm, I couldn't confirm delivery to that city — could you double-check it or share a nearby town, and I'll place the order right away?",
+      singlish: "Aiyo machang, e city ekata delivery confirm karanna bari una — tikak double-check karanna, nattan langa town ekak denna, mama order eka daannam.",
+      tamil:    "Aiyo machan, andha city-ku delivery confirm panna mudiyala — konjam check pannunga, illana pakkathu town sollunga, naan udane order panren.",
+    },
+    empty: {
+      english:  "Your cart looks empty — add an item and I'll get the order ready for you.",
+      singlish: "Cart eka his wage machang — item ekak add karanna, mama order eka ready karannam.",
+      tamil:    "Cart kaaliya iruku machan — oru item add pannunga, naan order-a ready pannuren.",
+    },
+    sender: {
+      english:  "Before I place it — what name should the gift card be from?",
+      singlish: "Order eka daanna kalin — gift card eke kaage nama daanndha machang?",
+      tamil:    "Order panradhukku munnadi — gift card-la yaaru per pota vendum machan?",
+    },
+    missing: {
+      english:  `I just need a couple more details before I can place it — could you share your ${fields}?`,
+      singlish: `Order eka daanna thawa details tikak ona machang — oyage ${fields} denna puluwanda?`,
+      tamil:    `Order panna innum konjam details venum machan — ungaloda ${fields} sollureengala?`,
+    },
+    generic: {
+      english:  "Something hiccuped while placing the order just now — want me to try that again?",
+      singlish: "Order eka daddi podi hiccup ekak una machang — apahu try karannada?",
+      tamil:    "Order panradhula chinna hiccup aachu machan — marupadiyum try pannalaama?",
+    },
+  };
+  return copy[kind][register];
+}
+
 function detectIntent(messages: ApiMessage[]) {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return { type: "none" };
@@ -1328,8 +1402,18 @@ export async function POST(req: Request) {
       // Multi-category (bundle-style) request: search each category on its own
       // and gate each by that category, so there is ZERO cross-category bleed
       // (no phone in the cakes). Dedupe across categories by product id.
+      // Track per-category failures at the aggregation point. Each category still
+      // fails silently on its own (returns []), but if EVERY category came back
+      // empty AND at least one actually threw, that is an MCP service hiccup — not
+      // a genuine "nothing available" — so the honest apology + retry path must fire.
+      let anyCatThrew = false;
       const per = await Promise.all(
-        msgCats.slice(0, 3).map((c) => searchCategory(c, convText, budget, 2, excludeSympathy, dropFloral).catch(() => []))
+        msgCats.slice(0, 3).map((c) =>
+          searchCategory(c, convText, budget, 2, excludeSympathy, dropFloral).catch(() => {
+            anyCatThrew = true;
+            return [];
+          })
+        )
       );
       const seen = new Set<string>();
       products = per.flat().filter((p) => {
@@ -1337,6 +1421,7 @@ export async function POST(req: Request) {
         seen.add(p.id);
         return true;
       });
+      if (products.length === 0 && anyCatThrew) mcpSearchFailed = true;
       // Budget is soft in the pool now — for the visible bundle cards prefer the
       // within-budget items when any exist, so we never show an over-budget pick.
       if (budget != null) {
@@ -1714,22 +1799,24 @@ export async function POST(req: Request) {
     // when the message actually implies success, so a correct "what's your phone?"
     // ask is left untouched.
     if (checkoutError && /\b(plac(ed|ing)|order (is |placed|ready|confirmed|done)|checkout now|on its way|all set|enjoy)\b/i.test(message)) {
+      // Match the session's language register — a Singlish/Tamil user must not get
+      // flipped to English on a checkout error just because this override is hardcoded.
+      const register = detectRegister(messages as ApiMessage[]);
       if (checkoutError === "city_not_deliverable") {
-        message = "Hmm, I couldn't confirm delivery to that city — could you double-check it or share a nearby town, and I'll place the order right away?";
+        message = checkoutErrorMessage("city", register);
       } else if (checkoutError === "empty_cart") {
-        message = "Your cart looks empty — add an item and I'll get the order ready for you.";
+        message = checkoutErrorMessage("empty", register);
       } else if (checkoutError.startsWith("missing:")) {
         const raw = checkoutError.slice(8);
         // A gift missing ONLY the sender name gets a dedicated, natural ask —
         // "share your sender name" reads awkwardly.
         if (raw === "sender name") {
-          message = "Before I place it — what name should the gift card be from?";
+          message = checkoutErrorMessage("sender", register);
         } else {
-          const fields = raw.replace(/,/g, ", ");
-          message = `I just need a couple more details before I can place it — could you share your ${fields}?`;
+          message = checkoutErrorMessage("missing", register, raw.replace(/,/g, ", "));
         }
       } else {
-        message = "Something hiccuped while placing the order just now — want me to try that again?";
+        message = checkoutErrorMessage("generic", register);
       }
     }
 

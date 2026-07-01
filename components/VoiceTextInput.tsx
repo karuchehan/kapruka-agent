@@ -245,7 +245,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           border-radius: 14px;
           transition: border-color 0.22s ease;
         }
-        .vti-bar[data-mode="text"] { border-color: rgba(255, 204, 0, 0.5); }
+        .vti-bar[data-mode="text"] { border-color: rgba(255, 208, 0, 0.5); }
 
         /* Field holds input + mic + pill; pill is clipped to this region. */
         .vti-field {
@@ -262,7 +262,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           left: 0;
           top: 50%;
           transform: translateY(-50%);
-          color: #6b5a50;
+          color: #6f6180;
           font-size: 15px;
           pointer-events: none;
           transition: opacity 0.22s ease;
@@ -286,11 +286,11 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           border: none;
           border-radius: 10px;
           background: rgba(255, 255, 255, 0.06);
-          color: #a09080;
+          color: #a094b0;
           cursor: pointer;
           transition: background 0.18s ease, color 0.18s ease;
         }
-        .vti-mic:hover { background: rgba(255, 204, 0, 0.14); color: #FFCC00; }
+        .vti-mic:hover { background: rgba(255, 208, 0, 0.14); color: #FFD000; }
 
         /* Gold send button — always visible, sits outside the pill's reach. */
         .vti-send {
@@ -301,12 +301,12 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           place-items: center;
           border: none;
           border-radius: 10px;
-          background: #FFCC00;
+          background: #FFD000;
           color: #1a1025;
           cursor: pointer;
           transition: background 0.18s ease, opacity 0.18s ease, transform 0.12s ease;
         }
-        .vti-send:hover:not(:disabled) { background: #FFD84D; }
+        .vti-send:hover:not(:disabled) { background: #FFDC4D; }
         .vti-send:active:not(:disabled) { transform: scale(0.92); }
         .vti-send:disabled { opacity: 0.4; cursor: default; }
 
@@ -318,7 +318,7 @@ export function VoiceTextInput({ onSend, placeholder = "What are you looking for
           height: 100%;
           width: 0;
           overflow: hidden;
-          background: #FFCC00;
+          background: #FFD000;
           border-radius: 12px;
           z-index: 3;
           display: flex;
