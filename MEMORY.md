@@ -3044,3 +3044,10 @@ Two surgical fixes + shipped the stacked S107 checkout-language work in one push
 
 ### Next Steps
 - Smoke test on live URL after deploy: (bug 1) repeat-category + post-checkout searches update the stage; (celebration) cart-add fires celebrate.png + confetti, checkout fires nothing, tap still laughs.
+
+### Session 108 addendum — Wish. empty state (`7f56bf5`, standalone push)
+- Checked working tree: the earlier "Wish." empty-state changes were GONE (clean `git status`, no "Wish." anywhere) — lost when a prior CC session ended before commit. Rebuilt from scratch per spec.
+- `components/ProductStage.tsx` — empty state stripped to just `<p class="stage-empty-title">Wish.</p>` + `<p class="stage-empty-sub">Tell me what you're looking for.</p>`. Removed all aura/rings/orbs/mark/svg markup.
+- `app/globals.css` — replaced the rich `.stage-empty` block (bloom/rings/orbs/mark + 4 keyframes + reduced-motion guard) with: `.stage-empty-title` = 72px Georgia/serif in `--accent`, single `stage-wish-pulse` keyframe (opacity 0.6→1.0, 4s loop); `.stage-empty-sub` = 15px `--text-secondary`. Reduced-motion guard holds opacity 1. Dropped the `.stage-empty` overflow:hidden (no animation left to clip). No orphaned class refs remain.
+- tsc exit 0. Overflow checks intact (`#messages-container` overflow-y:auto; `.product-stage` overflow-x:hidden unchanged).
+- Lesson: uncommitted UI work from a prior CC session can vanish on session end — verify in the tree before assuming it's there, and commit polish promptly.
