@@ -492,8 +492,17 @@ function detectIntent(messages: ApiMessage[]) {
     /order\s+eka/.test(lower);
   const explicitTrack =
     /\btrack\b[\s\S]*\border\b|\border\b[\s\S]*\btrack\b|order status|track my|where(?:'?s| is) my (?:order|parcel|package|delivery|shipment)/.test(lower);
+  // A message that is essentially JUST an order number (≤3 words, no product
+  // keywords) — e.g. the user replying to "what's your order number?" with a
+  // bare "VPAY827982BA" — is a track request even without an "order"/"track"
+  // word. Nobody types an order number while shopping, so treat it as the
+  // strong tracking signal the comment above describes. Without this, a lone
+  // number falls through to a product SEARCH for "vpay827982ba" → zero results
+  // → the reply dies with no tracking context.
+  const bareOrderNo =
+    hasOrderNo && text.trim().split(/\s+/).length <= 3 && extractKeywords(text).length <= 1;
 
-  if (explicitTrack || (hasOrderNo && (orderWord || trackWord)) || (orderNoun && trackWord && !verbOrder)) {
+  if (explicitTrack || bareOrderNo || (hasOrderNo && (orderWord || trackWord)) || (orderNoun && trackWord && !verbOrder)) {
     const match = text.match(/\b([A-Za-z]{2,6}\d{4,12}[A-Za-z0-9]*)\b/);
     return { type: "track", orderNumber: match ? match[1].toUpperCase() : null };
   }

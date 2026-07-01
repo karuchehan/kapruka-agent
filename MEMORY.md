@@ -2887,3 +2887,34 @@ Two features, both stacked on `main`, NOT committed, NOT pushed (user: hold for 
 - gh active account defaults to `gtmkaru`, which has NO push access to karuchehan/kapruka-agent → 403. Always `gh auth switch --user karuchehan && gh auth setup-git` before push. (Deploy memory now confirmed with the exact fix.)
 ### Next Steps
 - Production smoke test on live URL once deployed (see Smoke Test below). Can't force a transient failure on demand, but the happy-path delivered card + the genuine-bad-number path are testable now.
+
+## Session 104 — 2026-07-01
+### What We Did
+- **Visual audit only** against rubric lines "products shown beautifully — not a wall of text" (20pts) + "does it look/feel genuinely amazing?" (30pts). NO code changed. Did NOT touch route.ts, system_prompt.md, or any checkout/tracking logic (per instruction).
+- Audited 4 areas on 4 files: product cards, chat replies, right-panel empty state, CheckoutCard.
+### Findings (all PASS)
+1. **Product cards** — LIVE surface is `ProductStage.tsx` → `StageCard`, NOT `ProductCard.tsx`. `ProductCard.tsx` + `ProductCarousel.tsx` are DEAD CODE (unreferenced anywhere; products render on the right stage per `MessageList.tsx:51`, not inline). StageCard: image `aspect-ratio 1/1` + `object-fit cover`; frosted price tag 14px/700; name `-webkit-line-clamp:2`; grid `minmax(232px→190px→150px)` responsive. Clean.
+2. **Chat replies** — reply-length cap is enforced in the PROMPT not code: `system_prompt.md:135` "HARD LIMIT: 2 sentences maximum." Bubble `.message-bubble` (globals.css:813) `max-width min(72%,540px)`, `line-height 1.65`, `word-wrap break-word`. No wall-of-text possible.
+3. **Empty state** — `.stage-empty` (globals.css:280): icon circle + title "Your picks will appear here" + sub. Intentional, not a default.
+4. **CheckoutCard** — `.checkout-card` (globals.css:1420): item names → Items/Delivery/Add-ons → Total(border-top) → CTA → expiry. Clean, not cramped.
+### Mistakes & Lessons
+- The obvious file to audit for "product cards" is `ProductCard.tsx` — WRONG. It's dead. Live surface = `ProductStage`/`StageCard`. Saved to auto-memory (reference_kapruka_ui_surfaces.md) so future sessions don't audit dead code.
+### Next Steps
+- None from audit — everything passes. No commit (no change). New session starting next.
+
+## Session 105 — 2026-07-01
+### What We Did
+Three stacked fixes shipped as one commit. Prompt-only for #1/#2, code for #3.
+1. **Gift note timing** (`directives/system_prompt.md`, GIFT MESSAGE OFFER rule) — bug: agent offered a gift note on a bare gifting signal ("gift for my amma") with an EMPTY cart, before any product picked. Added CART GATE absolute precondition: never offer/mention a note until `[STATE]` Cart count ≥ 1. Rewrote TRIGGER to require all of: gift context + Cart ≥ 1 + item just added or heading to checkout + not offered before.
+2. **Checkout loop** (`directives/system_prompt.md`, PROACTIVE CHECKOUT + new rule) — bug: agent asked compound "want anything else, or shall we head to checkout?"; user "yes" → agent re-offered upsell ("more chocolates, flowers, cake?") instead of proceeding, looping 2+ times. Fix (a): forbade the compound nudge — checkout nudge must be ONE clean question so a "yes" is unambiguous. Fix (b): new rule CHECKOUT CONFIRMED — PROCEED, NEVER RE-UPSELL — any affirmative/checkout intent → jump to next MISSING `[CHECKOUT]` field; re-offering products after a checkout yes flagged HARD FAILURE; ambiguous yes defaults to checkout unless user explicitly names a new product/category.
+3. **Bare order number tracking** (`app/api/chat/route.ts`, `detectIntent`) — bug: user replies to "what's your order number?" with a lone `VPAY827982BA` → NO response, agent stops. Root cause: track gate required `orderWord || trackWord`; a bare number has neither, so `hasOrderNo` alone never triggered track → fell through to product SEARCH for "vpay827982ba" → zero results → dead reply. Added `bareOrderNo` clause: message ≤3 words + order-number token + ≤1 keyword → track intent. Existing extractor uppercases the number.
+### Verification
+- Probed `kapruka_track_order VPAY827982BA` directly BEFORE coding — returns full `status: delivered` payload (24 JUNE 2026, Polgasowita, 6-step progress). Confirmed MCP healthy; bug was ours (intent gate), NOT MCP and NOT the checkout/`[CO_*]` logic added earlier today.
+- `tsc --noEmit` clean.
+- No CSS/layout/overflow touched (route.ts + 2 md files) → overflow checks 2–4 N/A.
+### Push
+- `gh auth switch --user karuchehan && gh auth setup-git` first (S103 lesson: default account gtmkaru → 403). Committed + pushed to `origin/main`. Vercel auto-deploys.
+### Mistakes & Lessons
+- The track comment at route.ts:471 ALREADY claimed "a bare order number is a strong tracking signal" but the code never acted on it alone — a stale comment describing intended behaviour that was never wired. Lesson: comments asserting behaviour ≠ behaviour; verify the condition actually implements the claim.
+### Next Steps
+- Production smoke test on live URL once deployed (see chat for numbered steps covering all three fixes).
