@@ -3114,3 +3114,21 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Smoke test after deploy: (1) empty cart → type "place order" → agent empty-cart reply + Machan shake, no confetti; (2) "checkout" empty → shake again; (3) add item then checkout → NO shake; (4) reduce-motion ON → reply shows, no shake.
+
+## Session 112 — 2026-07-01 (user labeled this "Session 110"; kept chronological numbering)
+### What We Did
+- Committed `007ead6` (pushed `d2c9967..007ead6`, Vercel auto-deploys). ONE file: `app/api/chat/route.ts`.
+- **Profanity guard — pre-API, zero-token.** Checks ONLY the latest user message (not history, not product/system content) BEFORE any MCP or Anthropic call; a flagged message returns a friendly, register-matched one-liner immediately (`Response.json({ message })`, same shape as a normal reply). Never lectures/refuses.
+  - `profanityRedirect(text)` added after `detectRegister` (~line 496). Two matchers:
+    - `SL_PROFANITY` array (romanized Sinhala: hutho/huththa/pakaya/kariya/wesi/ammata hukanna/huththi/hutti/hutta/payya/paiya/ponnaya/puka) — **substring, case-insensitive** so "pakaya" catches "PAKAYA"/"pakayaa" (spec).
+    - `EN_PROFANITY_RE` — leading `\b` anchors each alt to a word start so words that merely CONTAIN a slur don't trip (peacock, bass, pass, class); trailing `(?![a-z])` guards ass→assign/assume, cock→cockpit/cocktail, dick→Dickens; fuck/shit/bitch families left loose so fucking/shitty match. Char classes cover leet/masked: f*ck, sh1t, a$$, b!tch, c0ck, etc.
+  - Register order (spec): Sinhala unicode script present → "Aiyo machang kunu harapa kiyanda epa 😅"; else romanized SL slur → "Aiyo machang, let's keep it clean 😅 — now, what were we shopping for?"; else English → "Hey, let's keep it friendly! 😄 What can I help you find today?".
+  - Injected in POST right after the `messages` array validation, before `priorProducts`/`detectIntent`/MCP/Anthropic.
+- Verified with a node harness: 24 profane strings all FLAG, 18 clean strings (peacock/cocktail/cockpit/assign/assume/assist/class/pass/bass/mass/grass/Dickens/assassin/glass/website/…) all PASS. `tsc --noEmit` exit 0. route.ts only → no CSS/layout, overflow checks N/A.
+
+### Ordering note (deviation from the request)
+- User asked to push profanity as a standalone commit, THEN push the empty-cart shake as a second commit "feat: Machan empty-cart checkout shake". But the shake was ALREADY committed + pushed in the prior turn as `110fd7b` ("feat: Machan shake on empty-cart checkout; update dulith_idle asset") — the working tree was clean before this task. Did NOT rewrite/re-push history (commit already on main). Net effect matches intent: both features are live on main, just as separate commits with the shake landing first.
+- User also asked to log both under "Session 110"; shake was already logged as S111 last turn. Logged profanity here as S112 to keep numbering chronological rather than renumber prior entries. The shake feature lives in the S111 entry above.
+
+### Next Steps
+- Smoke test after deploy (live URL, human runs — I cannot): see the Smoke Test block in chat.
