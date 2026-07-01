@@ -13,6 +13,9 @@ export function useChat(
   // externalized ChatState in step with what the server actually resolved.
   onDeliveryCity?: (city: string) => void,
   onOrderComplete?: () => void,
+  // Checkout fields the agent captured this turn ([CO_*] markers) → accumulated by
+  // the owner into ChatState.checkoutData and echoed back next turn.
+  onCheckoutFields?: (fields: Partial<import("@/lib/types").CheckoutData>) => void,
 ) {
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
@@ -100,6 +103,9 @@ export function useChat(
           lastShownProducts: lastShownProducts.current,
           sessionId: sessionId.current,
           chatState,
+          // Full cart products (with product_id) so the server can build the
+          // create_order payload — ChatState.cartItems only carries name+price.
+          cartProducts,
         }),
       });
       clearTimeout(clientTimeout);
@@ -161,19 +167,16 @@ export function useChat(
       const showOccasion = !!data.occasion?.targetDate && !occasionShown.current;
       if (showOccasion) occasionShown.current = true;
 
-      // Order confirmed → build a checkout card from the CART (the items the user
-      // actually added). Fall back to the last carousel if the cart is empty.
-      // URL comes from the product page, never from the model. One-shot guard same
-      // as showGift — prevents a second card + second window.open if the agent
-      // re-emits [ORDER_CONFIRMED: true] on a follow-up turn.
-      const showCheckout = !!data.orderConfirmed && !checkoutShown.current;
+      // Order confirmed → the server placed a real guest checkout via
+      // kapruka_create_order and returned data.checkout (pay-link + locked totals +
+      // expiry). The card + auto-open use THAT url — never a product-page deep-link.
+      // One-shot guard prevents a second card / second window.open on a re-emit.
+      const showCheckout = !!data.orderConfirmed && !!data.checkout?.checkoutUrl && !checkoutShown.current;
       if (showCheckout) checkoutShown.current = true;
-      let checkoutItems: Product[] = [];
-      let checkoutPrimaryUrl = "";
-      if (showCheckout) {
-        checkoutItems = cartProducts.length ? cartProducts : lastShownProducts.current;
-        checkoutPrimaryUrl = checkoutItems.find((p) => p.url)?.url || "";
-      }
+      const checkoutItems: Product[] = showCheckout
+        ? (cartProducts.length ? cartProducts : lastShownProducts.current)
+        : [];
+      const checkoutPrimaryUrl = showCheckout ? (data.checkout.checkoutUrl as string) : "";
 
       setChatItems((prev) => {
         const base = removePlaceholders(prev);
@@ -210,17 +213,22 @@ export function useChat(
         if (data.bundle?.items?.length) {
           additions.push({ id: uid(), type: "bundle", bundle: data.bundle });
         }
-        // Order confirmed → checkout card (auto-open handled in ChatScreen).
+        // Order confirmed → checkout card with the real pay-link + totals
+        // (auto-open handled in ChatScreen).
         if (showCheckout) {
-          additions.push({ id: responseId + "-checkout", type: "checkout", products: checkoutItems, checkoutUrl: checkoutPrimaryUrl });
+          additions.push({ id: responseId + "-checkout", type: "checkout", products: checkoutItems, checkoutUrl: checkoutPrimaryUrl, checkout: data.checkout });
         }
         return [...base, ...additions];
       });
 
       // Sync externalized ChatState from what the server resolved this turn:
-      // a delivery check confirms the city; an order confirmation completes checkout.
+      // a delivery check confirms the city; a real order (create_order succeeded)
+      // completes checkout. Checkout fields the agent captured are accumulated too.
       if (data.delivery?.city && onDeliveryCity) onDeliveryCity(data.delivery.city);
-      if (data.orderConfirmed && onOrderComplete) onOrderComplete();
+      if (data.checkoutFields && onCheckoutFields && Object.keys(data.checkoutFields).length) {
+        onCheckoutFields(data.checkoutFields);
+      }
+      if (data.orderConfirmed && data.checkout && onOrderComplete) onOrderComplete();
 
       // Agent confirmed adding items → sync them into the cart (dock + checkout).
       // Runs once per response (not in a setState updater) so it's StrictMode-safe.

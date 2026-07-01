@@ -89,6 +89,20 @@ const ADD_RE      = /\[ADD_TO_CART:\s*([^\]\n]+)\]/gi;
 // captured name is resolved server-side same as ADD_RE. Global — multiple removes.
 const REMOVE_RE   = /\[REMOVE_FROM_CART:\s*([^\]\n]+)\]/gi;
 
+// ── CHECKOUT FIELD MARKERS ──────────────────────────────────────────────────────
+// Emitted (one per field) the moment the user PROVIDES a checkout detail — the same
+// pattern as [ADD_TO_CART], but for the structured fields kapruka_create_order needs.
+// Each captured value is returned to the client, which accumulates it into
+// ChatState.checkoutData and echoes it back next turn — so the [CHECKOUT] readiness
+// line always reflects what has been collected. The agent asks for ONE missing field
+// at a time and withholds [ORDER_CONFIRMED] until name+phone+address+city are present.
+const CO_NAME_RE   = /\[CO_NAME:\s*([^\]\n]+)\]/i;   // delivery recipient name (self-shop = the user)
+const CO_PHONE_RE  = /\[CO_PHONE:\s*([^\]\n]+)\]/i;  // recipient phone (07x or +947x)
+const CO_ADDR_RE   = /\[CO_ADDR:\s*([^\]\n]+)\]/i;   // full street address
+const CO_CITY_RE   = /\[CO_CITY:\s*([^\]\n]+)\]/i;   // delivery city
+const CO_DATE_RE   = /\[CO_DATE:\s*(\d{4}-\d{2}-\d{2})\]/i; // delivery date
+const CO_SENDER_RE = /\[CO_SENDER:\s*([^\]\n]+)\]/i; // gift-card sender name
+
 // ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
 
 const MCP_URL  = "https://mcp.kapruka.com/mcp";
@@ -525,7 +539,28 @@ function detectIntent(messages: ApiMessage[]) {
 
 // ── MCP CALLER ────────────────────────────────────────────────────────────────
 
+// The first MCP call after the Kapruka server (or our function) has been idle
+// frequently fails on the `initialize` round-trip — a cold-start artefact, not a
+// real outage. A judge's very first message is exactly that cold call, so a
+// single transient failure must NOT surface as "nothing available". callMCP wraps
+// the real work and retries ONCE on a transient error (timeout / network / 5xx),
+// with a short backoff. A second failure is treated as a genuine error and thrown.
 async function callMCP(tool: string, args: Record<string, unknown>, timeoutMs = 6000) {
+  try {
+    return await callMCPOnce(tool, args, timeoutMs);
+  } catch (e) {
+    const msg = (e as Error).message || "";
+    // Only retry transient classes — never retry a real tool error (isError) or a
+    // not-found, which are deterministic and would just fail again at twice the cost.
+    const transient = /abort|timeout|fetch failed|network|ECONNRESET|init \d|call 5\d\d|Empty MCP/i.test(msg);
+    if (!transient) throw e;
+    console.log(`[callMCP] transient failure on "${tool}" (${msg}) — retrying once`);
+    await new Promise((r) => setTimeout(r, 250));
+    return await callMCPOnce(tool, args, timeoutMs);
+  }
+}
+
+async function callMCPOnce(tool: string, args: Record<string, unknown>, timeoutMs = 6000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -587,12 +622,36 @@ interface UserProfile { name: string; age: number | null; gender: string; }
 interface RecipientProfile { age: number | null; gender: string; relationship: string; }
 
 // Externalized client state injected on every call. Mirrors lib/types ChatState.
+interface CheckoutData {
+  recipientName?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  date?: string;
+  senderName?: string;
+}
 interface ChatState {
   cartItems: { name: string; price: number }[];
   cartCount: number;
   deliveryCity: string | null;
   checkoutStage: "idle" | "collecting_address" | "address_confirmed" | "complete";
   budgetStated: number | null;
+  checkoutData?: CheckoutData;
+}
+
+// The fields kapruka_create_order requires before it can build an order. City is
+// derivable from the confirmed delivery city, so the four the agent must actively
+// collect are name, phone, address, city. Date defaults server-side; sender too.
+function missingCheckoutFields(s: ChatState | null): string[] {
+  const d = s?.checkoutData || {};
+  const city = d.city || s?.deliveryCity || "";
+  const need: [string, string][] = [
+    ["name", d.recipientName || ""],
+    ["phone", d.phone || ""],
+    ["address", d.address || ""],
+    ["city", city],
+  ];
+  return need.filter(([, v]) => !String(v).trim()).map(([k]) => k);
 }
 
 // Render the [STATE] ground-truth block the agent must read before replying.
@@ -604,6 +663,19 @@ function buildStateBlock(s: ChatState | null): string {
   if (s.cartItems?.length) {
     line += ` Cart contents: ${s.cartItems.map((i) => `${i.name} (LKR ${i.price})`).join(", ")}.`;
   }
+
+  // [CHECKOUT] readiness — only while there is a cart to check out. Shows what has
+  // been collected and what is still missing, so the agent asks for exactly ONE
+  // missing field at a time and never emits [ORDER_CONFIRMED] before all four are in.
+  if (s.cartCount > 0 && s.checkoutStage !== "idle") {
+    const d = s.checkoutData || {};
+    const shown = (v?: string) => (v && v.trim() ? v.trim() : "✗");
+    const missing = missingCheckoutFields(s);
+    line += `\n[CHECKOUT] Collected — name: ${shown(d.recipientName)}, phone: ${shown(d.phone)}, address: ${shown(d.address)}, city: ${shown(d.city || (s.deliveryCity ?? ""))}, date: ${shown(d.date) === "✗" ? "(will default)" : shown(d.date)}.`;
+    line += missing.length
+      ? ` Still MISSING: ${missing.join(", ")}. Ask the user for ONLY the next missing field, one at a time, in their register, and when they give it emit the matching marker ([CO_NAME:…], [CO_PHONE:…], [CO_ADDR:…], [CO_CITY:…]). Do NOT emit [ORDER_CONFIRMED] yet — fields are incomplete.`
+      : ` All required fields collected — once the user confirms the order, emit [ORDER_CONFIRMED: true].`;
+  }
   return line;
 }
 
@@ -613,9 +685,19 @@ function buildSystemPrompt(
   liveProducts: Product[],
   tracking: TrackingInfo | null,
   lastShownProducts: Product[],
-  chatState: ChatState | null
+  chatState: ChatState | null,
+  mcpSearchFailed: boolean
 ) {
   const dynamicParts: string[] = [];
+
+  // Catalog service hiccup this turn (MCP threw after its retry). Tell the agent to
+  // own the moment warmly and offer a retry — NEVER to claim nothing is available
+  // and NEVER to invent products. Put it first so it dominates the reply.
+  if (mcpSearchFailed) {
+    dynamicParts.push(
+      "PRODUCT SEARCH HICCUP: the Kapruka catalog didn't respond this turn (a brief service hiccup, not your fault). In ONE warm sentence, apologise lightly and ask the user to try that again in a moment. Do NOT say there are no products, and do NOT invent any products or prices."
+    );
+  }
 
   // [STATE] is ground truth — put it FIRST so it sits at the top of the
   // conversation context the agent reads (see the [STATE] rule in the prompt).
@@ -968,6 +1050,140 @@ function mapTracking(orderNumber: string, res: Record<string, unknown> | null): 
   };
 }
 
+// ── DELIVERY-CITY VALIDATION (live) ───────────────────────────────────────────
+// create_order rejects any city that is not a Kapruka delivery city, so we resolve
+// the user's typed city to the exact canonical spelling the tool expects, LIVE.
+// list_delivery_cities is paginated (25/page) but takes a `query` filter — so we
+// query by the city (and by address-area tokens) instead of scanning the whole list.
+// Bare "Colombo" is ambiguous (Colombo 01…15); we disambiguate using the street
+// address ("Bambalapitiya" → Colombo 04 via its alias) and fall back to the first
+// deliverable match so a common city never dead-ends the order.
+
+interface CityCand { name: string; aliasTokens: string[] }
+
+const cityNorm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+const cityTokens = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((t) => t.length >= 4);
+
+async function queryCities(q: string): Promise<CityCand[]> {
+  if (!q.trim()) return [];
+  try {
+    const res = await callMCP("list_cities", { query: q, limit: 50 }, 6000);
+    const raw = (res.cities || res.results || []) as unknown[];
+    return raw.map((c) => {
+      const name = typeof c === "string" ? c : String((c as { name?: string; city?: string }).name || (c as { city?: string }).city || "");
+      const aliases = typeof c === "object" && c ? ((c as { aliases?: string[] }).aliases || []) : [];
+      return { name, aliasTokens: aliases.flatMap((a) => cityTokens(a)) };
+    }).filter((c) => c.name);
+  } catch { return []; }
+}
+
+// Resolve a user-typed city (+ street address for disambiguation) to its canonical
+// Kapruka spelling, or null if genuinely not deliverable.
+async function canonicaliseCity(city: string, address = ""): Promise<string | null> {
+  const cityKey = cityNorm(city);
+  if (!cityKey) return null;
+
+  // Gather candidates: query by the city, and by each significant address token
+  // (so "Bambalapitiya" surfaces "Colombo 04" even when the user typed "Colombo").
+  const queries = [city, ...cityTokens(address)].slice(0, 5);
+  const seen = new Map<string, CityCand>();
+  for (const q of queries) {
+    for (const c of await queryCities(q)) if (!seen.has(cityNorm(c.name))) seen.set(cityNorm(c.name), c);
+  }
+  const cands = [...seen.values()];
+  if (!cands.length) return null;
+
+  // 1. Exact name / alias match to the typed city.
+  for (const c of cands) if (cityNorm(c.name) === cityKey || c.aliasTokens.includes(cityKey)) return c.name;
+
+  // 2. Disambiguate by the street address — a candidate name or alias token that
+  //    appears in the address wins (Bambalapitiya alias → Colombo 04).
+  const addrToks = cityTokens(address);
+  for (const c of cands) {
+    const nk = cityNorm(c.name);
+    if (addrToks.some((t) => nk.includes(t) || t.includes(nk))) return c.name;
+    if (c.aliasTokens.some((a) => addrToks.some((t) => t.includes(a) || a.includes(t)))) return c.name;
+  }
+
+  // 3. Substring match on the city (bare "Colombo" → first "Colombo NN"), else the
+  //    first deliverable candidate. Either way the order can be placed.
+  const sub = cands.find((c) => { const nk = cityNorm(c.name); return nk.includes(cityKey) || cityKey.includes(nk); });
+  return (sub || cands[0]).name;
+}
+
+// Delivery date default — today + 2 days, YYYY-MM-DD in Asia/Colombo (UTC+5:30).
+// Used when the agent didn't collect a specific date; always today-or-future.
+function defaultDeliveryDate(): string {
+  const colomboNow = new Date(Date.now() + (5 * 60 + 30) * 60 * 1000);
+  const d = new Date(colomboNow.getTime() + 2 * 24 * 60 * 60 * 1000);
+  return d.toISOString().slice(0, 10);
+}
+
+interface CheckoutResult {
+  checkoutUrl: string; orderRef: string; itemsTotal: number; deliveryFee: number;
+  addonsTotal: number; grandTotal: number; currency: string; expiresAt: string;
+}
+
+// Build the create_order payload from the collected checkout fields + cart, call the
+// MCP, and map the response. Returns the CheckoutResult on success, or throws with a
+// message the caller turns into a graceful checkoutError (never a raw 500).
+async function createOrder(
+  cart: { product_id: string; quantity: number }[],
+  d: CheckoutData,
+  city: string,
+): Promise<CheckoutResult> {
+  const recipientName = (d.recipientName || "").trim();
+  const senderName = (d.senderName || recipientName || "Kapruka Customer").trim();
+  const payload = {
+    cart,
+    recipient: { name: recipientName, phone: (d.phone || "").trim() },
+    delivery: {
+      address: (d.address || "").trim(),
+      city,
+      location_type: "house",
+      date: d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : defaultDeliveryDate(),
+    },
+    sender: { name: senderName, anonymous: false },
+    currency: "LKR",
+  };
+  const res = await callMCP("create_order", payload, 12000);
+  // The tool returns { checkout_url, order_ref, summary, expires_at } on success,
+  // or { raw: "Error (code): message" } / an error string on failure.
+  const rawErr = typeof res.raw === "string" ? res.raw : (typeof res === "string" ? res : "");
+  if (rawErr && /error/i.test(rawErr)) throw new Error(rawErr.replace(/^Error[^:]*:\s*/i, "").trim() || "create_order failed");
+  const url = res.checkout_url || res.checkoutUrl;
+  if (!url) throw new Error("No checkout URL returned");
+  const sum = (res.summary || {}) as Record<string, number>;
+  return {
+    checkoutUrl: String(url),
+    orderRef: String(res.order_ref || res.orderRef || ""),
+    itemsTotal: Number(sum.items_total ?? 0),
+    deliveryFee: Number(sum.delivery_fee ?? 0),
+    addonsTotal: Number(sum.addons_total ?? 0),
+    grandTotal: Number(sum.grand_total ?? 0),
+    currency: String(sum.currency || "LKR"),
+    expiresAt: String(res.expires_at || res.expiresAt || ""),
+  };
+}
+
+// ── WARM-UP (GET) ─────────────────────────────────────────────────────────────
+// Fired fire-and-forget by the client on page load. Lives in THIS route file so it
+// deploys to the SAME serverless function the judge's POST will hit — warming both
+// the Node instance (cold boot) AND the Kapruka MCP `initialize` path before the
+// first real message. Uses the cheapest MCP tool (list_categories) and NEVER calls
+// Anthropic — zero API cost, no ANTHROPIC_API_KEY touched. Best-effort: any failure
+// returns ok:false but never throws (the warm-up must not surface an error to the UI).
+export async function GET() {
+  const start = Date.now();
+  try {
+    await callMCP("list_categories", {}, 5000);
+    return Response.json({ ok: true, warmedMs: Date.now() - start });
+  } catch (e) {
+    // A failed warm-up is fine — it still cold-boots the function and primes MCP.
+    return Response.json({ ok: false, warmedMs: Date.now() - start, error: (e as Error).message });
+  }
+}
+
 // ── ROUTE HANDLER ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -976,9 +1192,18 @@ export async function POST(req: Request) {
     return Response.json({ error: `Server config error: ${PROMPT_LOAD_ERROR}` }, { status: 500 });
   }
 
-  const { messages, userProfile, recipientProfile, lastShownProducts, sessionId, chatState } = await req.json();
+  const { messages, userProfile, recipientProfile, lastShownProducts, sessionId, chatState, cartProducts } = await req.json();
   const sid = String(sessionId || "");
   const clientState: ChatState | null = chatState && typeof chatState === "object" ? chatState as ChatState : null;
+  // Cart items with their real product_id — needed to build the create_order payload.
+  // ChatState.cartItems only carries name+price, so the client sends the full cart
+  // products separately. Each Kapruka product id (e.g. "CHOCOLATES00767") is a valid
+  // create_order product_id (verified live).
+  const cartForOrder: { product_id: string; quantity: number }[] = Array.isArray(cartProducts)
+    ? (cartProducts as Product[])
+        .map((p) => ({ product_id: String(p.id || ""), quantity: 1 }))
+        .filter((c) => c.product_id.length >= 3)
+    : [];
 
   if (!messages || !Array.isArray(messages)) {
     return Response.json({ error: "messages array required" }, { status: 400 });
@@ -1040,6 +1265,10 @@ export async function POST(req: Request) {
   let products: Product[] = [];
   let tracking: TrackingInfo | null = null;
   let delivery: DeliveryInfo | null = null;
+  // Set when a product-search MCP call throws (after its built-in retry). Distinct
+  // from "MCP returned zero products" — this is a service hiccup, and the agent must
+  // acknowledge it + offer to retry rather than claim nothing is available.
+  let mcpSearchFailed = false;
 
   try {
     if (intent.type === "search" && msgCats.length >= 2) {
@@ -1200,6 +1429,12 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     console.error("MCP fetch error:", (err as Error).message);
+    // A thrown error on a search intent (the catch is reached only after callMCP's
+    // own retry) means the catalog service is genuinely unreachable this turn —
+    // flag it so the agent apologises for the hiccup instead of going silently
+    // productless. Track has its own inner try/catch (→ graceful not-found), so it
+    // never lands here; this is the search/delivery path.
+    if (intent.type === "search") mcpSearchFailed = true;
   }
 
   // Guard BEFORE constructing the client. `new Anthropic({ apiKey: undefined })`
@@ -1222,10 +1457,16 @@ export async function POST(req: Request) {
   let orderConfirmed = false;
   const addedProducts: Product[]   = [];
   const removedProducts: Product[] = [];
+  // Checkout fields the agent captured THIS turn (from [CO_*] markers) → returned so
+  // the client accumulates them into ChatState.checkoutData. The real create_order
+  // result (pay-link + totals) and any graceful error also ride back on the response.
+  const checkoutFields: CheckoutData = {};
+  let checkout: CheckoutResult | null = null;
+  let checkoutError: string | null = null;
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, tracking, priorProducts, clientState);
+    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, tracking, priorProducts, clientState, mcpSearchFailed);
 
     const response = await client.messages.create(
       {
@@ -1261,6 +1502,12 @@ export async function POST(req: Request) {
       .replace(ORDER_RE, "")
       .replace(ADD_RE, "")
       .replace(REMOVE_RE, "")
+      .replace(CO_NAME_RE, "")
+      .replace(CO_PHONE_RE, "")
+      .replace(CO_ADDR_RE, "")
+      .replace(CO_CITY_RE, "")
+      .replace(CO_DATE_RE, "")
+      .replace(CO_SENDER_RE, "")
       .replace(/AVAILABLE PRODUCTS[^\n]*\n[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
       .replace(/\d+\.\s+[^\n]+(?:—|–)\s*LKR\s*[\d,]+[^\n]*/gi, "")
       .replace(/LAST SHOWN PRODUCTS[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
@@ -1283,10 +1530,58 @@ export async function POST(req: Request) {
     const cm = rawText.match(CHECKOUT_RE);
     if (cm) checkoutUrl = cm[1];
 
+    // [CO_*] checkout fields the user just provided → collect for the client to
+    // accumulate. Parsed from raw (markers already stripped from `cleaned`).
+    {
+      const grab = (re: RegExp) => { const m = rawText.match(re); return m ? m[1].trim() : ""; };
+      const name = grab(CO_NAME_RE);   if (name)   checkoutFields.recipientName = name;
+      const phone = grab(CO_PHONE_RE); if (phone)  checkoutFields.phone = phone;
+      const addr = grab(CO_ADDR_RE);   if (addr)   checkoutFields.address = addr;
+      const city = grab(CO_CITY_RE);   if (city)   checkoutFields.city = city;
+      const date = grab(CO_DATE_RE);   if (date)   checkoutFields.date = date;
+      const sender = grab(CO_SENDER_RE); if (sender) checkoutFields.senderName = sender;
+    }
+
     // Hidden UI markers → structured fields (parsed from raw, stripped from message).
     // ORDER_CONFIRMED must be parsed first — occasion chip is suppressed when checkout
     // fires in the same response (prevents the "Birthday Today!" chip appearing at checkout).
     if (ORDER_RE.test(rawText)) orderConfirmed = true;
+
+    // Order confirmed → build + place the guest checkout via kapruka_create_order.
+    // Merge the fields collected across the session (clientState.checkoutData) with
+    // any captured THIS turn, fall back to the confirmed delivery city, then gate on
+    // the required set. The STATE block should stop the agent confirming early, but
+    // this is the server-side safety net: on incomplete data we do NOT create an order
+    // (orderConfirmed is downgraded) and return a checkoutError instead of a broken card.
+    if (orderConfirmed) {
+      const merged: CheckoutData = { ...(clientState?.checkoutData || {}), ...checkoutFields };
+      if (!merged.city && clientState?.deliveryCity) merged.city = clientState.deliveryCity;
+      const missing = missingCheckoutFields({ ...(clientState as ChatState), checkoutData: merged, deliveryCity: clientState?.deliveryCity ?? null });
+      if (!cartForOrder.length) {
+        orderConfirmed = false;
+        checkoutError = "empty_cart";
+      } else if (missing.length) {
+        // Agent jumped the gun — suppress the checkout, let the [CHECKOUT] line steer
+        // the next turn to collect what's missing.
+        orderConfirmed = false;
+        checkoutError = `missing:${missing.join(",")}`;
+        console.log(`[checkout] ORDER_CONFIRMED but missing fields: ${missing.join(", ")} — suppressed`);
+      } else {
+        try {
+          const canonCity = await canonicaliseCity(merged.city!, merged.address || "");
+          if (!canonCity) {
+            orderConfirmed = false;
+            checkoutError = "city_not_deliverable";
+          } else {
+            checkout = await createOrder(cartForOrder, merged, canonCity);
+          }
+        } catch (e) {
+          orderConfirmed = false;
+          checkoutError = (e as Error).message || "checkout_failed";
+          console.error("[checkout] create_order error:", checkoutError);
+        }
+      }
+    }
     const om = !orderConfirmed ? rawText.match(OCCASION_RE) : null;
     if (om) {
       const occ = buildOccasion(om[1], convText);
@@ -1349,10 +1644,29 @@ export async function POST(req: Request) {
     // above for card reconciliation) — just truncate it to the visible message.
     message = truncateToSentences(cleaned, 3);
 
+    // FALSE-SUCCESS GUARD: the agent emitted [ORDER_CONFIRMED] and wrote a
+    // "placing your order!" reply, but create_order was suppressed/failed
+    // (checkoutError). Never show a success message when no order exists — replace
+    // it with an honest, tailored line so the user knows what to fix. Only fires
+    // when the message actually implies success, so a correct "what's your phone?"
+    // ask is left untouched.
+    if (checkoutError && /\b(plac(ed|ing)|order (is |placed|ready|confirmed|done)|checkout now|on its way|all set|enjoy)\b/i.test(message)) {
+      if (checkoutError === "city_not_deliverable") {
+        message = "Hmm, I couldn't confirm delivery to that city — could you double-check it or share a nearby town, and I'll place the order right away?";
+      } else if (checkoutError === "empty_cart") {
+        message = "Your cart looks empty — add an item and I'll get the order ready for you.";
+      } else if (checkoutError.startsWith("missing:")) {
+        const fields = checkoutError.slice(8).replace(/,/g, ", ");
+        message = `I just need a couple more details before I can place it — could you share your ${fields}?`;
+      } else {
+        message = "Something hiccuped while placing the order just now — want me to try that again?";
+      }
+    }
+
   } catch (err) {
     const status = (err as { status?: number }).status || 500;
     return Response.json({ error: (err as Error).message || "Internal server error" }, { status });
   }
 
-  return Response.json({ message, products, checkoutUrl, delivery, tracking, occasion, giftMessage, bundle, orderConfirmed, addedProducts, removedProducts });
+  return Response.json({ message, products, checkoutUrl, delivery, tracking, occasion, giftMessage, bundle, orderConfirmed, addedProducts, removedProducts, checkoutFields, checkout, checkoutError });
 }

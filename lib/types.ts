@@ -34,12 +34,42 @@ export interface CartItem {
 // down on long/ambiguous threads — the delivery-address loop bug).
 export type CheckoutStage = "idle" | "collecting_address" | "address_confirmed" | "complete";
 
+// Structured checkout fields, accumulated across turns as the agent collects them
+// (one per emitted [CO_*] marker) and echoed back in [STATE] every turn so the
+// agent knows exactly which required field is still missing. Feeds the server-side
+// kapruka_create_order payload. All optional — the gate (name+phone+address+city)
+// is enforced both in the [STATE] block the agent reads AND server-side before the
+// order is created.
+export interface CheckoutData {
+  recipientName?: string; // who the delivery is addressed to (self-shop = the user)
+  phone?: string;         // recipient phone — local 07x or +947x
+  address?: string;       // full street address
+  city?: string;          // Kapruka delivery city (canonicalised server-side)
+  date?: string;          // delivery date YYYY-MM-DD (defaults server-side if absent)
+  senderName?: string;    // gift-card sender (defaults to recipientName / user)
+}
+
 export interface ChatState {
   cartItems: { name: string; price: number }[]; // current cart contents
   cartCount: number;                             // total items in cart
   deliveryCity: string | null;                   // city confirmed by user, null if unknown
   checkoutStage: CheckoutStage;
   budgetStated: number | null;                   // budget the user mentioned, null if none
+  checkoutData?: CheckoutData;                   // structured fields for create_order
+}
+
+// Result of a successful kapruka_create_order call — a guest checkout pay-link plus
+// the locked price breakdown. Rendered by CheckoutCard. Charges nothing until the
+// user opens checkoutUrl and pays on kapruka.com; the link expires at expiresAt.
+export interface CheckoutResult {
+  checkoutUrl: string;
+  orderRef: string;
+  itemsTotal: number;
+  deliveryFee: number;
+  addonsTotal: number;
+  grandTotal: number;
+  currency: string;
+  expiresAt: string; // ISO 8601
 }
 
 export interface DeliveryInfo {
@@ -108,6 +138,7 @@ export interface ChatItem {
   text?: string;
   products?: Product[];
   checkoutUrl?: string;
+  checkout?: CheckoutResult;   // real create_order result (totals + pay-link + expiry)
   delivery?: DeliveryInfo;
   tracking?: TrackingInfo;
   occasion?: OccasionInfo;

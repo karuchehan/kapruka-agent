@@ -12,7 +12,7 @@ import { useCart } from "@/hooks/useCart";
 import { useVoiceOutput } from "@/hooks/useVoiceOutput";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { extractBudget } from "@/lib/productFilter";
-import type { UserProfile, RecipientProfile, ApiMessage, Product, ChatState, CheckoutStage } from "@/lib/types";
+import type { UserProfile, RecipientProfile, ApiMessage, Product, ChatState, CheckoutStage, CheckoutData } from "@/lib/types";
 
 // User negations that mean "drop out of the checkout flow" — mirrors the
 // negation set in system_prompt.md. When the user says any of these while we are
@@ -42,6 +42,10 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // budgetStated is parsed from the conversation.
   const [deliveryCity, setDeliveryCity] = useState<string | null>(null);
   const [checkoutStage, setCheckoutStage] = useState<CheckoutStage>("idle");
+  // Structured checkout fields, accumulated across turns from the agent's [CO_*]
+  // markers and echoed back to the server in [STATE] so it knows what's still
+  // missing before it can place the create_order guest checkout.
+  const [checkoutData, setCheckoutData] = useState<CheckoutData>({});
 
   const { chatItems, apiMessages, isSending, sendMessage, sendSystemMessage, initWithOnboarding } = useChat(
     addToCartUnique,
@@ -50,6 +54,8 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     (city) => { setDeliveryCity(city); setCheckoutStage((s) => (s === "complete" ? s : "address_confirmed")); },
     // Order confirmed → checkout is complete.
     () => setCheckoutStage("complete"),
+    // Agent captured checkout fields this turn → merge into accumulated state.
+    (fields) => setCheckoutData((prev) => ({ ...prev, ...fields })),
   );
   const { voiceEnabled, speak, toggleVoice, speakingId } = useVoiceOutput();
   const isMobile = useMediaQuery("(max-width: 720px)");
@@ -82,6 +88,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
       deliveryCity,
       checkoutStage: stage,
       budgetStated,
+      checkoutData,
     };
   }
 
@@ -96,6 +103,16 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   useEffect(() => {
     initWithOnboarding(obMessages);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pre-warm the chat function + Kapruka MCP on page load. The greeting renders
+  // with no API call, so the user's FIRST message would otherwise pay the full
+  // cold-start (Vercel boot + MCP initialize). This fire-and-forget GET hits the
+  // same serverless function the POST will hit and primes the MCP path — by the
+  // time the user reads the greeting and types, both are warm. No Anthropic call,
+  // zero cost; failure is ignored.
+  useEffect(() => {
+    fetch("/api/chat", { method: "GET" }).catch(() => {});
+  }, []);
 
   // Auto-send the onboarding shopping intent once history is seeded, so the agent
   // actually responds (vs. sitting idle). Waits for apiMessages to populate to avoid
@@ -212,17 +229,13 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   }
 
   function handleCheckout() {
-    // Entering checkout → start collecting the delivery address.
+    // Entering checkout → start collecting the delivery details. NO product-page
+    // deep-link any more: checkout runs entirely through the agent, which collects
+    // the required fields (name, phone, address, city) and then the server places a
+    // real guest checkout via kapruka_create_order and returns the pay-link.
     setCheckoutStage((s) => (s === "complete" ? s : "collecting_address"));
-    // Prefer a real Kapruka product page from the cart; fall back to asking the
-    // agent to place the order (which will then emit [ORDER_CONFIRMED]).
-    const url = cart.find((i) => i.product.url)?.product.url;
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } else {
-      const msg = "I'm ready to checkout. Please place the order.";
-      sendMessage(msg, userProfile, recipientProfile, cartProducts, { chatState: buildChatState(msg, "collecting_address") });
-    }
+    const msg = "I'm ready to checkout. Please place the order.";
+    sendMessage(msg, userProfile, recipientProfile, cartProducts, { chatState: buildChatState(msg, "collecting_address") });
   }
 
   return (

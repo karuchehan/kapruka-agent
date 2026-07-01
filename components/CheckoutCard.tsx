@@ -2,19 +2,36 @@
 import { useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import type { Product } from "@/lib/types";
+import type { Product, CheckoutResult } from "@/lib/types";
 
 interface Props {
   products: Product[];
   checkoutUrl?: string;
+  checkout?: CheckoutResult;
+}
+
+// Format an LKR amount as "Rs. 4,500".
+function money(n: number, currency = "LKR"): string {
+  const sym = currency === "LKR" ? "Rs." : currency + " ";
+  return `${sym}${Math.round(n).toLocaleString("en-US")}`;
+}
+
+// Whole minutes remaining until the pay-link expires (create_order locks the price
+// for ~60 min). Never negative; returns null when we can't parse the timestamp.
+function minutesLeft(expiresAt?: string): number | null {
+  if (!expiresAt) return null;
+  const t = new Date(expiresAt).getTime();
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.round((t - Date.now()) / 60000));
 }
 
 /**
- * Confirmation card shown when an order is confirmed. ChatScreen auto-opens the
- * primary checkout URL in a new tab; this card is the visible confirmation +
- * manual fallback (popup blockers) — each cart item links to its Kapruka page.
+ * Order confirmation card shown after the server places a real guest checkout via
+ * kapruka_create_order. ChatScreen auto-opens the pay-link in a new tab; this card
+ * is the visible confirmation + manual fallback (popup blockers) and shows the
+ * locked price breakdown (items + delivery) and the link expiry.
  */
-export function CheckoutCard({ products, checkoutUrl }: Props) {
+export function CheckoutCard({ products, checkoutUrl, checkout }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
@@ -23,7 +40,10 @@ export function CheckoutCard({ products, checkoutUrl }: Props) {
     }
   }, []);
 
-  const items = products.filter((p) => p.url);
+  const url = checkout?.checkoutUrl || checkoutUrl || "";
+  const currency = checkout?.currency || "LKR";
+  const mins = minutesLeft(checkout?.expiresAt);
+  const itemNames = products.filter((p) => p.name).map((p) => p.name);
 
   return (
     <div ref={ref} className="checkout-card" role="status">
@@ -33,31 +53,52 @@ export function CheckoutCard({ products, checkoutUrl }: Props) {
             <path d="M5 13l4 4L19 7" />
           </svg>
         </span>
-        <span className="checkout-card-title">Opening your checkout…</span>
+        <span className="checkout-card-title">Your order is ready to pay</span>
       </div>
-      <p className="checkout-card-sub">
-        If a new tab didn&apos;t open, tap a link below to complete your order on Kapruka.
-      </p>
-      {items.length > 0 ? (
-        <div className="checkout-card-links">
-          {items.map((p) => (
-            <a
-              key={p.id || p.name}
-              className="checkout-card-link"
-              href={p.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="checkout-card-link-name">{p.name}</span>
-              <span className="checkout-card-link-go" aria-hidden="true">View on Kapruka →</span>
-            </a>
-          ))}
+
+      {checkout ? (
+        <div className="checkout-card-summary">
+          {itemNames.length > 0 && (
+            <div className="checkout-card-items">
+              {itemNames.map((n, i) => (
+                <span key={i} className="checkout-card-item-name">{n}</span>
+              ))}
+            </div>
+          )}
+          <div className="checkout-card-line">
+            <span>Items</span><span>{money(checkout.itemsTotal, currency)}</span>
+          </div>
+          <div className="checkout-card-line">
+            <span>Delivery</span><span>{money(checkout.deliveryFee, currency)}</span>
+          </div>
+          {checkout.addonsTotal > 0 && (
+            <div className="checkout-card-line">
+              <span>Add-ons</span><span>{money(checkout.addonsTotal, currency)}</span>
+            </div>
+          )}
+          <div className="checkout-card-line checkout-card-total">
+            <span>Total</span><span>{money(checkout.grandTotal, currency)}</span>
+          </div>
         </div>
-      ) : checkoutUrl ? (
-        <a className="checkout-card-link" href={checkoutUrl} target="_blank" rel="noopener noreferrer">
-          <span className="checkout-card-link-go">Open checkout →</span>
+      ) : (
+        <p className="checkout-card-sub">
+          If a new tab didn&apos;t open, tap below to complete your order on Kapruka.
+        </p>
+      )}
+
+      {url && (
+        <a className="checkout-card-cta" href={url} target="_blank" rel="noopener noreferrer">
+          Complete payment on Kapruka →
         </a>
-      ) : null}
+      )}
+
+      {mins !== null && (
+        <p className="checkout-card-expiry">
+          {mins > 0
+            ? `Price locked — this link expires in about ${mins} min.`
+            : "This checkout link has expired — ask me to place the order again."}
+        </p>
+      )}
     </div>
   );
 }

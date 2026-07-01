@@ -1501,6 +1501,64 @@ html, body {
   flex-shrink: 0;
 }
 
+/* Real create_order summary — price breakdown + pay button + expiry */
+.checkout-card-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkout-card-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.checkout-card-item-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.checkout-card-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.checkout-card-total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.checkout-card-cta {
+  display: block;
+  text-align: center;
+  margin-top: 4px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #2a1a4a;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: filter var(--transition);
+}
+
+.checkout-card-cta:hover { filter: brightness(1.06); }
+
+.checkout-card-expiry {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
 /* ── INPUT AREA ── */
 #input-area {
   position: relative;           /* anchor for .machan-floating */

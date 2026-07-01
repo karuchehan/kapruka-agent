@@ -68,7 +68,7 @@ export function MessageList({ chatItems, speakingId, onAddToCart, onGiftSubmit }
               <BundleHamperView key={item.id} bundle={item.bundle!} onAddToCart={onAddToCart} />
             );
           case "checkout":
-            return <CheckoutCard key={item.id} products={item.products ?? []} checkoutUrl={item.checkoutUrl} />;
+            return <CheckoutCard key={item.id} products={item.products ?? []} checkoutUrl={item.checkoutUrl} checkout={item.checkout} />;
           default:
             return null;
         }
