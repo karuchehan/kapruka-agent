@@ -3027,3 +3027,20 @@ Two surgical fixes + shipped the stacked S107 checkout-language work in one push
 
 ### Next Steps
 - Smoke test on live URL after deploy (full list handed to user this session): confetti/Machan checkout cheer, empty-state redesign, cart-add laugh regression.
+
+## Session 108 — 2026-07-01
+### What We Did
+- Committed `fc3351c` (pushed to main, Vercel auto-deploys). Two stacked fixes:
+  1. **Post-checkout stage freeze (bug 1)** — `hooks/useChat.ts`. Root cause: `useChat` filtered every search batch through a **session-wide `shownProductIds` ref**. Products render ONLY on the right `ProductStage` (MessageList skips `"products"` turns — MessageList.tsx:53-55), and `ChatScreen.stageProducts` shows only the most recent non-empty `"products"` chatItem. A later search returning any already-seen id had ALL cards dropped → `freshProducts` empty → no `"products"` turn appended → stage frozen on the last non-empty batch. That dedup's stated purpose ("stop same product reappearing in a later message ROW") is obsolete — products no longer stack in chat rows. Not checkout-specific: a long checkout session just guarantees the user re-enters a touched category → id collision. Fix: dedup scoped to WITHIN a single response only (MCP returns dup rows per batch — still needed); removed the cross-session ref + its reset in `initWithOnboarding`.
+  2. **Celebration moved checkout → cart-add** — `MachanAvatar.tsx` + `ChatScreen.tsx`. Checkout auto-opens a new tab immediately, so the checkout cheer was never seen. Now the fists-up `machan_celebrate.png` (3s) + confetti burst fire on **cart-add** (the visible moment). Removed the `checkoutCelebrate` prop + its effect from MachanAvatar; removed `checkoutCelebrate` state + the bump in the checkout-open effect from ChatScreen. Both `Confetti fireKey` and `MachanAvatar celebrate` now driven by `cartCelebrate`. Checkout triggers nothing. Tap still fires `machan_laughing.png` (1s) — laugh retained as the tap-only reaction so the asset stays useful.
+- Verification: `tsc --noEmit` exit 0 (final pre-push). Bug 1 is TS-only (useChat) — no CSS/layout. Celebration swap is TS/prop-only. All 4 overflow checks unaffected (no CSS touched; `#messages-container` overflow-y:auto intact, `.product-stage` overflow-x:hidden unchanged).
+
+### Gaps Identified
+- `machan_laughing.png` now only fires on direct tap (rare on desktop where Machan is `pointer-events` re-enabled but small). If we want the laugh asset more visible, consider a second trigger — but celebrate.png is the primary reaction now, by design.
+- Confetti fires on EVERY cart-add now. If users add many items rapidly it could feel busy — not observed as a problem, but worth watching in the smoke test.
+
+### Mistakes & Lessons
+- The `shownProductIds` dedup was correct for the OLD stacked-carousel UI and became a silent bug when products moved to a latest-batch-only stage. Lesson: when a UI model changes (rows → single stage), audit the state guards written for the old model — they can invert from protective to destructive.
+
+### Next Steps
+- Smoke test on live URL after deploy: (bug 1) repeat-category + post-checkout searches update the stage; (celebration) cart-add fires celebrate.png + confetti, checkout fires nothing, tap still laughs.
