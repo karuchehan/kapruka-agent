@@ -57,6 +57,8 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     () => setCheckoutStage("complete"),
     // Agent captured checkout fields this turn → merge into accumulated state.
     (fields) => setCheckoutData((prev) => ({ ...prev, ...fields })),
+    // Empty-cart checkout attempt → shake Machan ("nothing here").
+    () => setEmptyShake((s) => s + 1),
   );
   const { voiceEnabled, speak, toggleVoice, speakingId } = useVoiceOutput();
   const isMobile = useMediaQuery("(max-width: 720px)");
@@ -68,6 +70,8 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // (same event that updates the count), not just one path.
   const [cartCelebrate, setCartCelebrate] = useState(0);
   const prevCartForCelebrate = useRef(0);
+  // Bumped when the server rejects a checkout with an empty cart → Machan shakes.
+  const [emptyShake, setEmptyShake] = useState(0);
 
   // Snapshot of the products in the cart, passed to sendMessage so the API turn
   // that confirms the order can build the checkout card from real cart items.
@@ -266,7 +270,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
               pointer-events:none so he never blocks the input. */}
           <div className="machan-floating" aria-hidden="true">
             <Confetti fireKey={cartCelebrate} />
-            <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} celebrate={cartCelebrate} />
+            <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} celebrate={cartCelebrate} shake={emptyShake} />
           </div>
           <VoiceTextInput onSend={handleSend} />
         </div>

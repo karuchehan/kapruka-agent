@@ -1568,6 +1568,22 @@ html, body {
 /* Machan stands flush on top of the input bar (bottom:100% = zero gap), anchored
    over the mic + send buttons on the right (right:30px = send-btn right edge).
    pointer-events:none keeps the buttons clickable. */
+/* Empty-cart-checkout "nothing here" reaction: a quick left-right shake on the
+   idle frame (no dedicated sad/shrug asset). 3 quick shakes over 0.4s. */
+@keyframes machan-shake {
+  0%, 100% { transform: translateX(0); }
+  18% { transform: translateX(-6px); }
+  38% { transform: translateX(6px); }
+  58% { transform: translateX(-5px); }
+  78% { transform: translateX(4px); }
+}
+.machan-avatar.shaking {
+  animation: machan-shake 0.4s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .machan-avatar.shaking { animation: none; }
+}
+
 .machan-floating {
   position: absolute;
   right: 30px;

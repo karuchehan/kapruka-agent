@@ -12,6 +12,12 @@ interface Props {
    * checkout auto-opens a new tab, so a checkout cheer is never seen).
    */
   celebrate?: number;
+  /**
+   * Increment to fire a brief left-right shake (0.4s) on the idle frame — the
+   * "nothing here" reaction when the user tries to checkout with an empty cart.
+   * No dedicated sad/shrug asset exists, so this reuses idle + a CSS shake.
+   */
+  shake?: number;
 }
 
 // Four mascot frames stacked absolutely; we cross-fade opacity between them and
@@ -23,16 +29,19 @@ interface Props {
 // Tapping Machan fires a transient "laughing" frame for ~1s. A cart-add fires the
 // fists-up "celebrate" frame for 3s (via `celebrate`) — the visible celebratory
 // moment. All use the same cross-fade so it's of a piece.
-export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
+export function MachanAvatar({ state, size = 80, celebrate = 0, shake = 0 }: Props) {
   const thinking = state === "thinking";
   const [laughing, setLaughing] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
+  const [shaking, setShaking] = useState(false);
   const laughTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cheerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
     if (laughTimer.current) clearTimeout(laughTimer.current);
     if (cheerTimer.current) clearTimeout(cheerTimer.current);
+    if (shakeTimer.current) clearTimeout(shakeTimer.current);
   }, []);
 
   function fireLaugh(ms: number) {
@@ -59,6 +68,17 @@ export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
     cheerTimer.current = setTimeout(() => setCelebrating(false), 3000);
   }, [celebrate]);
 
+  // Empty-cart-checkout shake: parent bumps `shake` when the server rejects a
+  // checkout with nothing in the cart. Fires a brief left-right shake on the
+  // idle frame. Skip the mount value (0) so it never fires on first render.
+  const firstShake = useRef(true);
+  useEffect(() => {
+    if (firstShake.current) { firstShake.current = false; return; }
+    if (shakeTimer.current) clearTimeout(shakeTimer.current);
+    setShaking(true);
+    shakeTimer.current = setTimeout(() => setShaking(false), 400);
+  }, [shake]);
+
   const imgStyle: React.CSSProperties = {
     position: "absolute",
     bottom: 0,
@@ -83,7 +103,7 @@ export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
 
   return (
     <div
-      className="machan-avatar"
+      className={`machan-avatar${shaking ? " shaking" : ""}`}
       // Parent .machan-floating is pointer-events:none so it never blocks the
       // mic/send buttons; opt this child back in so the tap-to-laugh lands here.
       style={{ position: "relative", height: size, width: size, pointerEvents: "auto", cursor: "pointer" }}

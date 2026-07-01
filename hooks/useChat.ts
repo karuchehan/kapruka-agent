@@ -16,6 +16,9 @@ export function useChat(
   // Checkout fields the agent captured this turn ([CO_*] markers) → accumulated by
   // the owner into ChatState.checkoutData and echoed back next turn.
   onCheckoutFields?: (fields: Partial<import("@/lib/types").CheckoutData>) => void,
+  // Server rejected a checkout because the cart is empty → fire the Machan
+  // "nothing here" shake at the same moment the agent's empty-cart reply lands.
+  onEmptyCartCheckout?: () => void,
 ) {
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
@@ -226,6 +229,10 @@ export function useChat(
         onCheckoutFields(data.checkoutFields);
       }
       if (data.orderConfirmed && data.checkout && onOrderComplete) onOrderComplete();
+
+      // Empty-cart checkout attempt → the server downgraded the order and sent a
+      // "your cart is empty" reply. Fire the Machan shake at the same moment.
+      if (data.checkoutError === "empty_cart" && onEmptyCartCheckout) onEmptyCartCheckout();
 
       // Agent confirmed adding items → sync them into the cart (dock + checkout).
       // Runs once per response (not in a setState updater) so it's StrictMode-safe.
