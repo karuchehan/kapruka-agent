@@ -46,41 +46,11 @@ export function ProductStage({ products, isLoading, onAddToCart, addedIds }: Pro
   return (
     <section className="product-stage" aria-label="Product results">
       {!hasProducts && !isLoading && (
-        // Empty until the user searches — deliberately rich so the 65% panel
-        // reads as intentional, not a forgotten default. Pure CSS motion (rings,
-        // drifting orbs, a soft bloom) so there's no JS and no overflow risk;
-        // .stage-empty clips its own animation.
+        // Minimalist empty state: just the word "Wish." (slow opacity pulse) and
+        // one inviting line. No icon, rings, or orbs.
         <div className="stage-empty" aria-hidden="true">
-          <div className="stage-empty-aura">
-            <span className="stage-ring stage-ring-1" />
-            <span className="stage-ring stage-ring-2" />
-            <span className="stage-ring stage-ring-3" />
-            <div className="stage-empty-mark">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="20 12 20 22 4 22 4 12" />
-                <rect x="2" y="7" width="20" height="5" />
-                <line x1="12" y1="22" x2="12" y2="7" />
-                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
-                <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-              </svg>
-            </div>
-            <span className="stage-orb stage-orb-a" />
-            <span className="stage-orb stage-orb-b" />
-            <span className="stage-orb stage-orb-c" />
-            <span className="stage-orb stage-orb-d" />
-          </div>
-          <p className="stage-empty-title">Let&apos;s find something lovely</p>
-          <p className="stage-empty-sub">
-            Tell Kapruka who it&apos;s for and what the occasion is — cakes, flowers,
-            hampers and more bloom onto this stage the moment you ask.
-          </p>
+          <p className="stage-empty-title">Wish.</p>
+          <p className="stage-empty-sub">Tell me what you&apos;re looking for.</p>
         </div>
       )}
 

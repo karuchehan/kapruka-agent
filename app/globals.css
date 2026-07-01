@@ -285,134 +285,32 @@ html, body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 10px;
+  gap: 14px;
   padding: 24px;
-  /* Clips its own rings/orbs/bloom so the CSS motion can't leak into the
-     scroll box. NOT a messages ancestor — safe to hide overflow here. */
-  overflow: hidden;
 }
 
-/* Soft radial bloom behind the whole composition — a purple core with an
-   accent kiss, breathing slowly so the panel feels alive. */
-.stage-empty::before {
-  content: '';
-  position: absolute;
-  width: 620px;
-  height: 620px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 45%,
-    rgba(255, 208, 0, 0.10) 0%,
-    rgba(123, 58, 180, 0.16) 34%,
-    rgba(59, 31, 122, 0.10) 55%,
-    transparent 72%);
-  filter: blur(6px);
-  pointer-events: none;
-  animation: stage-bloom 7s ease-in-out infinite;
-}
-
-.stage-empty-aura {
-  position: relative;
-  width: 200px;
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-}
-
-/* Concentric beacon rings that expand and fade out from the medallion. */
-.stage-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 112px;
-  height: 112px;
-  margin: -56px 0 0 -56px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 208, 0, 0.30);
-  opacity: 0;
-  pointer-events: none;
-  animation: stage-pulse 4.2s ease-out infinite;
-}
-.stage-ring-2 { animation-delay: 1.4s; border-color: rgba(160, 148, 176, 0.32); }
-.stage-ring-3 { animation-delay: 2.8s; }
-
-/* Center medallion holding the gift mark — gently bobbing. */
-.stage-empty-mark {
-  position: relative;
-  z-index: 2;
-  width: 108px;
-  height: 108px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  background: radial-gradient(circle at 50% 38%,
-    rgba(255, 208, 0, 0.16), rgba(43, 31, 64, 0.55) 70%);
-  border: 1px solid rgba(255, 208, 0, 0.30);
-  box-shadow:
-    0 0 0 6px rgba(255, 208, 0, 0.04),
-    0 18px 44px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  animation: stage-bob 5s ease-in-out infinite;
-}
-.stage-empty-mark svg { width: 46px; height: 46px; }
-
-/* Drifting motes — a few accent/purple orbs floating around the aura. */
-.stage-orb {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  animation: stage-float 6s ease-in-out infinite;
-}
-.stage-orb-a { width: 8px;  height: 8px;  top: 4%;     left: 14%;  background: rgba(255, 208, 0, 0.55);  animation-delay: 0s;   }
-.stage-orb-b { width: 6px;  height: 6px;  top: 20%;    right: 6%;  background: rgba(160, 148, 176, 0.55); animation-delay: 1.2s; }
-.stage-orb-c { width: 10px; height: 10px; bottom: 12%; left: 2%;   background: rgba(255, 220, 77, 0.42);  animation-delay: 2.4s; }
-.stage-orb-d { width: 5px;  height: 5px;  bottom: 4%;  right: 18%; background: rgba(123, 58, 180, 0.62);  animation-delay: 3.1s; }
-
+/* "Wish." — large serif in accent gold, one slow opacity pulse (0.6→1.0, 4s). */
 .stage-empty-title {
-  position: relative;
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 72px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--accent);
+  animation: stage-wish-pulse 4s ease-in-out infinite;
 }
 
 .stage-empty-sub {
-  position: relative;
-  font-size: 14.5px;
-  line-height: 1.6;
-  max-width: 344px;
+  font-size: 15px;
   color: var(--text-secondary);
 }
 
-@keyframes stage-pulse {
-  0%   { transform: scale(0.7); opacity: 0; }
-  18%  { opacity: 0.7; }
-  100% { transform: scale(1.9); opacity: 0; }
-}
-@keyframes stage-bob {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-8px) scale(1.02); }
-}
-@keyframes stage-float {
-  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.35; }
-  50%      { transform: translateY(-16px) translateX(4px); opacity: 0.85; }
-}
-@keyframes stage-bloom {
-  0%, 100% { transform: scale(1);    opacity: 0.75; }
-  50%      { transform: scale(1.08); opacity: 1; }
+@keyframes stage-wish-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
 }
 
-/* Respect reduced-motion — hold a calm static composition, no animation. */
 @media (prefers-reduced-motion: reduce) {
-  .stage-empty::before,
-  .stage-ring,
-  .stage-empty-mark,
-  .stage-orb { animation: none; }
-  .stage-ring { opacity: 0.16; }
+  .stage-empty-title { animation: none; opacity: 1; }
 }
 
 /* ── PRODUCT GRID ── */
