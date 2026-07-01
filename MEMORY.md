@@ -3065,3 +3065,21 @@ One continuous working session, logged in pieces as Sessions 106/107/108 + adden
 8. **`998353c`** docs: S108 addendum log.
 
 Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimalist), cart-add celebration (celebrate.png + confetti), post-checkout stage freeze fixed, broken mascot asset path fixed. Every commit tsc-clean + 4 overflow checks where CSS/layout touched. All pushed to main; Vercel auto-deploys.
+
+## Session 109 — 2026-07-01
+### What We Did
+- Committed `15622a2` (pushed to main `b209383..15622a2`, Vercel auto-deploys). 3 files: `app/api/chat/route.ts`, `hooks/useChat.ts`, `directives/system_prompt.md`. Two fixes:
+  1. **Name ask → its own separate bubble.** Was appended to the product reply sentence (buried, hard to read). New hidden marker `[NAME_ASK: …]` whose INNER text IS shown to the user (unlike every other marker, which is stripped). Flow: model emits product prose + `[NAME_ASK: <standalone question>]` at end → `route.ts` (`NAME_ASK_RE`) strips it from `cleaned`, extracts to `nameAsk`, suppresses it if `userProfile.name` already known, returns `nameAsk` in JSON → `useChat` pushes a SECOND agent bubble (`responseId + "-nameask"`, added to the dedup guard). To keep the "already asked?" scan working, the stored `apiMessages` assistant content = `[message, nameAsk].join(" ")` so history still shows the ask even though it renders as two bubbles. `system_prompt.md` NAME CAPTURE rewritten: name question goes ONLY inside the marker, never in prose, at most once/session; marker documented in the hidden-markers list.
+  2. **Sender name auto-fills from profile — no code change needed, verified already wired.** `missingCheckoutFields` already uses `senderResolved = d.senderName || opts.userName` (route.ts:749) so a gift only flags "sender name" missing when BOTH are empty; route passes `userProfile.name` into the gate (1706) and `createOrder` (1724); `createOrder` falls back `d.senderName || userName || "Kapruka Customer"` (1261). Prompt line 424 already says "if name known, emit `[CO_SENDER]` once, do NOT re-ask." Left as-is.
+- NOTE: commit message names "Wish. empty state" but no empty-state file changed this session — that was S108 (`7f56bf5`). The phrase in the message is carryover; actual diff is the two fixes above only.
+- Verification: `tsc --noEmit` exit 0 (twice — once during build, once final pre-push). No CSS/layout touched (route/hook/prompt only) → 4 overflow checks unaffected; `#messages-container` overflow-y:auto intact.
+
+### Gaps Identified
+- Name ask renders immediately as a second bubble with no delay — feels simultaneous, not "typed after." Could add a short setTimeout in useChat for a more human beat if it reads too abrupt in the smoke test.
+- `NAME_ASK` is the first marker whose contents are user-visible. If the model ever forgets and also writes the name question in prose, the user sees it twice. Prompt forbids this but it's model-dependent, not enforced server-side.
+
+### Mistakes & Lessons
+- Reused the existing single-turn response shape (add a field, push a bubble) instead of a real second API round-trip — keeps it cheap and StrictMode-safe. Lesson: a "separate message on its own turn" in a single-turn arch = a second bubble from one response + history-join for continuity, not a second request.
+
+### Next Steps
+- Smoke test on live URL after deploy (from prior turn): fresh session → product search shows a distinct second name-ask bubble; give name → never re-asks; ignore → never re-asks; gift with name known → no sender re-ask, order uses profile name as sender.
