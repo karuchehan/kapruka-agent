@@ -62,6 +62,11 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   const initialSent = useRef(false);
   const openedCheckout = useRef<Set<string>>(new Set());
   const prevCartCount = useRef(0);
+  // Bumped whenever the cart count rises → Machan flashes his laugh. Driven off
+  // cartCount so it fires for BOTH the stage button and conversational adds
+  // (same event that updates the count), not just one path.
+  const [cartCelebrate, setCartCelebrate] = useState(0);
+  const prevCartForCelebrate = useRef(0);
 
   // Snapshot of the products in the cart, passed to sendMessage so the API turn
   // that confirms the order can build the checkout card from real cart items.
@@ -123,6 +128,15 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     initialSent.current = true;
     sendMessage(initialQuery, userProfile, recipientProfile, cartProducts, { chatState: buildChatState(initialQuery) });
   }, [apiMessages, initialQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cart-add celebration: when the count rises, bump the celebrate signal so
+  // Machan flashes his laugh frame. Separate ref from the cart-empty effect so
+  // the two don't clobber each other's prev-count tracking.
+  useEffect(() => {
+    const prev = prevCartForCelebrate.current;
+    prevCartForCelebrate.current = cartCount;
+    if (cartCount > prev) setCartCelebrate((c) => c + 1);
+  }, [cartCount]);
 
   // Cart-empty detection: when cart drops from non-zero to zero, inject a hidden
   // system message so the agent knows to exit any active checkout flow.
@@ -247,7 +261,7 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
           {/* Machan stands flush on top of the input bar, anchored over the mic.
               pointer-events:none so he never blocks the input. */}
           <div className="machan-floating" aria-hidden="true">
-            <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} />
+            <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} celebrate={cartCelebrate} />
           </div>
           <VoiceTextInput onSend={handleSend} />
         </div>

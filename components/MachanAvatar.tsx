@@ -6,6 +6,12 @@ interface Props {
   state: "idle" | "thinking";
   /** Wrapper height in px; images fill it (height 100%, width auto). */
   size?: number;
+  /**
+   * Increment this to fire a transient laugh reaction (e.g. on cart-add). Each
+   * change to a new value flashes the laughing frame for 1.5s, then settles back
+   * to idle/thinking — same cross-fade as tap-to-laugh.
+   */
+  celebrate?: number;
 }
 
 // Three mascot frames stacked absolutely; we cross-fade opacity between them and
@@ -17,18 +23,31 @@ interface Props {
 // Tapping Machan fires a transient "laughing" frame for ~1s, then he fades back
 // to his current default (idle, or thinking if the agent is busy) — same
 // cross-fade used for idle↔thinking, so it feels of a piece.
-export function MachanAvatar({ state, size = 80 }: Props) {
+export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
   const thinking = state === "thinking";
   const [laughing, setLaughing] = useState(false);
   const laughTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (laughTimer.current) clearTimeout(laughTimer.current); }, []);
 
+  function fireLaugh(ms: number) {
+    if (laughTimer.current) clearTimeout(laughTimer.current);
+    setLaughing(true);
+    laughTimer.current = setTimeout(() => setLaughing(false), ms);
+  }
+
   function handleTap() {
     if (laughing) return; // already laughing — ignore re-taps until it settles
-    setLaughing(true);
-    laughTimer.current = setTimeout(() => setLaughing(false), 1000);
+    fireLaugh(1000);
   }
+
+  // Cart-add celebration: parent bumps `celebrate` on the same event that updates
+  // the cart count. Skip the mount value (0) so he only laughs on real adds.
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    fireLaugh(1500);
+  }, [celebrate]);
 
   const imgStyle: React.CSSProperties = {
     position: "absolute",
