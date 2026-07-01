@@ -103,6 +103,7 @@ const CO_CITY_RE   = /\[CO_CITY:\s*([^\]\n]+)\]/i;   // delivery city
 const CO_DATE_RE   = /\[CO_DATE:\s*(\d{4}-\d{2}-\d{2})\]/i; // delivery date
 const CO_SENDER_RE = /\[CO_SENDER:\s*([^\]\n]+)\]/i; // gift-card sender name (the USER)
 const CO_GIFTMSG_RE = /\[CO_GIFTMSG:\s*([^\]\n]+)\]/i; // gift-card note text
+const NAME_ASK_RE = /\[NAME_ASK:\s*([^\]\n]+)\]/i; // one-time name question → own bubble
 
 // ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
 
@@ -1603,6 +1604,10 @@ export async function POST(req: Request) {
   const checkoutFields: CheckoutData = {};
   let checkout: CheckoutResult | null = null;
   let checkoutError: string | null = null;
+  // The name question, when the NAME CAPTURE trigger fires — returned as its own
+  // field so the client renders it as a SEPARATE agent bubble, never appended to
+  // the product reply.
+  let nameAsk = "";
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -1649,6 +1654,7 @@ export async function POST(req: Request) {
       .replace(CO_DATE_RE, "")
       .replace(CO_SENDER_RE, "")
       .replace(CO_GIFTMSG_RE, "")
+      .replace(NAME_ASK_RE, "")
       .replace(/AVAILABLE PRODUCTS[^\n]*\n[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
       .replace(/\d+\.\s+[^\n]+(?:—|–)\s*LKR\s*[\d,]+[^\n]*/gi, "")
       .replace(/LAST SHOWN PRODUCTS[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
@@ -1682,6 +1688,14 @@ export async function POST(req: Request) {
       const date = grab(CO_DATE_RE);   if (date)   checkoutFields.date = date;
       const sender = grab(CO_SENDER_RE); if (sender) checkoutFields.senderName = sender;
       const gmsg = grab(CO_GIFTMSG_RE); if (gmsg)  checkoutFields.giftMessage = gmsg;
+    }
+
+    // [NAME_ASK: …] — the one-time name question. Extracted from raw (stripped from
+    // `cleaned`) so the client can render it as its own bubble, distinct from the
+    // product reply. Suppressed if the user's name is already known.
+    {
+      const m = rawText.match(NAME_ASK_RE);
+      if (m && !(userProfile?.name || "").trim()) nameAsk = m[1].trim();
     }
 
     // Hidden UI markers → structured fields (parsed from raw, stripped from message).
@@ -1825,5 +1839,5 @@ export async function POST(req: Request) {
     return Response.json({ error: (err as Error).message || "Internal server error" }, { status });
   }
 
-  return Response.json({ message, products, checkoutUrl, delivery, tracking, occasion, giftMessage, bundle, orderConfirmed, addedProducts, removedProducts, checkoutFields, checkout, checkoutError });
+  return Response.json({ message, nameAsk, products, checkoutUrl, delivery, tracking, occasion, giftMessage, bundle, orderConfirmed, addedProducts, removedProducts, checkoutFields, checkout, checkoutError });
 }

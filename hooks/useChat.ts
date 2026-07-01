@@ -177,9 +177,12 @@ export function useChat(
         // Already applied? Guard on responseId, and also on the gift/checkout
         // sentinels for the case where data.message is empty (responseId never
         // gets added then).
-        if (base.some((i) => i.id === responseId || i.id === responseId + "-gift" || i.id === responseId + "-checkout")) return base;
+        if (base.some((i) => i.id === responseId || i.id === responseId + "-gift" || i.id === responseId + "-checkout" || i.id === responseId + "-nameask")) return base;
         const additions: ChatItem[] = [];
         if (data.message) additions.push({ id: responseId, type: "agent", text: data.message });
+        // The name question rides back as its own field → its own agent bubble,
+        // visually distinct from the product reply (never appended to it).
+        if (data.nameAsk) additions.push({ id: responseId + "-nameask", type: "agent", text: data.nameAsk });
         if (freshProducts.length) {
           additions.push({ id: uid(), type: "products", products: freshProducts, checkoutUrl: data.checkoutUrl });
         }
@@ -235,8 +238,12 @@ export function useChat(
         for (const p of data.removedProducts as Product[]) onCartRemove(p);
       }
 
-      if (data.message) {
-        setApiMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
+      // Keep the name ask in conversation history (joined to the reply) so the
+      // model's "already asked?" scan sees it and never re-asks — even though it
+      // renders as a separate bubble.
+      const assistantContent = [data.message, data.nameAsk].filter(Boolean).join(" ");
+      if (assistantContent) {
+        setApiMessages((prev) => [...prev, { role: "assistant", content: assistantContent }]);
       } else {
         setApiMessages((prev) => prev.slice(0, -1));
       }
