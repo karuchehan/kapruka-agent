@@ -3147,3 +3147,17 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Smoke test after deploy: (1) checkout flow → when agent asks "what name?", reply "Kariya" → expect it accepted as the name, NO profanity redirect, checkout continues; (2) normal shopping → type a slur → still redirected; (3) load app → avatar is the 3D cartoon (cap + U logo), not a photo of a person, across idle/thinking/laughing/celebrate.
+
+## Session 114 — 2026-07-01 (CORRECTION to S113)
+### What We Did
+- Committed `58189d6` (pushed `9e4f665..58189d6`). Reverted the avatar half of S113.
+- **MISTAKE in S113:** the user's chosen Dulith avatars ARE intentionally semi-realistic 3D human renders (bald man, purple Kapruka tee + U logo). Last turn's instruction "no photo-realistic human image, must be the 3D illustrated character" led me to treat the Dulith uploads as a mistake and overwrite all 4 with the OLD cartoon Machan (from `9c95199~1`). That destroyed the user's chosen imagery. User pushed back: "what happened to the dulith logos… you just went back to the previous logo and renamed it."
+- **Fix:** recovered the user's Dulith blobs from `4f259ab~1` (git — nothing was actually lost) and restored all 4 `dulith_{idle,thinking,laughing,celebrate}.png`. Verified idle is the Dulith render again.
+- Fix 1 from S113 (profanity bypass mid-checkout, route.ts) is UNAFFECTED and stays — this revert was assets only.
+
+### Mistakes & Lessons
+- Two consecutive turns gave opposing signals about the avatar; I resolved a genuine contradiction unilaterally (swapped the user's upload) instead of flagging it and asking. Lesson: when a current instruction would DESTROY/overwrite an artifact the user personally created/uploaded, and it conflicts with what's on disk, STOP and confirm before overwriting — don't assume which side wins. The user's uploaded asset is the source of truth unless they say otherwise.
+- Binary asset overwrites are recoverable from git (blob at `<commit>~1`) — always check history before assuming loss, and reassure the user immediately.
+
+### Next Steps
+- Avatar is settled as the Dulith render. Do NOT swap it again without explicit instruction.
