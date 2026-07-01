@@ -3179,3 +3179,17 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 ### Next Steps
 - Empty state is settled: "All the Joys. One Cart", one line, white+gold, per-letter left→right glow sweep. Preserve the name-ask separate-bubble behavior (now in auto-memory).
 - Live smoke test after deploy: glow travels A→…→t and repeats; line stays one row on narrow widths; reduced-motion holds it static.
+
+## Session 116 — 2026-07-01
+### What We Did
+- Committed `f577117` (pushed `9aba13e..f577117`). Two fixes, both from a live screenshot bug report (user angry: a slur "Kariya" was accepted as a delivery name).
+- **Fix 1 — profanity guard is now ALWAYS-ON (removed the mid-checkout bypass).** S113 had added `inCheckoutFieldCollection()` to SKIP the profanity check during checkout so a name like "Kariya" wouldn't be flagged. That was wrong: "kariya" is an actual slur in the list, so the bypass let ANY slur through as an order field value. Deleted `inCheckoutFieldCollection` + `CHECKOUT_FIELD_ASK_RE` and the `midCheckout` gate; the guard now runs on every latest user message, checkout included. Verified: "Kariya"/"kariya"/"KARIYA" all flagged. **This deliberately REVERSES the S113 instruction** ("a recipient named Kariya should not be flagged") — the user's newer, explicit priority is blocking slurs everywhere, even as order details. A flagged field value is redirected, never saved.
+- **Fix 2 — gift note gated to gifts only.** User: only ask for a note if it's a gift. The GIFT MESSAGE OFFER rule already required gift context (line 434a + "skip for self-purchases"), but the model wasn't honoring it. Added an unmissable top-of-rule GIFT GATE: self-purchase (the default) → NEVER offer/mention/ask about a note at any point, including checkout; a self-shopper at checkout is asked ONLY for name/phone/address/city. `directives/system_prompt.md` only — restart dev to reload (per [[project-onboarding-redesign]] lesson).
+- Verification: `tsc --noEmit` exit 0; no orphan refs to the deleted helper; regex sanity confirmed "Kariya" caught, "Chehan"/"Nimal"/"Colombo 07" pass.
+
+### Gaps / Tradeoffs
+- SL profanity is SUBSTRING match, so a legit Sri Lankan surname containing a slur substring (e.g. "Kariyawasam" contains "kariya") is ALSO flagged now. Accepted per the user's explicit "block the words" priority. If it becomes a problem, switch the SL matcher to word-boundary/standalone for multi-token field values while keeping partial match elsewhere.
+- Fix 2 is prompt-only (model-dependent). If the model still over-offers notes on self-purchases, may need a server-side gate (only allow [GIFT_MESSAGE]/note offers when a recipient differs from the user).
+
+### Next Steps
+- Live smoke test after deploy: (1) at "what name should I put on the delivery?", type "Kariya" → expect the clean-language redirect, NOT accepted as the name; (2) self-purchase checkout → agent asks name/phone/address/city only, NEVER a note; (3) gift checkout (recipient named) → note offered once as before; (4) normal slur while shopping → still redirected.
