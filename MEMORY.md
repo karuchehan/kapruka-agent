@@ -2982,3 +2982,24 @@ Two surgical fixes + shipped the stacked S107 checkout-language work in one push
 - Aggregation-point pattern for silent per-item catches: keep individual failures silent, but detect "all empty AND >=1 threw" at the join to distinguish service hiccup from genuine empty. Applies anywhere `Promise.all` maps `.catch(()=>[])`.
 ### Next Steps
 - Smoke test on live URL after Vercel deploy (below).
+
+## Session 106 — 2026-07-01
+### What We Did
+- Three stacked polish changes, committed as `c3d6b47` (pushed to main, Vercel auto-deploys):
+  1. **Onboarding gradient** — `app/globals.css:55`: gradient endpoint `#4a2490` → `#1a1025` so `#onboarding-screen` resolves into chat `--bg-primary` (no hard purple band at the seam). One-line CSS change.
+  2. **Products on load** — `components/ProductStage.tsx`: added `STATIC_FEATURED` (4 real MCP products — cake `CAKE00KA001685`, roses `FLOWERS00T2034`, chocolate box `CHOCOLATES00767`, hamper `EF_PC_HAMP0V18POD00018P`; real `product_id`s so add/checkout work). Render = `display = hasReal ? products : STATIC_FEATURED`. No MCP call on mount, no loading state; skeletons now gated on `isLoading && hasReal` only. GSAP `sig` keyed on `display` so featured animate in. Removed now-unreachable `stage-empty` JSX block.
+  3. **Machan cart reaction** — `components/MachanAvatar.tsx`: new `celebrate?: number` prop; each bump flashes `laughing.png` 1.5s via existing cross-fade (`fireLaugh(ms)` helper, first-render guard skips mount). `components/ChatScreen.tsx`: `cartCelebrate` state + `prevCartForCelebrate` ref, bumped in a `cartCount`-watching effect (fires on stage-button AND conversational adds — same event that updates count). Passed as `celebrate={cartCelebrate}`.
+- Verification: `tsc --noEmit` exit 0 (twice — after edits and final pre-push). All 4 overflow checks pass; no overflow rules touched (`#messages-container` overflow-y:auto at globals.css:767 intact).
+- MCP product fetch: `kapruka_search_products` arg schema is `{arguments:{params:{q, response_format}}}` — field is `q` NOT `query`, and args wrap in a nested `params` object. Raw `price` comes back as `{amount,currency}` object (route.ts normalizes to number for the app's `Product` type).
+
+### Gaps Identified
+- No 4th celebration PNG in `public/brand/logos/` (only `laughing.png`, `machan_idle.png`, `machan_thinking.png`) — used existing laugh state as instructed.
+- Featured products are desktop-only (ProductStage). Mobile `ProductSheet` still renders nothing until real products arrive (ChatScreen gates it on `stageProducts.length > 0`). Prompt scoped to ProductStage, so left as-is.
+- Commit message (user-provided) lists palette/purple-purge/bundle-silence/checkout-register/empty-cart/dead-code — those already landed in `efcb7c4`/`c4b30ec` (prior sessions, already pushed). This commit's actual diff = only the 3 new polish items above (4 files).
+
+### Mistakes & Lessons
+- `.stage-empty` CSS rules now dead (JSX removed). Left in globals.css — harmless, out of the 3-change scope. Candidate for a future dead-CSS sweep.
+- Push succeeded first try — `karuchehan` gh account already active (no 403 this session). Prior-session lesson still stands: verify `karuchehan` before pushing this repo.
+
+### Next Steps
+- Smoke test on live URL after Vercel deploy: (1) desktop load shows 4 featured cards instantly; (2) a search replaces them cleanly; (3) add-to-cart via button flashes Machan laugh ~1.5s; (4) conversational add flashes it too; (5) onboarding→chat seam has no hard purple band.
