@@ -2865,3 +2865,25 @@ Two features, both stacked on `main`, NOT committed, NOT pushed (user: hold for 
 ### Next Steps
 - Production re-test the GIFT path on the live URL once deployed: add a note + send to a named recipient → open the pay-link → confirm the Kapruka summary now shows the note under "Personal Message" and the Sender = the user (not the recipient).
 - Remaining edges unchanged: failure-message register English-only; order_ref→track still post-payment only.
+
+## Session 103 — 2026-07-01
+### What We Did
+- **Tester reported tracking failed for VPAY827982BA** (screenshot: two "couldn't find that order / double-check your number" replies). Had worked once before.
+- **Root cause = transient MCP hiccup + bad handling on OUR side, NOT a bad number and NOT a permanent MCP break.** Confirmed by hitting `mcp.kapruka.com/mcp` `kapruka_track_order` directly: VPAY827982BA returns full `status: delivered` payload right now. A genuinely fake number (FAKE000NOPE) returns `isError:false` with raw text `"Error (order_not_found): No order exists..."`.
+- **The bug:** `route.ts` catch block + `mapTracking` routed EVERY failure (timeout / 5xx / empty / statusless) to `notFoundTracking` → same "double-check your Kapruka confirmation email" message. So a transient MCP failure told a user with a valid number that their number was wrong.
+### Fixes (lib/types.ts, app/api/chat/route.ts, components/TrackingCard.tsx — NO css/layout)
+- New `serviceErrorTracking()` state: `found:false, serviceError:true, status:"service_error"`. Kept separate from `notFoundTracking`.
+- `mapTracking` now only treats a raw payload matching `/order_not_found|no order (exists|found)|not found/i` as a genuine not-found; any other statusless/null response → serviceError.
+- track_order catch block → `serviceErrorTracking` (a thrown MCP error is transient by definition, not proof of a bad number).
+- `track_order` timeout bumped 6s→12s via `callMCP(..., 12000)` — delivered payload is large + MCP slow to warm; likely the actual trigger.
+- System-prompt block: third branch on `serviceError` → "couldn't reach tracking, try again in a moment", explicitly does NOT blame the number.
+- `TrackingCard`: `serviceError` renders "Tracking unavailable / Please try again in a moment" instead of "No order found / <number>".
+### Verification
+- `tsc --noEmit` clean. Overflow checks 2–4 pass (no CSS touched; #messages-container still overflow-y:auto).
+- Direct MCP probes captured both shapes (delivered payload + order_not_found raw text) — mapping branches match reality.
+### Push
+- Committed + pushed to `origin/main` (`fe5071f`, karuchehan gh — had to `gh auth switch --user karuchehan`; active account was gtmkaru → 403 first). `9845ac5..fe5071f`. Vercel auto-deploys.
+### Mistakes & Lessons
+- gh active account defaults to `gtmkaru`, which has NO push access to karuchehan/kapruka-agent → 403. Always `gh auth switch --user karuchehan && gh auth setup-git` before push. (Deploy memory now confirmed with the exact fix.)
+### Next Steps
+- Production smoke test on live URL once deployed (see Smoke Test below). Can't force a transient failure on demand, but the happy-path delivered card + the genuine-bad-number path are testable now.
