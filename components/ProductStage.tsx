@@ -13,6 +13,46 @@ interface Props {
   addedIds: Set<string>;
 }
 
+// Empty-state headline whose glow travels letter-by-letter, left to right,
+// across the WHOLE phrase (both words). Each letter is its own span with an
+// animation-delay proportional to its position in the full sequence, so the
+// highlight sweeps A→l→l→…→t continuously. "All the Joys." is white, "One Cart"
+// is accent gold — the glow tints to each letter's own colour (currentColor).
+function EmptyStateGlow() {
+  const words: { text: string; cls: string }[] = [
+    { text: "All the Joys.", cls: "joys" },
+    { text: "One Cart", cls: "cart" },
+  ];
+  // Total letters across both words drives the per-letter delay + full cycle
+  // length, so the sweep is one continuous pass end-to-end (not per-word).
+  const total = words.reduce((n, w) => n + w.text.length, 0);
+  const STEP = 0.12;                 // seconds between consecutive letters
+  const CYCLE = total * STEP + 2.2;  // full loop: sweep + a rest before repeating
+  let idx = 0;
+
+  return (
+    <p className="stage-empty-title glow-sweep" style={{ ["--cycle" as string]: `${CYCLE}s` }}>
+      {words.map((w, wi) => (
+        <span key={wi} className={w.cls}>
+          {Array.from(w.text).map((ch, ci) => {
+            const delay = idx * STEP;
+            idx++;
+            // Preserve spaces as a non-animated inline gap.
+            if (ch === " ") return <span key={ci}>&nbsp;</span>;
+            return (
+              <span key={ci} className="glow-letter" style={{ animationDelay: `${delay}s` }}>
+                {ch}
+              </span>
+            );
+          })}
+          {/* keep the inter-word space */}
+          {wi < words.length - 1 ? <span>&nbsp;</span> : null}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 /**
  * Right 65% "stage". Shows an atmospheric empty state until the first search
  * lands, then a large grid of tiles with big imagery and frosted-glass price
@@ -47,12 +87,10 @@ export function ProductStage({ products, isLoading, onAddToCart, addedIds }: Pro
     <section className="product-stage" aria-label="Product results">
       {!hasProducts && !isLoading && (
         // Minimalist empty state: the Kapruka line on ONE row — "All the Joys."
-        // in white, "One Cart" in accent gold — bold sans, slow opacity pulse.
+        // in white, "One Cart" in accent gold. A glow sweeps letter-by-letter
+        // from left to right across the whole phrase (see EmptyStateGlow).
         <div className="stage-empty" aria-hidden="true">
-          <p className="stage-empty-title">
-            <span className="joys">All the Joys.</span>{" "}
-            <span className="cart">One Cart</span>
-          </p>
+          <EmptyStateGlow />
         </div>
       )}
 

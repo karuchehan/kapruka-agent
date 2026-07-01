@@ -290,26 +290,41 @@ html, body {
 }
 
 /* "All the Joys. One Cart" — bold sans on ONE line; "All the Joys." white,
-   "One Cart" accent gold. Slow opacity pulse (0.6→1.0, 4s). */
+   "One Cart" accent gold. A glow travels letter-by-letter, left → right, across
+   the whole phrase (see EmptyStateGlow in ProductStage.tsx). */
 .stage-empty-title {
   font-size: clamp(24px, 3.2vw, 42px);
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.02em;
   white-space: nowrap;      /* keep "All the Joys. One Cart" on ONE line */
-  animation: stage-wish-pulse 4s ease-in-out infinite;
 }
 
 .stage-empty-title .joys { color: #fff; }
 .stage-empty-title .cart { color: var(--accent); }
 
-@keyframes stage-wish-pulse {
-  0%, 100% { opacity: 0.6; }
-  50%      { opacity: 1; }
+/* Each letter rests slightly dimmed, then briefly flares bright with a glow as
+   the sweep reaches it. Every letter shares the same --cycle duration; the
+   staggered animation-delay (set inline per letter) shifts the flare so the
+   highlight travels A→l→l→…→t. Glow uses currentColor, so white letters glow
+   white and gold letters glow gold. */
+.glow-sweep .glow-letter {
+  display: inline-block;
+  opacity: 0.5;
+  animation: letter-glow var(--cycle, 4.5s) ease-in-out infinite;
+  will-change: opacity, text-shadow;
 }
 
+@keyframes letter-glow {
+  0%              { opacity: 0.5; text-shadow: none; }
+  3%              { opacity: 1;   text-shadow: 0 0 10px currentColor, 0 0 22px currentColor; }
+  9%              { opacity: 0.5; text-shadow: none; }
+  100%            { opacity: 0.5; text-shadow: none; }
+}
+
+/* Reduced motion: no travelling glow — hold the phrase fully lit and static. */
 @media (prefers-reduced-motion: reduce) {
-  .stage-empty-title { animation: none; opacity: 1; }
+  .glow-sweep .glow-letter { animation: none; opacity: 1; text-shadow: none; }
 }
 
 /* ── PRODUCT GRID ── */
