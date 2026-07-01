@@ -3096,3 +3096,21 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Smoke test after deploy: open live URL → Dulith idle image shows floating; send a message → thinking frame; cart-add → celebrate frame + confetti; tap avatar → laughing frame. Confirm no broken-image (404) on any state.
+
+## Session 111 — 2026-07-01
+### What We Did
+- Committed `110fd7b` (pushed `a13a039..110fd7b`, Vercel auto-deploys). New Machan reaction + asset refresh, 5 files.
+- **Empty-cart-checkout shake.** When the user tries to checkout / "place order" with nothing in the cart, Machan does a brief left-right shake ("nothing here"). No sad/shrug PNG exists → reuses `dulith_idle.png` + a CSS shake. Fires ONLY on the server's explicit `empty_cart` rejection (route.ts:1724 already sets `checkoutError = "empty_cart"` + sends the agent's empty-cart reply), not on passive empty-cart state.
+  - `components/MachanAvatar.tsx` — new `shake?: number` prop; bump → `shaking` true 0.4s (mount value 0 skipped via `firstShake` ref), toggles `.shaking` class on the wrapper. `shakeTimer` cleaned up on unmount.
+  - `app/globals.css` — `@keyframes machan-shake` (3 quick shakes translateX ±6/6/5/4px over 0.4s ease-in-out) + `.machan-avatar.shaking` + `prefers-reduced-motion` guard (animation:none).
+  - `hooks/useChat.ts` — new 6th callback `onEmptyCartCheckout`; fires when `data.checkoutError === "empty_cart"`.
+  - `components/ChatScreen.tsx` — `emptyShake` state, wired as 6th useChat arg, passed `shake={emptyShake}` to MachanAvatar.
+- **Asset:** user re-replaced `public/brand/logos/dulith_idle.png` (committed in the same push).
+- Verification: `tsc --noEmit` exit 0. CSS touched → 4 overflow checks: no `overflow:hidden`/`overflow-x:hidden` on `#messages-container`/`#chat-screen` ancestors; `#messages-container overflow-y:auto` intact. New CSS is keyframes + `.shaking` only (no overflow props). Shake is translateX ±6px inside `.machan-floating` (absolute, z-20) within `#chat-screen` (fixed inset:0) → clipped, no scroll/overflow.
+
+### Gaps Identified
+- Shake won't co-occur with cart-add celebrate (empty cart = no adds), so no precedence conflict — but if a future path could bump both, `celebrate` frame currently outranks visually while `shaking` is a wrapper transform (they'd stack). Not a real path today.
+- Still no dedicated sad/shrug asset — shake on idle is the stand-in. If a real frame is added later, swap the idle-during-shake for it.
+
+### Next Steps
+- Smoke test after deploy: (1) empty cart → type "place order" → agent empty-cart reply + Machan shake, no confetti; (2) "checkout" empty → shake again; (3) add item then checkout → NO shake; (4) reduce-motion ON → reply shows, no shake.
