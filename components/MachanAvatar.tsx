@@ -91,22 +91,22 @@ export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
       onClick={handleTap}
     >
       <img
-        src="/brand/logos/machan_idle.png"
+        src="/brand/logos/dulith_idle.png"
         alt=""
         style={{ ...imgStyle, opacity: showIdle ? 1 : 0, transform: settle }}
       />
       <img
-        src="/brand/logos/machan_thinking.png"
+        src="/brand/logos/dulith_thinking.png"
         alt=""
         style={{ ...imgStyle, opacity: showThinking ? 1 : 0, transform: settle }}
       />
       <img
-        src="/brand/logos/machan_laughing.png"
+        src="/brand/logos/dulith_laughing.png"
         alt=""
         style={{ ...imgStyle, opacity: showLaughing ? 1 : 0, transform: showLaughing ? "scale(1)" : settle }}
       />
       <img
-        src="/brand/logos/machan_celebrate.png"
+        src="/brand/logos/dulith_celebrate.png"
         alt=""
         style={{ ...imgStyle, opacity: celebrating ? 1 : 0, transform: settle }}
       />
