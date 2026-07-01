@@ -502,9 +502,13 @@ function detectRegister(messages: ApiMessage[]): Register {
 // Romanized Sinhala/Sri Lankan slurs. Partial, case-insensitive match (spec:
 // "pakaya" must catch "PAKAYA" and "pakayaa") — so we test substring, not \b.
 const SL_PROFANITY = [
-  "hutho", "huththa", "pakaya", "kariya", "wesi", "ammata hukanna",
+  "hutho", "huththa", "pakaya", "wesi", "ammata hukanna",
   "huththi", "hutti", "hutta", "payya", "paiya", "ponnaya", "puka",
 ];
+// "kariya" is handled separately with WORD-BOUNDARY matching: it must flag when
+// standalone ("kariya", "you kariya") but NOT as part of a legit longer word
+// like the surname "Kariyawasam". Kept out of the substring list above.
+const KARIYA_RE = /\bkariya\b/i;
 // English profanity + common leet/masked variants (f*ck, sh*t, a$$, b!tch, …).
 // A leading \b anchors each alternative to a word start so innocent words that
 // merely CONTAIN a slur (peacock, bass, pass) never trip. A trailing (?![a-z])
@@ -518,7 +522,7 @@ function profanityRedirect(text: string): string | null {
   const t = (text || "").toLowerCase();
   if (!t.trim()) return null;
 
-  const slHit = SL_PROFANITY.some((w) => t.includes(w));
+  const slHit = SL_PROFANITY.some((w) => t.includes(w)) || KARIYA_RE.test(text || "");
   const enHit = EN_PROFANITY_RE.test(text || "");
   if (!slHit && !enHit) return null;
 
