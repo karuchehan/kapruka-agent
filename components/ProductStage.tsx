@@ -46,11 +46,13 @@ export function ProductStage({ products, isLoading, onAddToCart, addedIds }: Pro
   return (
     <section className="product-stage" aria-label="Product results">
       {!hasProducts && !isLoading && (
-        // Minimalist empty state: just the title (slow opacity pulse) and one
-        // inviting line. No icon, rings, or orbs.
+        // Minimalist empty state: the Kapruka line on ONE row — "All the Joys."
+        // in white, "One Cart" in accent gold — bold sans, slow opacity pulse.
         <div className="stage-empty" aria-hidden="true">
-          <p className="stage-empty-title">All the Joys.</p>
-          <p className="stage-empty-sub">One Cart.</p>
+          <p className="stage-empty-title">
+            <span className="joys">All the Joys.</span>{" "}
+            <span className="cart">One Cart</span>
+          </p>
         </div>
       )}
 

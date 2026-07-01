@@ -289,20 +289,19 @@ html, body {
   padding: 24px;
 }
 
-/* "Wish." — large serif in accent gold, one slow opacity pulse (0.6→1.0, 4s). */
+/* "All the Joys. One Cart" — bold sans on ONE line; "All the Joys." white,
+   "One Cart" accent gold. Slow opacity pulse (0.6→1.0, 4s). */
 .stage-empty-title {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 72px;
-  font-weight: 400;
-  line-height: 1;
-  color: var(--accent);
+  font-size: clamp(24px, 3.2vw, 42px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  white-space: nowrap;      /* keep "All the Joys. One Cart" on ONE line */
   animation: stage-wish-pulse 4s ease-in-out infinite;
 }
 
-.stage-empty-sub {
-  font-size: 15px;
-  color: var(--text-secondary);
-}
+.stage-empty-title .joys { color: #fff; }
+.stage-empty-title .cart { color: var(--accent); }
 
 @keyframes stage-wish-pulse {
   0%, 100% { opacity: 0.6; }
