@@ -101,7 +101,8 @@ const CO_PHONE_RE  = /\[CO_PHONE:\s*([^\]\n]+)\]/i;  // recipient phone (07x or 
 const CO_ADDR_RE   = /\[CO_ADDR:\s*([^\]\n]+)\]/i;   // full street address
 const CO_CITY_RE   = /\[CO_CITY:\s*([^\]\n]+)\]/i;   // delivery city
 const CO_DATE_RE   = /\[CO_DATE:\s*(\d{4}-\d{2}-\d{2})\]/i; // delivery date
-const CO_SENDER_RE = /\[CO_SENDER:\s*([^\]\n]+)\]/i; // gift-card sender name
+const CO_SENDER_RE = /\[CO_SENDER:\s*([^\]\n]+)\]/i; // gift-card sender name (the USER)
+const CO_GIFTMSG_RE = /\[CO_GIFTMSG:\s*([^\]\n]+)\]/i; // gift-card note text
 
 // ── MCP URL + TOOL MAP ────────────────────────────────────────────────────────
 
@@ -629,6 +630,7 @@ interface CheckoutData {
   city?: string;
   date?: string;
   senderName?: string;
+  giftMessage?: string;
 }
 interface ChatState {
   cartItems: { name: string; price: number }[];
@@ -1131,10 +1133,15 @@ async function createOrder(
   cart: { product_id: string; quantity: number }[],
   d: CheckoutData,
   city: string,
+  userName = "",
 ): Promise<CheckoutResult> {
   const recipientName = (d.recipientName || "").trim();
-  const senderName = (d.senderName || recipientName || "Kapruka Customer").trim();
-  const payload = {
+  // Sender is the USER, never the recipient. Prefer an explicit [CO_SENDER], then the
+  // user's known name, then a neutral fallback — so a gift card never reads
+  // "from <recipient> to <recipient>".
+  const senderName = (d.senderName || userName || "Kapruka Customer").trim();
+  const giftMessage = (d.giftMessage || "").trim().slice(0, 300);
+  const payload: Record<string, unknown> = {
     cart,
     recipient: { name: recipientName, phone: (d.phone || "").trim() },
     delivery: {
@@ -1146,6 +1153,7 @@ async function createOrder(
     sender: { name: senderName, anonymous: false },
     currency: "LKR",
   };
+  if (giftMessage) payload.gift_message = giftMessage;
   const res = await callMCP("create_order", payload, 12000);
   // The tool returns { checkout_url, order_ref, summary, expires_at } on success,
   // or { raw: "Error (code): message" } / an error string on failure.
@@ -1508,6 +1516,7 @@ export async function POST(req: Request) {
       .replace(CO_CITY_RE, "")
       .replace(CO_DATE_RE, "")
       .replace(CO_SENDER_RE, "")
+      .replace(CO_GIFTMSG_RE, "")
       .replace(/AVAILABLE PRODUCTS[^\n]*\n[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
       .replace(/\d+\.\s+[^\n]+(?:—|–)\s*LKR\s*[\d,]+[^\n]*/gi, "")
       .replace(/LAST SHOWN PRODUCTS[\s\S]*?(?=\n\n[A-Z]|$)/gi, "")
@@ -1540,6 +1549,7 @@ export async function POST(req: Request) {
       const city = grab(CO_CITY_RE);   if (city)   checkoutFields.city = city;
       const date = grab(CO_DATE_RE);   if (date)   checkoutFields.date = date;
       const sender = grab(CO_SENDER_RE); if (sender) checkoutFields.senderName = sender;
+      const gmsg = grab(CO_GIFTMSG_RE); if (gmsg)  checkoutFields.giftMessage = gmsg;
     }
 
     // Hidden UI markers → structured fields (parsed from raw, stripped from message).
@@ -1573,7 +1583,7 @@ export async function POST(req: Request) {
             orderConfirmed = false;
             checkoutError = "city_not_deliverable";
           } else {
-            checkout = await createOrder(cartForOrder, merged, canonCity);
+            checkout = await createOrder(cartForOrder, merged, canonCity, (userProfile?.name || "").trim());
           }
         } catch (e) {
           orderConfirmed = false;

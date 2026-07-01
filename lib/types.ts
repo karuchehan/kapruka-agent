@@ -46,7 +46,8 @@ export interface CheckoutData {
   address?: string;       // full street address
   city?: string;          // Kapruka delivery city (canonicalised server-side)
   date?: string;          // delivery date YYYY-MM-DD (defaults server-side if absent)
-  senderName?: string;    // gift-card sender (defaults to recipientName / user)
+  senderName?: string;    // gift-card sender (the USER; defaults to userProfile.name)
+  giftMessage?: string;   // gift-card note text, passed to create_order
 }
 
 export interface ChatState {
