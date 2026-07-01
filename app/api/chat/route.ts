@@ -493,6 +493,46 @@ function detectRegister(messages: ApiMessage[]): Register {
   return "english";
 }
 
+// ── PROFANITY GUARD ──────────────────────────────────────────────────────────
+// Checked on the LATEST user message ONLY (never history, never product/system
+// content) BEFORE any MCP or Anthropic call, so a flagged message costs zero
+// tokens. Returns a friendly, register-matched one-liner to send straight back,
+// or null when the message is clean. Never lectures, never refuses to help.
+
+// Romanized Sinhala/Sri Lankan slurs. Partial, case-insensitive match (spec:
+// "pakaya" must catch "PAKAYA" and "pakayaa") — so we test substring, not \b.
+const SL_PROFANITY = [
+  "hutho", "huththa", "pakaya", "kariya", "wesi", "ammata hukanna",
+  "huththi", "hutti", "hutta", "payya", "paiya", "ponnaya", "puka",
+];
+// English profanity + common leet/masked variants (f*ck, sh*t, a$$, b!tch, …).
+// A leading \b anchors each alternative to a word start so innocent words that
+// merely CONTAIN a slur (peacock, bass, pass) never trip. A trailing (?![a-z])
+// guards the words that DO start with a common prefix (ass→assign/assume,
+// cock→cockpit/cocktail, dick→Dickens) while the fuck/shit/bitch families stay
+// loose so inflections (fucking, shitty) still match.
+const EN_PROFANITY_RE =
+  /\b(?:motherf[u*@]+c*ker|f+[u*@]+c*k+|sh[i*!1]+t|b[i*!1]tch|assh[o0]le|a\$\$?|ass(?![a-z])|bastard|c[u*]nt|d[i1*]ck(?![a-z])|pr[i1*]ck|c[o0*]ck(?![a-z])|wh[o0]re)/i;
+
+function profanityRedirect(text: string): string | null {
+  const t = (text || "").toLowerCase();
+  if (!t.trim()) return null;
+
+  const slHit = SL_PROFANITY.some((w) => t.includes(w));
+  const enHit = EN_PROFANITY_RE.test(text || "");
+  if (!slHit && !enHit) return null;
+
+  // Order per spec: Sinhala script present → Sinhala reply; else romanized
+  // Singlish/Sinhala slur → Singlish reply; else English → English reply.
+  if (SINHALA_SCRIPT_RE.test(text || "")) {
+    return "Aiyo machang kunu harapa kiyanda epa 😅";
+  }
+  if (slHit) {
+    return "Aiyo machang, let's keep it clean 😅 — now, what were we shopping for?";
+  }
+  return "Hey, let's keep it friendly! 😄 What can I help you find today?";
+}
+
 // Localized copy for the hardcoded checkout false-success override. Product names,
 // prices, and the missing-field words (name/phone/address/city) stay English — same
 // code-switching convention the prompt uses. `fields` is the comma-joined missing
@@ -1335,6 +1375,15 @@ export async function POST(req: Request) {
 
   if (!messages || !Array.isArray(messages)) {
     return Response.json({ error: "messages array required" }, { status: 400 });
+  }
+
+  // PROFANITY GUARD — check the LATEST user message before any MCP/Anthropic call.
+  // A flagged message returns a friendly, register-matched redirect immediately
+  // and spends zero API tokens. Same JSON shape as a normal reply (message only).
+  {
+    const latestUser = [...(messages as ApiMessage[])].reverse().find((m) => m.role === "user");
+    const redirect = latestUser ? profanityRedirect(latestUser.content) : null;
+    if (redirect) return Response.json({ message: redirect });
   }
 
   const priorProducts: Product[] = Array.isArray(lastShownProducts)
