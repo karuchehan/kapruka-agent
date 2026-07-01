@@ -3083,3 +3083,16 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Smoke test on live URL after deploy (from prior turn): fresh session → product search shows a distinct second name-ask bubble; give name → never re-asks; ignore → never re-asks; gift with name known → no sender re-ask, order uses profile name as sender.
+
+## Session 110 — 2026-07-01
+### What We Did
+- Committed `9c95199` (pushed `f444b4f..9c95199`, Vercel auto-deploys). Mascot asset swap: Machan → Dulith.
+- User dropped 4 new PNGs in `public/brand/logos/` (`dulith_idle/thinking/laughing/celebrate.png`) and deleted the 4 `machan_*.png`. Staged deletes + adds, updated the 4 `src` paths in `components/MachanAvatar.tsx` (`/brand/logos/machan_*.png` → `dulith_*.png`).
+- Left UNCHANGED on purpose: the `.machan-floating` CSS class (ChatScreen/InputArea/globals.css) and the `machan`/`machang` romanized-Singlish/Tamil slang tokens in route.ts (SINGLISH_ROMAN_RE + checkout error copy) — those are Sri Lankan slang, NOT avatar-name refs. Only image srcs were the avatar.
+- Verification: `grep "machan_"` across app/components/hooks/lib → zero hits. `tsc --noEmit` exit 0. No CSS/layout touched → overflow checks unaffected.
+
+### Gaps Identified
+- Component file is still named `MachanAvatar.tsx` and the class is still `.machan-floating` — cosmetic mismatch with the Dulith assets. Deferred (rename = churn across ChatScreen/InputArea/globals.css/Confetti comment for no functional gain). Rename later if the Machan name is being fully retired from the brand.
+
+### Next Steps
+- Smoke test after deploy: open live URL → Dulith idle image shows floating; send a message → thinking frame; cart-add → celebrate frame + confetti; tap avatar → laughing frame. Confirm no broken-image (404) on any state.
