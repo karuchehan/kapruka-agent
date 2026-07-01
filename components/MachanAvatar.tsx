@@ -7,16 +7,11 @@ interface Props {
   /** Wrapper height in px; images fill it (height 100%, width auto). */
   size?: number;
   /**
-   * Increment to fire a transient laugh reaction (cart-add). Each change flashes
-   * the laughing frame for 1.5s, then settles back to idle/thinking.
+   * Increment on cart-add to fire the fists-up celebrate frame for 3s, then
+   * settle back to idle/thinking. This is the visible celebratory moment (the
+   * checkout auto-opens a new tab, so a checkout cheer is never seen).
    */
   celebrate?: number;
-  /**
-   * Increment to fire the big checkout celebration — the fists-up celebrate
-   * frame for 3s, then back to idle. Separate from `celebrate` so a cart-add
-   * laugh and an order-placed cheer never clobber each other.
-   */
-  checkoutCelebrate?: number;
 }
 
 // Four mascot frames stacked absolutely; we cross-fade opacity between them and
@@ -25,10 +20,10 @@ interface Props {
 // the PNG is chest-up, so filling the height makes him look like he's standing
 // inside the bar.
 //
-// Tapping Machan fires a transient "laughing" frame for ~1s. Cart-adds flash it
-// for 1.5s (via `celebrate`). A placed order fires the "celebrate" fists-up frame
-// for 3s (via `checkoutCelebrate`). All use the same cross-fade so it's of a piece.
-export function MachanAvatar({ state, size = 80, celebrate = 0, checkoutCelebrate = 0 }: Props) {
+// Tapping Machan fires a transient "laughing" frame for ~1s. A cart-add fires the
+// fists-up "celebrate" frame for 3s (via `celebrate`) — the visible celebratory
+// moment. All use the same cross-fade so it's of a piece.
+export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
   const thinking = state === "thinking";
   const [laughing, setLaughing] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
@@ -51,25 +46,18 @@ export function MachanAvatar({ state, size = 80, celebrate = 0, checkoutCelebrat
     fireLaugh(1000);
   }
 
-  // Cart-add laugh: parent bumps `celebrate` on the same event that updates the
-  // cart count. Skip the mount value (0) so he only laughs on real adds.
+  // Cart-add cheer: parent bumps `celebrate` on the same event that updates the
+  // cart count. Fires the fists-up frame for 3s (outranks laugh/thinking). Skip
+  // the mount value (0) so he only cheers on real adds.
   const firstCart = useRef(true);
   useEffect(() => {
     if (firstCart.current) { firstCart.current = false; return; }
-    fireLaugh(1500);
-  }, [celebrate]);
-
-  // Checkout cheer: parent bumps `checkoutCelebrate` once per placed order. The
-  // fists-up frame outranks laugh/thinking for its full 3s window.
-  const firstCheckout = useRef(true);
-  useEffect(() => {
-    if (firstCheckout.current) { firstCheckout.current = false; return; }
     if (laughTimer.current) clearTimeout(laughTimer.current);
     setLaughing(false);
     if (cheerTimer.current) clearTimeout(cheerTimer.current);
     setCelebrating(true);
     cheerTimer.current = setTimeout(() => setCelebrating(false), 3000);
-  }, [checkoutCelebrate]);
+  }, [celebrate]);
 
   const imgStyle: React.CSSProperties = {
     position: "absolute",

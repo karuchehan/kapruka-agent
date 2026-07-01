@@ -21,9 +21,6 @@ export function useChat(
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const isSendingRef = useRef(false);
-  // Product ids already shown in any carousel this session — prevents the same
-  // product reappearing in a later message row. Reset only when a new session starts.
-  const shownProductIds = useRef<Set<string>>(new Set());
   // The most recent carousel shown — sent to the API so the agent can answer
   // follow-ups ("what is that book about?") without re-searching.
   const lastShownProducts = useRef<Product[]>([]);
@@ -45,7 +42,6 @@ export function useChat(
   const sessionId = useRef<string>("");
 
   function initWithOnboarding(messages: ApiMessage[]) {
-    shownProductIds.current = new Set(); // new session — clear dedupe history
     lastShownProducts.current = [];
     giftMessageShown.current = false;
     occasionShown.current = false;
@@ -130,23 +126,21 @@ export function useChat(
       // was already applied (handles Strict Mode double-invocation and any real double-call).
       const responseId = uid();
 
-      // Filter out products already shown anywhere this session, then record the
-      // survivors. Done OUTSIDE the updater: setState updaters run twice under
-      // Strict Mode, and mutating the ref inside would filter the second pass
-      // against an already-populated set and drop the whole carousel.
+      // Dedup WITHIN this response only (MCP returns duplicate rows in a single
+      // batch). We intentionally do NOT dedup across the session: products render
+      // only on the right-hand stage, which shows the LATEST batch — a session-wide
+      // dedup dropped every already-seen product on a repeat search, leaving
+      // freshProducts empty so no "products" turn was appended and the stage froze
+      // on a stale batch. The stage must reflect every search verbatim.
       let freshProducts: Product[] = [];
       if (data.products?.length) {
-        // Reject ids already shown this session AND repeats within THIS response
-        // (MCP itself returns duplicate rows) — add to the Set during the filter
-        // so the second occurrence of a same-response id is dropped too.
+        const seenThisBatch = new Set<string>();
         freshProducts = (data.products as Product[]).filter((p) => {
-          // Use id||name as the dedup key — MCP products frequently have no id
-          // field, so normaliseProduct sets id:"". All empty-id products would
-          // share the key "" and every one after the first would be dropped,
-          // making freshProducts empty and leaving the old carousel in the stage.
+          // id||name key — MCP products frequently have no id field
+          // (normaliseProduct sets id:""), so name backstops the dedup key.
           const key = p.id || p.name;
-          if (!key || shownProductIds.current.has(key)) return false;
-          shownProductIds.current.add(key);
+          if (!key || seenThisBatch.has(key)) return false;
+          seenThisBatch.add(key);
           return true;
         });
         // Remember this carousel so the next request can answer follow-ups
