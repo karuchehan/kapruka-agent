@@ -3161,3 +3161,21 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Avatar is settled as the Dulith render. Do NOT swap it again without explicit instruction.
+
+## Session 115 — 2026-07-01
+### What We Did
+- Empty-state copy + look overhaul on the product stage (`components/ProductStage.tsx`, `app/globals.css`), plus avatar refresh and a confirmed-good UX learning. Commits:
+  - `3999d8c` polish: copy swap "Wish." → "All the Joys.", "Tell me what you're looking for." → "One Cart." (string-only).
+  - `323adfb` polish: restyle to match the Kapruka reference — ONE line, "All the Joys." white + "One Cart" accent gold (#FFD000), bold sans (was two-line serif). Verified against reference via a Quick Look render of the exact markup+CSS.
+  - `34caccb` feat: replaced the opacity pulse with a PER-LETTER GLOW SWEEP left→right. `EmptyStateGlow` splits the phrase into one span per letter with `animation-delay = index × 0.12s` across the WHOLE phrase (not per word); CSS `letter-glow` keyframe flares each letter (opacity 0.5→1 + `text-shadow` bloom in `currentColor`) as the sweep reaches it, so white letters glow white and gold glow gold. Shared `--cycle` on the `<p>`; reduced-motion holds the line fully lit. Verified by freezing the real animation mid-sweep and rendering it.
+  - `06c89d7` chore: user updated `dulith_idle.png` again (viewed first — confirmed the Dulith render, consistent with the set — then committed).
+- **Confirmed-good UX (name ask):** Chehan sent a live screenshot praising the S109 name-capture flow — product reply, then the name question as its OWN separate bubble ("Oh, and what should I call you?"), then "chehan" → "Nice to meet you, Chehan!". Saved as persistent auto-memory `feedback_name_ask_separate_bubble.md` (+ index line) so it is recalled in future sessions and never regressed.
+- Verification each step: `tsc --noEmit` exit 0; CSS-touching changes also passed the 4 overflow checks (no `overflow:hidden`/`overflow-x:hidden` on messages ancestors; `#messages-container overflow-y:auto` intact). No browser deps (puppeteer/playwright) installed — used macOS `qlmanage` (Quick Look) to render mock HTML for visual verification instead.
+
+### Mistakes & Lessons
+- Quick Look (`qlmanage`) does NOT execute JS in the rendered HTML — a JS-built mock came out blank. For a static verification frame, hardcode the DOM (or inline styles) rather than generating it at runtime.
+- The empty-state markup/CSS is small and self-contained; per-letter animation is cleanly done by generating spans in the component with computed inline `animation-delay`, keeping one shared keyframe in CSS.
+
+### Next Steps
+- Empty state is settled: "All the Joys. One Cart", one line, white+gold, per-letter left→right glow sweep. Preserve the name-ask separate-bubble behavior (now in auto-memory).
+- Live smoke test after deploy: glow travels A→…→t and repeats; line stays one row on narrow widths; reduced-motion holds it static.
