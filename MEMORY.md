@@ -2959,3 +2959,26 @@ Fixed checkout-error language-register bug. Two files: `app/api/chat/route.ts` +
 ### Next Steps
 - User to review, then commit + push (gh auth switch --user karuchehan first — S103 lesson).
 - Post-deploy smoke test (see chat): Singlish/Tamil/English sessions each hitting a checkout error; bare-phone-number edge case holds session register.
+
+---
+
+## Session 108 — 2026-07-01
+### What We Did
+Two surgical fixes + shipped the stacked S107 checkout-language work in one push. Commit `efcb7c4`.
+- **Fix 1 — bundle MCP-failure detection (`app/api/chat/route.ts`, bundle path ~line 1405):** when a multi-category (bundle) search ran and EVERY per-category `searchCategory().catch(()=>[])` silently returned empty, `mcpSearchFailed` never flipped — agent got zero products with no error context → dead reply / hallucination. Added `let anyCatThrew = false;` set inside each per-category catch, then after dedupe: `if (products.length === 0 && anyCatThrew) mcpSearchFailed = true;`. Per-category catch behavior UNCHANGED (still silent individually) — the flag is set only at the aggregation point.
+- **Fix 2 — palette correction (`app/globals.css` + `components/VoiceTextInput.tsx`):**
+  - `--accent` `#FFCC00` → `#FFD000` (real Kapruka yellow from their live stylesheet); derived `--accent-dark #E6BB00`, `--accent-light #FFDC4D`, `--accent-soft/glow` rgba(255,208,0,…).
+  - Brown-family → purple from `#1a1025`: `--bg-secondary/card` `#1a1613`→`#221831`, `--bg-input` `#241f1b`→`#2b1f40`, `--border` `#2e2520`→`#352744`, `--text-secondary` `#a09080`→`#a094b0`, `--text-muted` `#6b5a50`→`#6f6180`.
+  - All `rgba(218,83,44)` orange (6 sites: shadows + borders) → `rgba(255,208,0)` yellow; `--warning` `#f0a830` → `#FFD000`.
+  - VoiceTextInput hardcoded `#FFCC00`, `rgba(255,204,0)`, `#6b5a50`, `#a09080`, `#FFD84D` all synced to new tokens.
+- **Fix 2b — dead code:** deleted `components/ProductCard.tsx` + `components/ProductCarousel.tsx`. Confirmed only each other referenced them (live surface = ProductStage/StageCard). `grep` after delete = NO REFS.
+- **Stacked (S107) work also pushed in same commit:** checkout-error language-register (route.ts detectRegister/checkoutErrorMessage + system_prompt.md LANGUAGE hard rule).
+### Verification
+- `tsc --noEmit` clean (exit 0) after every change.
+- globals.css touched → all 4 mandatory overflow checks PASS: `#messages-container` keeps `overflow-y: auto` (line 767); no `overflow: hidden` / `overflow-x: hidden` on any messages ancestor (only html/body, .product-stage, and card clips — all non-ancestors).
+- Full-repo color sweep after edits: CLEAN — zero `#FFCC00`, zero brown-family, zero `rgba(218,83,44)`.
+### Mistakes & Lessons
+- `git push` failed first: `Permission ... denied to gtmkaru ... 403`. Active gh account was `gtmkaru`. Fix: `gh auth switch --user karuchehan && gh auth setup-git` then push succeeded → `831b329..efcb7c4`. Same S103 lesson — ALWAYS switch to `karuchehan` before pushing this repo.
+- Aggregation-point pattern for silent per-item catches: keep individual failures silent, but detect "all empty AND >=1 threw" at the join to distinguish service hiccup from genuine empty. Applies anywhere `Promise.all` maps `.catch(()=>[])`.
+### Next Steps
+- Smoke test on live URL after Vercel deploy (below).
