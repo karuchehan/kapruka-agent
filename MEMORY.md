@@ -3051,3 +3051,17 @@ Two surgical fixes + shipped the stacked S107 checkout-language work in one push
 - `app/globals.css` — replaced the rich `.stage-empty` block (bloom/rings/orbs/mark + 4 keyframes + reduced-motion guard) with: `.stage-empty-title` = 72px Georgia/serif in `--accent`, single `stage-wish-pulse` keyframe (opacity 0.6→1.0, 4s loop); `.stage-empty-sub` = 15px `--text-secondary`. Reduced-motion guard holds opacity 1. Dropped the `.stage-empty` overflow:hidden (no animation left to clip). No orphaned class refs remain.
 - tsc exit 0. Overflow checks intact (`#messages-container` overflow-y:auto; `.product-stage` overflow-x:hidden unchanged).
 - Lesson: uncommitted UI work from a prior CC session can vanish on session end — verify in the tree before assuming it's there, and commit polish promptly.
+
+## Session Recap — 2026-07-01 (full working session, commits c3d6b47 → 998353c)
+One continuous working session, logged in pieces as Sessions 106/107/108 + addendum. Full arc in order:
+
+1. **`c3d6b47`** polish (S106): onboarding gradient endpoint `#4a2490`→`#1a1025`; STATIC_FEATURED 4 real MCP products on mount; Machan laugh on cart-add (`celebrate` prop). Also fixed broken laugh path later.
+2. **`5ef1007`** docs: S106 log.
+3. **`f1caa55`** polish (S107): removed STATIC_FEATURED (back to empty state); atmospheric empty-state redesign (bloom/rings/orbs/gift medallion, brand colors); checkout confetti + Machan fists-up celebrate frame (`Confetti.tsx` NEW, `machan_celebrate.png` 4th state). Fixed latent bug: `laughing.png` → `machan_laughing.png` (asset renamed, was 404ing).
+4. **`f8cc256`** docs: S107 log.
+5. **`fc3351c`** fix (S108): (a) **post-checkout stage freeze** — `useChat` session-wide `shownProductIds` dedup dropped already-seen products on repeat/post-checkout searches → no `"products"` turn → stage frozen; scoped dedup to within-response only, removed the cross-session ref. (b) **celebration moved checkout→cart-add** — checkout auto-opens a tab so its cheer was never seen; now `machan_celebrate.png` (3s) + confetti fire on cart-add (`cartCelebrate`); removed `checkoutCelebrate` entirely; laugh kept for tap only.
+6. **`a0b26f3`** docs: S108 log.
+7. **`7f56bf5`** polish (S108 addendum): **Wish.** minimalist empty state — earlier rich empty state was LOST (uncommitted, vanished on prior session end), rebuilt from scratch. Just "Wish." (72px Georgia/serif, `--accent`, single opacity pulse 0.6→1.0 4s) + "Tell me what you're looking for." (`--text-secondary`). Stripped all icon/rings/orbs/bloom.
+8. **`998353c`** docs: S108 addendum log.
+
+Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimalist), cart-add celebration (celebrate.png + confetti), post-checkout stage freeze fixed, broken mascot asset path fixed. Every commit tsc-clean + 4 overflow checks where CSS/layout touched. All pushed to main; Vercel auto-deploys.
