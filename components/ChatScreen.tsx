@@ -4,6 +4,7 @@ import { Header } from "./Header";
 import { MessageList } from "./MessageList";
 import { VoiceTextInput } from "./VoiceTextInput";
 import { MachanAvatar } from "./MachanAvatar";
+import { Confetti } from "./Confetti";
 import { ProductStage } from "./ProductStage";
 import { ProductSheet } from "./ProductSheet";
 import { CartDock } from "./CartDock";
@@ -67,6 +68,8 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
   // (same event that updates the count), not just one path.
   const [cartCelebrate, setCartCelebrate] = useState(0);
   const prevCartForCelebrate = useRef(0);
+  // Bumped once per placed order → Machan fists-up cheer + confetti burst.
+  const [checkoutCelebrate, setCheckoutCelebrate] = useState(0);
 
   // Snapshot of the products in the cart, passed to sendMessage so the API turn
   // that confirms the order can build the checkout card from real cart items.
@@ -173,6 +176,10 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
     if (last?.type !== "checkout" || !last.checkoutUrl) return;
     if (openedCheckout.current.has(last.id)) return;
     openedCheckout.current.add(last.id);
+    // Same guard fires the celebration exactly once per placed order: Machan's
+    // fists-up cheer + a confetti burst. A valid checkoutUrl (not an error card)
+    // is the success signal — errors render without one and never reach here.
+    setCheckoutCelebrate((c) => c + 1);
     // Open checkout in a BACKGROUND tab — user stays in the agent view.
     // noreferrer (with noopener) discourages focus-stealing; the 100ms defer lets
     // the checkout card paint first so the new tab opens behind it, not in front.
@@ -261,7 +268,8 @@ export function ChatScreen({ userProfile, recipientProfile, obMessages, initialQ
           {/* Machan stands flush on top of the input bar, anchored over the mic.
               pointer-events:none so he never blocks the input. */}
           <div className="machan-floating" aria-hidden="true">
-            <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} celebrate={cartCelebrate} />
+            <Confetti fireKey={checkoutCelebrate} />
+            <MachanAvatar state={isSending ? "thinking" : "idle"} size={isMobile ? 56 : 80} celebrate={cartCelebrate} checkoutCelebrate={checkoutCelebrate} />
           </div>
           <VoiceTextInput onSend={handleSend} />
         </div>

@@ -7,28 +7,38 @@ interface Props {
   /** Wrapper height in px; images fill it (height 100%, width auto). */
   size?: number;
   /**
-   * Increment this to fire a transient laugh reaction (e.g. on cart-add). Each
-   * change to a new value flashes the laughing frame for 1.5s, then settles back
-   * to idle/thinking — same cross-fade as tap-to-laugh.
+   * Increment to fire a transient laugh reaction (cart-add). Each change flashes
+   * the laughing frame for 1.5s, then settles back to idle/thinking.
    */
   celebrate?: number;
+  /**
+   * Increment to fire the big checkout celebration — the fists-up celebrate
+   * frame for 3s, then back to idle. Separate from `celebrate` so a cart-add
+   * laugh and an order-placed cheer never clobber each other.
+   */
+  checkoutCelebrate?: number;
 }
 
-// Three mascot frames stacked absolutely; we cross-fade opacity between them and
+// Four mascot frames stacked absolutely; we cross-fade opacity between them and
 // add a subtle scale settle so the "thinking" frame feels like it leans in.
 // Images are sized to the wrapper height so Machan fits the header exactly —
 // the PNG is chest-up, so filling the height makes him look like he's standing
 // inside the bar.
 //
-// Tapping Machan fires a transient "laughing" frame for ~1s, then he fades back
-// to his current default (idle, or thinking if the agent is busy) — same
-// cross-fade used for idle↔thinking, so it feels of a piece.
-export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
+// Tapping Machan fires a transient "laughing" frame for ~1s. Cart-adds flash it
+// for 1.5s (via `celebrate`). A placed order fires the "celebrate" fists-up frame
+// for 3s (via `checkoutCelebrate`). All use the same cross-fade so it's of a piece.
+export function MachanAvatar({ state, size = 80, celebrate = 0, checkoutCelebrate = 0 }: Props) {
   const thinking = state === "thinking";
   const [laughing, setLaughing] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
   const laughTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cheerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => { if (laughTimer.current) clearTimeout(laughTimer.current); }, []);
+  useEffect(() => () => {
+    if (laughTimer.current) clearTimeout(laughTimer.current);
+    if (cheerTimer.current) clearTimeout(cheerTimer.current);
+  }, []);
 
   function fireLaugh(ms: number) {
     if (laughTimer.current) clearTimeout(laughTimer.current);
@@ -37,17 +47,29 @@ export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
   }
 
   function handleTap() {
-    if (laughing) return; // already laughing — ignore re-taps until it settles
+    if (laughing || celebrating) return; // already reacting — ignore re-taps until it settles
     fireLaugh(1000);
   }
 
-  // Cart-add celebration: parent bumps `celebrate` on the same event that updates
-  // the cart count. Skip the mount value (0) so he only laughs on real adds.
-  const first = useRef(true);
+  // Cart-add laugh: parent bumps `celebrate` on the same event that updates the
+  // cart count. Skip the mount value (0) so he only laughs on real adds.
+  const firstCart = useRef(true);
   useEffect(() => {
-    if (first.current) { first.current = false; return; }
+    if (firstCart.current) { firstCart.current = false; return; }
     fireLaugh(1500);
   }, [celebrate]);
+
+  // Checkout cheer: parent bumps `checkoutCelebrate` once per placed order. The
+  // fists-up frame outranks laugh/thinking for its full 3s window.
+  const firstCheckout = useRef(true);
+  useEffect(() => {
+    if (firstCheckout.current) { firstCheckout.current = false; return; }
+    if (laughTimer.current) clearTimeout(laughTimer.current);
+    setLaughing(false);
+    if (cheerTimer.current) clearTimeout(cheerTimer.current);
+    setCelebrating(true);
+    cheerTimer.current = setTimeout(() => setCelebrating(false), 3000);
+  }, [checkoutCelebrate]);
 
   const imgStyle: React.CSSProperties = {
     position: "absolute",
@@ -63,7 +85,13 @@ export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
     transition: "opacity 500ms ease-in-out, transform 500ms ease-in-out",
     transformOrigin: "bottom center",
   };
-  const settle = thinking ? "scale(0.97)" : "scale(1)";
+  // Celebrating gets a little pop; thinking settles back slightly; idle rests.
+  const settle = celebrating ? "scale(1.04)" : thinking ? "scale(0.97)" : "scale(1)";
+
+  // Precedence: celebrate > laugh > thinking > idle.
+  const showIdle = !thinking && !laughing && !celebrating;
+  const showThinking = thinking && !laughing && !celebrating;
+  const showLaughing = laughing && !celebrating;
 
   return (
     <div
@@ -77,17 +105,22 @@ export function MachanAvatar({ state, size = 80, celebrate = 0 }: Props) {
       <img
         src="/brand/logos/machan_idle.png"
         alt=""
-        style={{ ...imgStyle, opacity: !thinking && !laughing ? 1 : 0, transform: settle }}
+        style={{ ...imgStyle, opacity: showIdle ? 1 : 0, transform: settle }}
       />
       <img
         src="/brand/logos/machan_thinking.png"
         alt=""
-        style={{ ...imgStyle, opacity: thinking && !laughing ? 1 : 0, transform: settle }}
+        style={{ ...imgStyle, opacity: showThinking ? 1 : 0, transform: settle }}
       />
       <img
-        src="/brand/logos/laughing.png"
+        src="/brand/logos/machan_laughing.png"
         alt=""
-        style={{ ...imgStyle, opacity: laughing ? 1 : 0, transform: laughing ? "scale(1)" : settle }}
+        style={{ ...imgStyle, opacity: showLaughing ? 1 : 0, transform: showLaughing ? "scale(1)" : settle }}
+      />
+      <img
+        src="/brand/logos/machan_celebrate.png"
+        alt=""
+        style={{ ...imgStyle, opacity: celebrating ? 1 : 0, transform: settle }}
       />
     </div>
   );
