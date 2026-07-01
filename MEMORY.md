@@ -2841,6 +2841,8 @@ Two features, both stacked on `main`, NOT committed, NOT pushed (user: hold for 
 - **False "order placed" on failure:** agent's optimistic reply survived a suppressed checkout. Added a guard that overrides success-implying message text with an honest, error-tailored line when `checkoutError` is set (only fires when message implies success, so a correct field-ask is untouched). Honest-override lines are English-only — register gap on failure, flagged.
 - **`get_product` param is `product_id` (not `id`/`url`)** — but the app never calls get_product, so irrelevant to any live path.
 - Search `id` (e.g. "CHOCOLATES00767", uppercase) is a valid create_order `product_id` — verified live.
+### Push
+- Committed + pushed S100 + S101 together to `origin/main` (`35ca114`, karuchehan gh) — `d1a0d39..35ca114`, 9 files, +631/-66. Vercel auto-deploys.
 ### Next Steps
 - Eyeball CheckoutCard on localhost:3001 (I had no browser — render was derived, not screenshotted).
 - End-of-day: push S100 + S101 together; then append the push + run production smoke tests on kapruka-agent-liard.vercel.app: (1) cold-open → first message latency (pre-warm), (2) full checkout flow → real pay-link + totals in CheckoutCard, (3) EN/Singlish/Tamil personality (S100).
