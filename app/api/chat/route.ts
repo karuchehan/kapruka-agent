@@ -533,6 +533,26 @@ function profanityRedirect(text: string): string | null {
   return "Hey, let's keep it friendly! 😄 What can I help you find today?";
 }
 
+// The agent asks for these when collecting checkout details — used to detect that
+// the last assistant turn was a field ask, so a field VALUE this turn (e.g. a
+// recipient named "Kariya") is never mistaken for profanity.
+const CHECKOUT_FIELD_ASK_RE =
+  /\b(name|phone|number|contact|address|street|delivery|deliver to|which city|what city|town|postal|gift card|recipient|who('?s| is) it (going |for))/i;
+
+// Is the conversation mid-checkout (collecting delivery fields)? The profanity
+// guard is skipped while true — a field VALUE the user types (a name, street,
+// or city that happens to contain a flagged substring) must never be flagged.
+// Signals, any one is enough: checkout stage past idle; any checkout field already
+// captured; or the agent's last message was a field ask.
+function inCheckoutFieldCollection(state: ChatState | null, messages: ApiMessage[]): boolean {
+  if (state && state.checkoutStage && state.checkoutStage !== "idle") return true;
+  const d = state?.checkoutData;
+  if (d && Object.values(d).some((v) => typeof v === "string" && v.trim())) return true;
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  if (lastAssistant && CHECKOUT_FIELD_ASK_RE.test(lastAssistant.content)) return true;
+  return false;
+}
+
 // Localized copy for the hardcoded checkout false-success override. Product names,
 // prices, and the missing-field words (name/phone/address/city) stay English — same
 // code-switching convention the prompt uses. `fields` is the comma-joined missing
@@ -1380,9 +1400,12 @@ export async function POST(req: Request) {
   // PROFANITY GUARD — check the LATEST user message before any MCP/Anthropic call.
   // A flagged message returns a friendly, register-matched redirect immediately
   // and spends zero API tokens. Same JSON shape as a normal reply (message only).
+  // BYPASSED mid-checkout: a field value the user types (a recipient name, street,
+  // or city containing a flagged substring — e.g. "Kariya") must not be flagged.
   {
     const latestUser = [...(messages as ApiMessage[])].reverse().find((m) => m.role === "user");
-    const redirect = latestUser ? profanityRedirect(latestUser.content) : null;
+    const midCheckout = inCheckoutFieldCollection(clientState, messages as ApiMessage[]);
+    const redirect = (!midCheckout && latestUser) ? profanityRedirect(latestUser.content) : null;
     if (redirect) return Response.json({ message: redirect });
   }
 
