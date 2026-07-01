@@ -3193,3 +3193,12 @@ Net: onboarding→chat seam fixed, empty state iterated (rich → Wish. minimali
 
 ### Next Steps
 - Live smoke test after deploy: (1) at "what name should I put on the delivery?", type "Kariya" → expect the clean-language redirect, NOT accepted as the name; (2) self-purchase checkout → agent asks name/phone/address/city only, NEVER a note; (3) gift checkout (recipient named) → note offered once as before; (4) normal slur while shopping → still redirected.
+
+## Session 117 — 2026-07-01
+### What We Did
+- Committed `4e94a7a` (pushed `6586bcb..4e94a7a`). Resolved the S116 substring tradeoff: "kariya" now WORD-BOUNDARY matched, all other SL_PROFANITY terms stay substring.
+- Pulled "kariya" out of the `SL_PROFANITY` array; added `const KARIYA_RE = /\bkariya\b/i;` and OR'd it into the `slHit` check. So standalone "kariya"/"you kariya"/"KARIYA" flag, but the legit surname "Kariyawasam" (and "kariyawasam here") no longer false-positive. "pakaya"/"pakayaa" etc. still partial-match as before.
+- Verified: `tsc --noEmit` exit 0; node harness — kariya alone/you kariya/KARIYA → FLAG, Kariyawasam/kariyawasam here → pass, pakaya/pakayaa → FLAG, Chehan → pass. All correct.
+
+### Next Steps
+- Profanity matching is settled. If another SL term ever collides with a legit word, give it the same `\b…\b` treatment (pull from the substring list, add a dedicated boundary regex).
