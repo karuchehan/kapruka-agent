@@ -3214,3 +3214,31 @@ One continuous working session. Full arc in order:
 7. **kariya word-boundary** (`4e94a7a`, S117): "kariya" → `\bkariya\b` so standalone flags but surname "Kariyawasam" doesn't; other SL terms stay substring.
 
 Net: name-ask polished + confirmed-good; empty-state finalized (All the Joys. One Cart + glow sweep); Machan gained an empty-cart shake; profanity guard hardened (always-on, register-matched, boundary-safe for kariya); gift note gated to gifts; avatar settled as Dulith. Every code change tsc-clean; CSS changes also passed the 4 overflow checks. All pushed to main; Vercel auto-deploys. Working tree clean and in sync with origin/main at session end.
+
+---
+
+## Session 118 — 2026-07-02 (Fix — home décor category + no-loop pivot for empty searches)
+
+### What We Did
+- Problem (live screenshots): multi-category shop (flowers ✓, chocolates ✓, then "home decorations") → agent looped "I'm not seeing results" across turns ("candles"/"vases"/"photo frame"), then fell back to already-shown flowers. No recovery.
+- Root cause, two layers:
+  1. Backend — "home décor/candles/vases" not in `CATEGORY_TERMS`/`CATEGORY_DETECT` (route.ts:281-290) or `CATEGORY_SIGNALS` (productFilter.ts:100-105) → `categoryHint=null` → relevance gate (productFilter.ts:181-223) returns `[]` for specific-token queries with no known category. Existing retries didn't help: stage-1 re-uses same keywords; stage-2 broaden gated to `effectiveCat in CATEGORY_TERMS` → décor skipped.
+  2. Prompt — system_prompt.md:53 had no anti-loop cap; line 52 forbids reusing LAST SHOWN. Agent has NO live tools (line 42, products pre-fetched) → agent can't re-search; recovery must be backend-driven.
+- Fix (both user-approved options):
+  - Added `decor` to CATEGORY_TERMS (`"home decor"`), CATEGORY_DETECT, and CATEGORY_SIGNALS (same regex: `home décor|décor|decorati*|vases|candles|candle holders|photo frames|wall art|ornaments|figurines|showpieces`). Décor now first-class → gate falls back to in-category set (productFilter.ts:219) instead of empty. Bonus: décor signal gates out the adult-product junk that "candles" surfaces.
+  - Generic last-resort recovery in route.ts (after delivery else-if, before outer catch), guarded `intent.type==="search" && products.length===0 && !mcpSearchFailed`: Step 1 broaden search `q:"gift hamper"` (null category hint, within budget) → real cards, sets `pivotBroadened`. Step 2 if still empty, re-surface `priorProducts` (within budget, slice 8) as live cards, sets `pivotToPrior`.
+  - `buildSystemPrompt` gained `pivotFallback` param (passed `pivotBroadened || pivotToPrior`); injects a PIVOT cue telling agent the shown cards are real, recommend 1-2 by name, don't apologise again.
+  - Prompt: rewrote line 53 (cap "not seeing results" to once per intent) + added ANTI-LOOP block near category-substitution rules (~line 131).
+- Files: `app/api/chat/route.ts`, `lib/productFilter.ts`, `directives/system_prompt.md`.
+
+### Verification
+- `npx tsc --noEmit` clean.
+- Live MCP check (`execution/tools/kapruka_mcp.py search_products`): "home decor" → 6 real décor items; "vase" → 6 (Lava Stone Vase Rs 1100, etc.); "candles" → real candle + junk, junk gated by décor signal.
+- No CSS/layout change → 4 overflow checks N/A.
+
+### Mistakes & Lessons
+- `git push` failed first: active gh account was `gtmkaru` (403 on karuchehan/kapruka-agent). Fix: `gh auth switch --user karuchehan` then push. REMEMBER: this repo needs the karuchehan account active before pushing.
+
+### Next Steps
+- Human smoke test on live URL after Vercel deploy (see below). Watch that "candles" cards are clean (no adult products leaking) and that a genuinely odd category pivots to gift/hamper cards, not a repeated apology.
+- Commit `67d74bf`, pushed to main.
