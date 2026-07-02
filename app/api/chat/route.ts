@@ -280,6 +280,7 @@ function enrichGenericQuery(
 // results per category so a bundle never mixes a phone into the cakes.
 const CATEGORY_TERMS: Record<string, string> = {
   flower: "flowers", cake: "cake", chocolate: "chocolates", hamper: "gift hamper", book: "books",
+  decor: "home decor",
 };
 const CATEGORY_DETECT: Record<string, RegExp> = {
   flower:    /\b(flowers?|bouquet|roses?|floral|blooms?|orchids?|lilies|lily|carnations?|anthurium|gerbera)\b/,
@@ -287,6 +288,7 @@ const CATEGORY_DETECT: Record<string, RegExp> = {
   chocolate: /\b(chocolates?|choco|truffles?|pralines?|ferrero|toblerone|lindt)\b/,
   hamper:    /\b(hampers?|gift\s*baskets?)\b/,
   book:      /\b(books?|novels?|read(?:s|ing)?|author|fiction|non[\s-]?fiction|autobiograph|memoir|biograph|paperback|hardcover|storybook)\b/,
+  decor:     /\b(home\s*d[eé]cor|d[eé]cor|decorati\w*|vases?|candles?|candle\s*holders?|photo\s*frames?|wall\s*art|ornaments?|figurines?|showpieces?)\b/,
 };
 
 function detectCategories(text: string): string[] {
@@ -829,7 +831,8 @@ function buildSystemPrompt(
   tracking: TrackingInfo | null,
   lastShownProducts: Product[],
   chatState: ChatState | null,
-  mcpSearchFailed: boolean
+  mcpSearchFailed: boolean,
+  pivotFallback: boolean
 ) {
   const dynamicParts: string[] = [];
 
@@ -839,6 +842,15 @@ function buildSystemPrompt(
   if (mcpSearchFailed) {
     dynamicParts.push(
       "PRODUCT SEARCH HICCUP: the Kapruka catalog didn't respond this turn (a brief service hiccup, not your fault). In ONE warm sentence, apologise lightly and ask the user to try that again in a moment. Do NOT say there are no products, and do NOT invent any products or prices."
+    );
+  }
+
+  // The exact request came up empty but we recovered with a REAL fallback set (a
+  // broadened gift search, or the earlier-shown products). The cards below are
+  // genuine and available — the agent must pivot to them, never loop the apology.
+  if (pivotFallback) {
+    dynamicParts.push(
+      "PIVOT: the exact thing the user asked for isn't turning up, but the AVAILABLE PRODUCTS shown below ARE real and in stock. Do NOT apologise again or say 'I'm not seeing results' — you may have said that once already. In ONE warm sentence, confidently recommend 1–2 of the products shown BY NAME as a close alternative for what they wanted."
     );
   }
 
@@ -1454,6 +1466,12 @@ export async function POST(req: Request) {
   // from "MCP returned zero products" — this is a service hiccup, and the agent must
   // acknowledge it + offer to retry rather than claim nothing is available.
   let mcpSearchFailed = false;
+  // Set when the exact request came up empty and we recovered with a real fallback
+  // set — a broadened gift/hamper search (pivotBroadened) or the earlier-shown
+  // products re-surfaced (pivotToPrior). Signals the agent to pivot confidently
+  // instead of looping "I'm not seeing results".
+  let pivotBroadened = false;
+  let pivotToPrior = false;
 
   try {
     if (intent.type === "search" && msgCats.length >= 2) {
@@ -1625,6 +1643,32 @@ export async function POST(req: Request) {
       const res = await callMCP("check_delivery", { city });
       delivery = mapDelivery(city, res);
     }
+
+    // Generic last-resort recovery for ANY search that came up empty — covers
+    // unknown categories (e.g. "home décor", "candles") whose per-category
+    // retries can't broaden, so the agent never loops "I'm not seeing results".
+    // Only when the MCP actually responded (a service hiccup keeps its own path).
+    if (intent.type === "search" && products.length === 0 && !mcpSearchFailed) {
+      // Step 1 — broaden to real gift/hamper inventory (null category hint so
+      // gifts aren't gated out), within budget, so the agent can pivot to
+      // something concrete.
+      try {
+        const rb = await callMCP("search_products", {
+          q: "gift hamper", limit: MCP_FETCH_LIMIT, in_stock_only: true, sort: "relevance", ...budgetArg(budget),
+        });
+        const cb = filterProducts<Product>((rb.results || []).map(normaliseProduct), budget, ["gift"], null, false, false);
+        const pick = pickForCards(cb, budget);
+        if (pick.length) { products = pick; pivotBroadened = true; }
+      } catch { /* best-effort */ }
+
+      // Step 2 — if even the broaden is empty, re-surface the products already
+      // shown earlier this session as live cards (real, in-budget) so the agent
+      // recommends from real inventory rather than apologising again.
+      if (products.length === 0 && priorProducts.length) {
+        const within = budget == null ? priorProducts : priorProducts.filter((p) => p.price <= budget);
+        if (within.length) { products = within.slice(0, 8); pivotToPrior = true; }
+      }
+    }
   } catch (err) {
     console.error("MCP fetch error:", (err as Error).message);
     // A thrown error on a search intent (the catch is reached only after callMCP's
@@ -1668,7 +1712,7 @@ export async function POST(req: Request) {
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, tracking, priorProducts, clientState, mcpSearchFailed);
+    const systemBlocks = buildSystemPrompt(userProfile, recipientProfile, products, tracking, priorProducts, clientState, mcpSearchFailed, pivotBroadened || pivotToPrior);
 
     const response = await client.messages.create(
       {

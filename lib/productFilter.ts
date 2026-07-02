@@ -102,6 +102,7 @@ const CATEGORY_SIGNALS: Record<string, RegExp> = {
   cake:      /\b(cakes?|gateau|gateaux|cupcakes?|cheesecake)\b/i,
   chocolate: /\b(chocolates?|choco|truffles?|pralines?|ferrero|toblerone|lindt)\b/i,
   hamper:    /\b(hampers?|gift\s*baskets?|gift\s*box(?:es)?)\b/i,
+  decor:     /\b(home\s*d[eé]cor|d[eé]cor|decorati\w*|vases?|candles?|candle\s*holders?|photo\s*frames?|wall\s*art|ornaments?|figurines?|showpieces?)\b/i,
 };
 
 export function isKnownCategory(cat: string | null | undefined): boolean {
